@@ -1,0 +1,130 @@
+Build a 1:1 NASB2020 rich Bible text rendering system from the provided EPUB source.
+
+Goal:
+My app is a Bible reading and annotating experience. I want the NASB2020 text to render in my app with the same textual nuance visible in the original EPUB/RTF reader: superscript footnote markers, superscript verse numbers, italicized supplied words, and clickable note markers that open custom popups.
+
+Do not flatten the EPUB into plain text. Parse the EPUB as structured HTML/XHTML and preserve its inline semantic formatting.
+
+Core requirements:
+
+1. EPUB parsing
+- Read the EPUB package, manifest, spine, HTML chapter files, CSS, and linked footnote files.
+- Preserve the exact reading order from the EPUB spine.
+- Parse each Bible chapter into structured verse data.
+- Do not use plain text extraction as the source of truth because it destroys superscript, italic, anchor, and footnote structure.
+
+2. Preserve inline formatting 1:1
+- Preserve italic text from the EPUB, especially NASB supplied-word italics.
+- Preserve superscript verse numbers.
+- Preserve superscript footnote/reference markers.
+- Preserve exact marker placement relative to the surrounding words.
+- Example: if the EPUB has “your [sup d]gloomy?” then the rendered app text must place the clickable superscript “d” before “gloomy,” not after the word and not in a separate list.
+- The rendered Bible text should feel like a 1:1 copy of the source EPUB/RTF formatting.
+
+3. Superscript detection
+- Detect superscripts from actual HTML structure/classes, not by guessing from letters in plain text.
+- Treat elements like `<sup>`, CSS `vertical-align: super`, small raised anchor tags, and EPUB `epub:type="noteref"` as note-marker candidates.
+- Distinguish between:
+  a. verse number superscripts
+  b. footnote/cross-reference superscripts
+  c. other raised markers
+- Store these separately in the parsed data model.
+
+4. Footnote / popup linking
+- For every clickable NASB superscript marker, resolve the EPUB link target.
+- Example source structure may look like:
+  `<sup><a id="source5231-2" epub:type="noteref" href="part0027_split_013.html#f5231-2">b</a></sup>`
+- Resolve the href to the matching footnote/aside target:
+  `<aside id="f5231-2" epub:type="footnote">...</aside>`
+- Extract the marker label, verse reference, note type text, and note body.
+- Preserve italic text inside the note body too.
+- Render a custom popup when the user clicks/taps the superscript.
+- Popup should show:
+  - the marker letter/number
+  - the verse reference, such as “9:1”
+  - the note text, such as “Lit punishers”
+  - any italics inside the note
+- The popup should be styled like a clean in-app tooltip/popover, not the browser’s default link behavior.
+
+5. Toggle / checkbox behavior
+- Add a checkbox or toggle named something like “Show NASB textual notes.”
+- When ON:
+  - show the superscript footnote/reference markers inline
+  - make them clickable
+  - enable popups
+- When OFF:
+  - hide the NASB footnote/reference superscripts
+  - preserve the main Bible text flow cleanly
+  - do not leave extra spaces, broken punctuation, or orphaned letters
+- The toggle must not hide verse numbers unless there is a separate setting for verse numbers.
+- The system must correctly identify exactly where the superscripts are and are not. Do not guess based on letters like a, b, c, d appearing near words.
+
+6. Data model
+Create a structured representation instead of storing verses as flat strings.
+
+Recommended model:
+
+Book
+- id
+- name
+- chapters[]
+
+Chapter
+- bookId
+- chapterNumber
+- verses[]
+
+Verse
+- bookId
+- chapterNumber
+- verseNumber
+- segments[]
+
+Segment
+- type: "text" | "italic" | "verseNumber" | "noteMarker" | "lineBreak"
+- text
+- sourceHtml
+- markerId
+- noteTargetId
+- noteType
+- noteBody
+- href
+- cssClasses
+- positionIndex
+
+The renderer should reconstruct the verse by iterating through segments in order.
+
+7. Rendering
+- Build a React component or equivalent rich-text renderer that renders segments in order.
+- Text segments render normally.
+- Italic segments render as `<em>`.
+- Verse number segments render as small superscript verse numbers.
+- Note marker segments render as clickable superscript buttons.
+- The superscript button should be accessible:
+  - keyboard focusable
+  - aria-label like “Footnote b for Ezekiel 9:1”
+  - opens popover on click, tap, Enter, or Space
+  - closes on Escape, outside click, or selecting another note
+
+8. Styling
+- Superscript markers should use true superscript styling:
+  `vertical-align: super; font-size: 0.65em; line-height: 0;`
+- Markers should visually sit above the baseline like the EPUB/RTF.
+- Markers should not disrupt line height.
+- Italicized supplied words should match the source formatting.
+- The rendered result should look like a polished Bible reader, not raw copied text.
+
+9. Validation
+- Build a debug mode that can show parsed segment boundaries.
+- Add tests for verses with:
+  - note marker before a word
+  - note marker after punctuation
+  - multiple note markers in one verse
+  - italic supplied words
+  - verse number superscripts
+  - footnote body with italic text
+- Compare rendered output visually against the EPUB/RTF source.
+- The app should pass a 1:1 placement check: every superscript marker appears in the same textual position as the original source.
+
+10. Important rule
+Do not copy/paste Bible text into a normal textbox and attempt to recover formatting afterward. The plain text copy loses the baseline-shift and rich-text metadata. The parser must ingest the EPUB/HTML/RTF structure directly.

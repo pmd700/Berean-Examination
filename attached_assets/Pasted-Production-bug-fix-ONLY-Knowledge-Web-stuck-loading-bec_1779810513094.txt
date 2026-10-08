@@ -1,0 +1,68 @@
+Production bug fix ONLY: Knowledge Web stuck loading because /api/web-connections returns 500.
+
+Context:
+On the deployed app, going to /KnowledgeWeb or /knowledge web gets stuck on “Loading Knowledge Web.”
+
+Browser console shows:
+
+api/web-connections?web_id=15 Failed to load resource: the server responded with a status of 500
+
+Frontend error:
+
+Failed query:
+select "id", "web_id", "user_id", "from_card_id", "to_card_id", "from_kind", "to_kind", "has_arrow", "label", "color", "style", "thickness", "from_anchor_offset", "to_anchor_offset", "enc_payload", "relationship_type", "strength", "evidence", "line_style", "created_by", "status", "created_at", "updated_at"
+from "web_connections"
+where ("web_connections"."user_id" = $1 and "web_connections"."web_id" = $2)
+order by "web_connections"."id"
+
+params:
+auth0|69e11a558f458a42ac5d5b93, 15
+
+Important:
+Ignore these browser-extension-looking console messages:
+- enable_copy.js
+- searchAnalyzer.js
+They are probably unrelated.
+
+Likely issue:
+Deployed code is selecting web_connections.line_style, but production Neon may not have the line_style column, or the schema/migration is out of sync.
+
+Task:
+1. Check deployed/server logs for the exact SQL error behind the 500.
+2. Inspect shared/schema.ts or the Drizzle schema for web_connections.
+3. Inspect the actual production database columns for web_connections.
+4. Confirm whether line_style exists in production.
+5. If line_style is missing, apply the smallest safe additive fix:
+   - add the missing nullable column with the correct type/default expected by the code
+   - do not delete or rewrite existing data
+   - do not touch unrelated tables
+6. If line_style exists, find the actual cause of the 500 and fix only that.
+7. After fixing, verify:
+   - /api/web-connections?web_id=15 returns 200
+   - /KnowledgeWeb loads successfully
+   - existing cards still load
+   - existing connections still load
+   - no MCP/Auth0/OAuth changes
+   - no markdown export changes
+   - no write tools added
+   - no unrelated UI redesign
+
+Boundaries:
+Do not touch MCP.
+Do not touch Auth0.
+Do not touch OAuth.
+Do not touch markdown export.
+Do not touch ChatGPT connector.
+Do not redesign the UI.
+Do not refactor unrelated Knowledge Web code.
+Do not run destructive migrations.
+Do not delete data.
+
+Final report:
+A. Exact root cause of the 500
+B. Whether line_style was missing in production
+C. Files changed
+D. Any DB change made
+E. Confirmation that /api/web-connections?web_id=15 returns 200
+F. Confirmation that Knowledge Web loads
+G. Confirmation that MCP/Auth0/OAuth/export code was untouched

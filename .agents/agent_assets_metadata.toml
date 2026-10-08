@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "dqyWXBUXmIfPClYKii_sz"
+uri = "file://attached_assets/berean-data-dump.json"
+type = "unspecified"
+title = "berean-data-dump.json (your data export)"

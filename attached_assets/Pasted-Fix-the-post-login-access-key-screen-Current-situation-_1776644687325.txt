@@ -1,0 +1,72 @@
+Fix the post-login access key screen.
+
+Current situation:
+Auth0 login is now working better. The user successfully signs in and receives the email/code flow correctly. After that, the app sends the user to the “Enter Access Key” screen.
+
+There are two issues to fix:
+
+1. Misleading wording
+The screen currently says:
+“You’re signed in as [email]. Enter your access key to complete registration.”
+
+This is wrong/misleading for returning users. This screen is being shown during login, not only first-time registration.
+
+Update the wording to something like:
+
+“You’re signed in as [email]. Enter your access key to continue.”
+
+or, for an admin/master key flow:
+
+“You’re signed in as [email]. Enter your access key to unlock your account.”
+
+Do not say “complete registration” unless this is genuinely a first-time signup flow and the user has no existing app profile.
+
+Implement conditional copy:
+- If this is a brand-new user with no app profile yet, wording may say “complete account setup.”
+- If this is a returning user or already-authenticated Auth0 user, wording must say “continue” or “unlock your account,” not “registration.”
+
+2. Master key is being rejected incorrectly
+The correct master/admin key was entered, but the app returned “Invalid access key.”
+
+This means the access-key validation logic is wrong after Auth0 login.
+
+Fix the backend validation flow.
+
+Required behavior:
+- After Auth0 login succeeds, the app should validate the submitted access key against the server-side database/config.
+- The master/admin key must be recognized as valid.
+- If the key is the master/admin key, the user should be granted/admin-linked correctly according to the app’s existing role system.
+- The app should then create or update the app database user record linked to the Auth0 user ID.
+- Then route the user to the correct dashboard/admin page.
+
+Important architecture rules:
+- Auth0 handles identity only: login, signup, email verification, password reset, Auth0 user ID.
+- Replit/Postgres handles app-specific authorization: access keys, admin keys, roles, usernames, study data, annotations, etc.
+- Do not store or validate the master key only on the frontend.
+- Do not expose the master key in client-side code, VITE env vars, browser bundle, logs, or network responses.
+- Master key validation must happen server-side only.
+
+Debug specifically:
+- Check whether the backend is only checking normal invite keys and ignoring the master/admin key path.
+- Check whether the key comparison is failing because of casing, hidden spaces, hyphen normalization, or different key formats.
+- Normalize input safely before validation:
+  - trim whitespace
+  - preserve expected hyphen structure or normalize both stored key and input consistently
+  - handle uppercase/lowercase consistently if keys are intended to be case-insensitive
+- Add server-side logging for development only:
+  - Auth0 user ID
+  - email
+  - whether the submitted key matched normal invite key, admin key, or no key
+  - never log the full raw key
+
+Expected result:
+- A signed-in user enters a valid normal access key → user account is unlocked and routed normally.
+- A signed-in user enters the valid master/admin key → user is recognized as admin/master according to the database role system and routed correctly.
+- Invalid key → show a clear readable error.
+- Returning users should not see wording that implies they are registering for the first time.
+
+Also improve the error message:
+Instead of only “Invalid access key,” use:
+“This access key was not recognized. Please check for typos or contact the admin.”
+
+Do not rebuild the auth system. Fix the post-login access-key validation and wording only.

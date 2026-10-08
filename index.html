@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Berean Examination</title>
+    <meta name="description" content="Berean Examination — a local-first desktop workspace for in-depth expository Bible study." />
+    <meta name="robots" content="index, follow" />
+    <meta property="og:title" content="Berean Examination" />
+    <meta property="og:description" content="A local-first desktop workspace for in-depth expository Bible study." />
+    <meta property="og:type" content="website" />
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <!--
+      Apply the saved theme before React mounts so the first pixel is already
+      the right tone — no flash of the wrong theme, and the browser's native
+      overscroll gutter and scrollbars match from the start. This must read the
+      same key ThemeProvider writes; hardcoding a theme here would override the
+      user's choice on every launch.
+    -->
+    <script>
+      (function () {
+        var theme = 'dark';
+        try {
+          var stored = localStorage.getItem('bex_theme');
+          if (stored === 'light' || stored === 'dark') theme = stored;
+        } catch (e) { /* storage blocked — fall back to dark */ }
+        var html = document.documentElement;
+        html.classList.add(theme);
+        html.style.backgroundColor = theme === 'dark' ? '#0B0D11' : '#F7F8FB';
+        html.style.colorScheme = theme;
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

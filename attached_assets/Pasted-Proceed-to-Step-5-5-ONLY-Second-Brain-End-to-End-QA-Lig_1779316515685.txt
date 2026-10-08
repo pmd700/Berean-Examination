@@ -1,0 +1,120 @@
+Proceed to Step 5.5 ONLY: Second Brain End-to-End QA + Light Hardening.
+
+Important:
+This is not a new feature step.
+Do not build MCP.
+Do not build ChatGPT.com integration.
+Do not create web_cards from AI.
+Do not create web_connections from AI.
+Do not add approved-write flows.
+Do not add permanent chat memory.
+Do not update brain_indexes.
+Do not redesign the app.
+Do not modify admin/auth/bootstrap logic.
+Do not add scraping.
+Do not fetch YouTube transcripts.
+
+Goal:
+Verify that Steps 1–5 work together as one coherent second-brain workflow.
+
+Existing steps:
+Step 1: Brain Spine schema
+Step 2: Raw Source Inbox
+Step 3: AI source processing
+Step 4: Brain Search & Retrieval
+Step 5: Read-only Brain Chat Workspace
+
+Test the full workflow:
+
+1. Raw Source Inbox
+- Create a raw source from /BrainInbox.
+- Confirm raw_text is saved.
+- Confirm processing_status defaults to unprocessed.
+- Confirm raw_text is read-only after creation.
+- Confirm metadata edit does not overwrite raw_text.
+- Confirm brain_logs records source_added and source_metadata_updated without raw_text.
+
+2. AI Source Processing
+- Process the source with AI.
+- Confirm processing_status becomes processed.
+- Confirm processed_at is set.
+- Confirm metadata_json.ai_processing_v1 exists.
+- Confirm possible_card_drafts and possible_connection_drafts are previews only.
+- Confirm no web_cards or web_connections are created.
+- Confirm brain_logs records processing events without raw_text.
+
+3. Brain Search
+- Search for a term from the raw source title.
+- Search for a term from the AI-generated summary.
+- Search for an existing card.
+- Search for an existing connection if available.
+- Confirm normal search results return snippets only, not full raw_text.
+- Confirm include_suggested does not show rejected/archived items unless explicitly requested.
+
+4. Brain Chat
+- Open /BrainChat.
+- Ask about something in a saved source.
+- Ask about something in an existing card.
+- Ask about something unrelated.
+- Ask it to create a card or connection.
+- Confirm:
+  - answers use second-brain context when available
+  - citations render correctly
+  - unrelated questions say context is missing
+  - create-card/create-connection requests are refused because writes are not enabled yet
+  - conversation history is frontend state only
+  - no data is written to web_cards, web_connections, brain_indexes, or brain_sources
+
+5. Navigation / access
+- Confirm /BrainChat works directly.
+- Confirm the BrainSearch → Open Brain Chat link works.
+- If BrainChat is not conveniently reachable from the existing navigation/radial menu, add a minimal “Brain Chat” nav entry.
+- Do not redesign navigation.
+- Do not remove or restructure existing nav items.
+
+6. Security / privacy checks
+- Confirm all brain routes require auth.
+- Confirm user-scoped data only.
+- Confirm OPENAI_API_KEY is server-side only.
+- Confirm missing API key returns a clean 503, not a crash.
+- Confirm raw_text is not leaked into search results, brain_logs, or normal chat context beyond short snippets.
+- Confirm the model cannot invent citations server-side; citations should be defensively filtered to real context items only.
+
+7. Fix policy
+Only fix bugs found during this QA if they are directly related to Steps 1–5.
+
+Allowed fixes:
+- broken route
+- broken page import
+- broken navigation link
+- missing auth guard
+- raw_text leak
+- citation rendering bug
+- source processing status bug
+- BrainChat failing to load
+- BrainSearch failing to load
+
+Not allowed:
+- new features
+- UI redesign
+- MCP
+- ChatGPT connector
+- approved writes
+- permanent chat memory
+- vector embeddings
+- index generation
+
+8. Final report
+After QA, summarize:
+
+- Tests performed
+- Bugs found
+- Bugs fixed
+- Files changed
+- Whether schema/db push was needed
+- Whether BrainChat is conveniently reachable
+- Whether any raw_text leak was found
+- Whether any unauthorized write happened
+- Whether we are clear to move to Step 6
+
+Stop after Step 5.5.

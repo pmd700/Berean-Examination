@@ -1,0 +1,139 @@
+Proceed to Step 6A.7 ONLY: Safely Upgrade Canonical Neon DB with Brain Spine Schema.
+
+Important:
+Neon is canonical.
+Do not remove Neon_connection_string.
+Do not disable Neon.
+Do not migrate data away from Neon.
+Do not copy Helium data into Neon.
+Do not build Step 6B yet.
+Do not modify MCP tools unless a real bug is found after schema upgrade.
+Do not modify admin/auth/bootstrap logic.
+Do not create cards or connections.
+Do not add write tools.
+
+Context:
+Step 6A.6 audit confirmed:
+- Active DB is Neon via Neon_connection_string.
+- Neon has real data:
+  - users: 3
+  - knowledge_webs: 8
+  - web_cards: 118
+  - web_connections: 110
+  - canvas_objects: 17
+- Neon is missing the Brain Spine schema:
+  - brain_sources
+  - brain_indexes
+  - brain_logs
+  - new web_cards columns
+  - new web_connections columns
+- shared/schema.ts already defines the Brain Spine schema.
+- drizzle.config.ts currently uses DATABASE_URL directly, which is dangerous because DATABASE_URL points to a different DB.
+- We need schema push to target Neon.
+
+Goal:
+Apply the current Brain Spine schema to the canonical Neon DB safely and non-destructively.
+
+Tasks:
+
+1. Backup/safety first
+
+Before any schema push:
+- Create a Neon branch/snapshot if available through the environment/tools.
+- If a Neon branch/snapshot cannot be created from the Replit environment, stop and tell me exactly what manual backup step I should do in Neon before continuing.
+
+Do not skip the backup/snapshot step without explaining.
+
+2. Fix Drizzle target footgun
+
+Update drizzle.config.ts so its DB resolution order matches server/db.ts:
+
+Neon_connection_string → BEREAN_DATABASE_URL → DATABASE_URL
+
+This prevents future schema pushes from accidentally targeting the wrong database.
+
+Make the smallest safe change possible.
+
+3. Generate/inspect schema push plan before approving destructive actions
+
+Run the Drizzle schema push against Neon only.
+
+Important:
+- It must target Neon_connection_string.
+- It must not target DATABASE_URL/Helium.
+- Capture the generated plan/output.
+- If Drizzle asks whether something is a rename, answer NO unless it is obviously a true rename.
+- If Drizzle shows any DROP, destructive rename, destructive alter, or data deletion, abort and report.
+- Only proceed if the plan is additive:
+  - CREATE TABLE brain_sources
+  - CREATE TABLE brain_indexes
+  - CREATE TABLE brain_logs
+  - ADD COLUMN to web_cards
+  - ADD COLUMN to web_connections
+
+4. Apply schema only if additive
+
+If the plan is purely additive and safe:
+- proceed with the schema push to Neon.
+- do not migrate/copy data.
+- do not touch existing rows except adding nullable/default columns.
+
+5. Verify Neon after push
+
+Confirm Neon now has:
+- brain_sources
+- brain_indexes
+- brain_logs
+- web_cards.source_ids
+- web_cards.created_by
+- web_cards.status
+- web_cards.visibility
+- web_connections.relationship_type
+- web_connections.strength
+- web_connections.evidence
+- web_connections.created_by
+- web_connections.status
+- web_connections.updated_at
+
+Confirm existing Neon data still exists:
+- users count
+- knowledge_webs count
+- web_cards count
+- web_connections count
+- canvas_objects count
+
+6. Retest app surfaces
+
+Restart app and confirm:
+- /BrainInbox works
+- /BrainSearch works
+- /BrainChat works
+- /mcp/brain boots cleanly
+
+7. Retest MCP
+
+Run MCP smoke tests:
+- no Authorization header → 401
+- wrong bearer → 401
+- correct bearer → initialize 200
+- correct bearer → tools/list 200
+- search_second_brain returns real results from Neon cards/connections
+- get_brain_context_pack returns compact context
+- get_card_context works on a real card id
+- get_source_context works if brain_sources has rows; if 0 rows, explain that this is expected until sources are added
+
+8. Final report
+
+Tell me:
+- whether backup/snapshot was created or whether manual backup is needed
+- files changed
+- exact schema changes applied to Neon
+- whether any destructive SQL appeared
+- whether existing Neon data survived
+- active DB after restart
+- MCP test results
+- whether schema/db push was needed
+- whether any data migration was performed
+- whether we are clear for Step 6B
+
+Stop after Step 6A.7.

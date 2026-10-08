@@ -1,0 +1,188 @@
+Proceed to Step 2 ONLY: Raw Source Inbox.
+
+Important scope boundaries:
+Do not build AI processing.
+Do not summarize sources.
+Do not generate Knowledge Cards.
+Do not create web_cards from sources.
+Do not create web_connections from sources.
+Do not update brain_indexes.
+Do not build chatbot.
+Do not build MCP.
+Do not build ChatGPT integration.
+Do not redesign the Knowledge Web UI.
+Do not touch admin/auth/bootstrap logic.
+Do not change the Step 1 schema unless absolutely required to fix a build error.
+
+Context:
+Step 1 created the Brain Spine schema:
+- brain_sources
+- brain_indexes
+- brain_logs
+- added AI-facing fields to web_cards and web_connections
+
+Step 2 goal:
+Build a simple Raw Source Inbox so users can manually add raw material into brain_sources.
+
+This should be a basic storage/API/minimal UI step only.
+
+Raw Source Inbox behavior:
+A user should be able to manually save raw source material like:
+- article text
+- YouTube transcript pasted manually
+- tweet text pasted manually
+- podcast notes pasted manually
+- book notes
+- meeting notes
+- journal text
+- CRM/person notes
+- scripture/theology notes
+- generic notes
+
+Important:
+For now, do NOT scrape URLs.
+For now, do NOT fetch YouTube transcripts automatically.
+For now, do NOT call any AI model.
+For now, source_url is just optional metadata.
+
+Backend requirements:
+
+1. Add storage methods for brain_sources only.
+
+Implement minimal CRUD-style methods in the existing storage pattern:
+
+- createBrainSource(userId, data)
+- listBrainSources(userId, filters optional)
+- getBrainSource(userId, sourceId)
+- updateBrainSourceMetadata(userId, sourceId, data)
+
+Rules:
+- user_id must come from the authenticated user/session, not from the client body.
+- raw_text should be required on create.
+- raw_text should not be overwritten through normal metadata update flows.
+- Do not add hard delete.
+- Do not mark sources as processed yet.
+- New sources should default to processing_status = 'unprocessed'.
+
+2. Add API routes for brain_sources only.
+
+Create routes like:
+
+POST /api/brain/sources
+Purpose:
+Create a raw source.
+
+Body:
+- web_id optional
+- title required
+- source_type required
+- source_url optional
+- raw_text required
+- metadata_json optional
+
+GET /api/brain/sources
+Purpose:
+List current user's raw sources.
+
+Optional filters:
+- web_id
+- source_type
+- processing_status
+
+GET /api/brain/sources/:id
+Purpose:
+Read one source owned by the current user.
+
+PATCH /api/brain/sources/:id
+Purpose:
+Update metadata only.
+
+Allowed PATCH fields:
+- title
+- source_type
+- source_url
+- web_id
+- metadata_json
+
+Disallowed PATCH fields:
+- user_id
+- raw_text
+- processing_status
+- processed_at
+- created_at
+
+3. Add simple BrainLog entries for source inbox actions.
+
+When a source is created:
+- insert brain_logs row
+- action_type = 'source_added'
+- actor = 'user'
+- entity_type = 'brain_source'
+- entity_id = created source id
+- summary = short summary like "Raw source added: [title]"
+
+When source metadata is updated:
+- insert brain_logs row
+- action_type = 'source_metadata_updated'
+- actor = 'user'
+- entity_type = 'brain_source'
+- entity_id = source id
+- before_json = previous metadata fields
+- after_json = updated metadata fields
+
+Do not log raw_text contents into brain_logs.
+
+4. Add a minimal Raw Source Inbox UI.
+
+Keep it simple and contained.
+
+Add either:
+Option A:
+A simple page called Raw Source Inbox
+
+or
+
+Option B:
+A simple panel reachable from the Knowledge Web area
+
+Choose whichever fits the existing app routing/layout better with the least code.
+
+The UI should allow:
+- add new source
+- choose source_type from allowed values
+- optional web selector if easy with existing knowledge_webs
+- title input
+- source_url input optional
+- raw_text textarea
+- submit button
+- list existing sources
+- view one source
+- edit metadata only
+
+UI rules:
+- Do not redesign the whole app.
+- Do not redesign Knowledge Web canvas.
+- Do not add AI buttons yet.
+- Do not add “process with AI” yet.
+- Do not add “create cards” yet.
+- Do not add graph/card generation yet.
+
+5. Validation and safety:
+- Require auth for all new routes.
+- Users can only access their own brain_sources.
+- Validate required fields.
+- Keep raw_text immutable after creation.
+- No hard delete route.
+- No destructive changes.
+
+6. After implementation:
+- summarize files changed
+- list new API routes
+- explain how to test manually
+- mention whether any schema/db push was needed
+- run typecheck/build checks if available
+- stop after Step 2
+
+Again:
+This is Step 2 ONLY: Raw Source Inbox.
+No AI processing, no cards, no connections, no search, no chatbot, no MCP.

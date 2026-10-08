@@ -1,0 +1,383 @@
+/* ── Timegraph ───────────────────────────────────────────────────────────────
+   All colour comes from the app's own tokens (see styles/theme.css), so the
+   graph follows light and dark mode with the rest of the app rather than
+   carrying a second palette of its own. Event colours are the one exception:
+   they are data, chosen per event, and so are set inline from the model. */
+
+.bex-timegraph {
+  /* The pointer is the readout: a native crosshair, which costs nothing and can
+     never trail the cursor the way a drawn one would. */
+  cursor: crosshair;
+  user-select: none;
+  border-radius: 0.75rem;
+  background:
+    radial-gradient(120% 100% at 50% 0%, rgb(var(--elevated) / 0.55), transparent 70%),
+    rgb(var(--surface));
+  overflow: hidden;
+}
+
+.bex-timegraph.is-interactive:active { cursor: grabbing; }
+
+/* Axis and ticks */
+.bex-timegraph__axis {
+  stroke: rgb(var(--ink-muted) / 0.55);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.bex-timegraph__grid {
+  stroke: rgb(var(--line) / 0.55);
+  stroke-width: 1;
+}
+
+.bex-timegraph__tick {
+  fill: rgb(var(--ink-soft));
+}
+
+.bex-timegraph__tick.is-zero {
+  fill: rgb(var(--gold));
+  stroke: rgb(var(--gold) / 0.35);
+  stroke-width: 4;
+}
+
+.bex-timegraph__tick-label {
+  fill: rgb(var(--ink-soft));
+  font-size: var(--bex-timegraph-tick-text-size, 11px);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.bex-timegraph__tick-label.is-major {
+  fill: rgb(var(--ink));
+  font-weight: 700;
+}
+
+/* Focal semantic zoom: finer marks appear around the zoom cursor before the
+   whole axis advances to that level. They stay quieter and smaller than the
+   established ticks, so the ordinary scale remains the visual anchor. */
+.bex-timegraph__focus-detail {
+  will-change: opacity;
+}
+
+.bex-timegraph__focus-tick {
+  fill: rgb(var(--ink-soft) / 0.82);
+}
+
+.bex-timegraph__focus-tick-label {
+  fill: rgb(var(--ink-soft));
+  font-size: var(--bex-timegraph-focus-text-size, 9.5px);
+  font-weight: 600;
+  letter-spacing: 0.015em;
+}
+
+.bex-timegraph__focus-tick-label.is-clock-detail {
+  font-size: var(--bex-timegraph-clock-text-size, 8.5px);
+  letter-spacing: 0.01em;
+}
+
+/* Year zero is called out, because an axis that runs BCE → CE with no visible
+   origin reads as if a year is missing. */
+.bex-timegraph__tick-label.is-zero {
+  fill: rgb(var(--gold));
+  font-weight: 700;
+}
+
+/* Cursor guide */
+.bex-timegraph__cursor line {
+  stroke: rgb(var(--gold) / 0.8);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 5;
+}
+
+.bex-timegraph__cursor-cross {
+  stroke: rgb(var(--gold));
+  stroke-width: 1.75;
+  fill: none;
+}
+
+/* Readout above the graph */
+.bex-timegraph__readout {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  background: rgb(var(--app) / 0.72);
+  backdrop-filter: blur(6px);
+  font-size: var(--bex-timegraph-readout-text-size, 12px);
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.bex-timegraph__readout .is-past { color: rgb(var(--gold)); }
+.bex-timegraph__readout .is-future { color: #4ade80; }
+.bex-timegraph__readout-year { color: rgb(var(--ink)); }
+
+.bex-timegraph__readout-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgb(var(--ink-soft));
+}
+
+/* Event cards */
+.bex-timegraph__event { cursor: pointer; }
+.bex-timegraph__event:focus { outline: none; }
+
+.bex-timegraph__card {
+  transition: filter 120ms ease;
+}
+
+.bex-timegraph__event.is-hovered .bex-timegraph__card {
+  filter: brightness(1.12);
+}
+
+.bex-timegraph__event.is-selected .bex-timegraph__card {
+  stroke: rgb(var(--ink));
+  stroke-width: 2;
+}
+
+/* Keyboard focus has to be visible on its own, not only via selection. */
+.bex-timegraph__event:focus-visible .bex-timegraph__card {
+  stroke: rgb(var(--gold));
+  stroke-width: 2.5;
+}
+
+.bex-timegraph__card-label {
+  font-family: var(--bex-app-font-family, serif);
+  font-weight: 600;
+  pointer-events: none;
+  dominant-baseline: auto;
+}
+
+.bex-timegraph__card-tags {
+  font-family: var(--bex-app-font-family, serif);
+  font-weight: 500;
+  letter-spacing: 0.025em;
+  opacity: 0.76;
+  pointer-events: none;
+}
+
+.bex-timegraph__empty {
+  position: absolute;
+  inset: auto 0 18%;
+  text-align: center;
+  color: rgb(var(--ink-faint));
+  font-size: var(--bex-timegraph-empty-text-size, 12.5px);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bex-timegraph__card { transition: none; }
+}
+
+/* ── Editor shell ─────────────────────────────────────────────────────────── */
+
+.bex-timegraph-editor {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: rgb(var(--app));
+  color: rgb(var(--ink));
+}
+
+.bex-timegraph-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid rgb(var(--line));
+  background: rgb(var(--surface));
+}
+
+.bex-timegraph-tag-strip {
+  display: flex;
+  align-items: center;
+  flex: 1 1 10rem;
+  min-width: 0;
+  gap: 0.35rem;
+  overflow-x: auto;
+  padding: 0.1rem 0.15rem;
+  scrollbar-width: none;
+}
+
+.bex-timegraph-tag-strip::-webkit-scrollbar { display: none; }
+
+.bex-timegraph-tag-toggle {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 0.3rem;
+  height: 1.45rem;
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  border: 1px solid rgb(var(--line));
+  background: rgb(var(--elevated) / 0.48);
+  color: rgb(var(--ink-muted));
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: opacity 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.bex-timegraph-tag-toggle:hover {
+  color: rgb(var(--ink));
+  border-color: rgb(var(--line-strong));
+}
+
+.bex-timegraph-tag-toggle.is-hidden { opacity: 0.48; }
+
+.bex-timegraph-tag-toggle input {
+  width: 0.72rem;
+  height: 0.72rem;
+  margin: 0;
+  accent-color: rgb(var(--brand-strong));
+  cursor: pointer;
+}
+
+.bex-tg-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 1.75rem;
+  padding: 0 0.5rem;
+  border-radius: 0.375rem;
+  border: 1px solid rgb(var(--line));
+  background: rgb(var(--elevated) / 0.6);
+  color: rgb(var(--ink-muted));
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.bex-tg-button:hover:not(:disabled) {
+  color: rgb(var(--ink));
+  border-color: rgb(var(--line-strong));
+  background: rgb(var(--elevated));
+}
+
+.bex-tg-button:disabled { opacity: 0.4; }
+
+.bex-tg-button.is-primary {
+  background: rgb(var(--brand-strong));
+  border-color: rgb(var(--brand-strong));
+  color: #fff;
+}
+
+.bex-tg-button.is-primary:hover:not(:disabled) {
+  background: rgb(var(--brand-strong) / 0.85);
+  color: #fff;
+}
+
+.bex-tg-button.is-active {
+  background: rgb(var(--brand) / 0.28);
+  border-color: rgb(var(--brand-strong));
+  color: rgb(var(--ink));
+}
+
+.bex-tg-panel {
+  width: 20rem;
+  flex-shrink: 0;
+  border-left: 1px solid rgb(var(--line));
+  background: rgb(var(--surface));
+  overflow-y: auto;
+}
+
+.bex-tg-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgb(var(--ink-faint));
+  margin-bottom: 0.25rem;
+}
+
+.bex-tg-input,
+.bex-tg-textarea,
+.bex-tg-select {
+  width: 100%;
+  border-radius: 0.375rem;
+  border: 1px solid rgb(var(--line));
+  background: rgb(var(--elevated) / 0.65);
+  color: rgb(var(--ink));
+  font-size: var(--bex-timeline-field-text-size, 12.5px);
+  padding: 0.35rem 0.5rem;
+}
+
+.bex-tg-input:focus,
+.bex-tg-textarea:focus,
+.bex-tg-select:focus {
+  outline: none;
+  border-color: rgb(var(--brand-strong));
+}
+
+.bex-tg-textarea { resize: vertical; min-height: 4.5rem; }
+
+.bex-tg-hint {
+  font-size: 10.5px;
+  color: rgb(var(--ink-faint));
+  margin-top: 0.2rem;
+}
+
+.bex-tg-swatch {
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 0.3rem;
+  border: 2px solid transparent;
+}
+
+.bex-tg-swatch.is-active {
+  border-color: rgb(var(--ink));
+}
+
+/* ── Embedded in a note ───────────────────────────────────────────────────── */
+
+.bex-timegraph-embed {
+  margin: 0.85rem 0;
+  border: 1px solid rgb(var(--line));
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: rgb(var(--surface));
+}
+
+.bex-timegraph-embed__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid rgb(var(--line));
+  font-size: 11.5px;
+  color: rgb(var(--ink-muted));
+}
+
+.bex-timegraph-embed__title {
+  font-weight: 700;
+  color: rgb(var(--ink));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bex-timegraph-embed.is-selected {
+  border-color: rgb(var(--brand-strong));
+  box-shadow: 0 0 0 1px rgb(var(--brand-strong) / 0.5);
+}
+
+.bex-timegraph-embed__missing {
+  padding: 1rem;
+  font-size: 12px;
+  color: rgb(var(--ink-faint));
+  text-align: center;
+}

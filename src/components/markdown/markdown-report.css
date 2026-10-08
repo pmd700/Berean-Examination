@@ -1,0 +1,273 @@
+/* Research-report markdown renderer styles. Theme-aware via CSS variables with
+   safe fallbacks; works in light and dark mode. */
+
+.berean-md {
+  color: var(--text-primary, #1a1a1a);
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.berean-md > :first-child { margin-top: 0; }
+.berean-md > :last-child { margin-bottom: 0; }
+
+.berean-md h1,
+.berean-md h2,
+.berean-md h3,
+.berean-md h4,
+.berean-md h5,
+.berean-md h6 {
+  color: var(--text-primary, #111);
+  font-weight: 700;
+  line-height: 1.3;
+  scroll-margin-top: 1rem;
+}
+.berean-md h1 { font-size: 1.6rem; margin: 1.4rem 0 0.8rem; }
+.berean-md h2 {
+  font-size: 1.3rem;
+  margin: 1.5rem 0 0.7rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--border-subtle, rgba(128, 128, 128, 0.25));
+}
+.berean-md h3 { font-size: 1.12rem; margin: 1.2rem 0 0.5rem; }
+.berean-md h4 { font-size: 1rem; margin: 1rem 0 0.4rem; }
+.berean-md h5 { font-size: 0.92rem; margin: 0.9rem 0 0.35rem; }
+.berean-md h6 {
+  font-size: 0.8rem;
+  margin: 0.9rem 0 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted, #6b7280);
+}
+
+.berean-md p { margin: 0.6rem 0; }
+.berean-md a.berean-md-link {
+  color: var(--accent-violet, #6b4c9a);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.berean-md a.berean-md-link:hover { opacity: 0.85; }
+
+.berean-md ul,
+.berean-md ol { margin: 0.6rem 0; padding-left: 1.4rem; }
+.berean-md ul { list-style: disc; }
+.berean-md ol { list-style: decimal; }
+.berean-md li { margin: 0.25rem 0; }
+.berean-md li > ul,
+.berean-md li > ol { margin: 0.25rem 0; }
+
+.berean-md blockquote {
+  margin: 0.8rem 0;
+  padding: 0.1em 0 0.1em 0.9em;
+  border: 0;
+  border-left: 3px solid hsl(var(--foreground) / 0.72);
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-style: normal;
+}
+.berean-md blockquote p { margin: 0; }
+.berean-md blockquote p + p { margin-top: 0.25em; }
+
+.berean-md hr {
+  margin: 1.4rem 0;
+  border: 0;
+  border-top: 1px solid var(--border-subtle, rgba(128, 128, 128, 0.25));
+}
+
+.berean-md strong { font-weight: 700; color: var(--text-primary, #111); }
+.berean-md em { font-style: italic; }
+
+.berean-inline-code {
+  font-family: var(--bex-app-font-family, serif);
+  font-size: 0.85em;
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  background: var(--bg-elevated, rgba(128, 128, 128, 0.12));
+  border: 1px solid var(--border-subtle, rgba(128, 128, 128, 0.2));
+}
+
+/* Shared card chrome for code + diagrams. */
+.berean-md-card {
+  margin: 0.9rem 0;
+  border: 1px solid var(--border-subtle, rgba(128, 128, 128, 0.25));
+  border-radius: 10px;
+  background: var(--bg-elevated, rgba(128, 128, 128, 0.04));
+  overflow: hidden;
+}
+
+.berean-md-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  color: var(--text-muted, #6b7280);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 0.2rem 0.3rem;
+}
+.berean-md-toggle:hover { color: var(--text-primary, #111); }
+
+.berean-md-pre {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  overflow-x: auto;
+  font-family: var(--bex-app-font-family, serif);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--text-primary, #1a1a1a);
+}
+.berean-md-pre code { font: inherit; background: none; border: 0; padding: 0; }
+
+/* Code blocks */
+.berean-code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.35rem 0.75rem;
+  border-bottom: 1px solid var(--border-subtle, rgba(128, 128, 128, 0.25));
+  background: var(--bg-primary, rgba(128, 128, 128, 0.06));
+}
+.berean-code-lang {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted, #6b7280);
+  font-family: var(--bex-app-font-family, serif);
+}
+
+/* Mermaid */
+.berean-mermaid-scroll {
+  padding: 1rem;
+  overflow-x: auto;
+  display: flex;
+  justify-content: center;
+}
+.berean-mermaid-scroll svg { max-width: 100%; height: auto; }
+.berean-mermaid-loading {
+  padding: 1rem;
+  font-size: 0.8rem;
+  color: var(--text-muted, #6b7280);
+}
+.berean-mermaid-error { padding: 0.85rem 1rem; }
+.berean-mermaid-error-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #b45309;
+}
+.dark .berean-mermaid-error-head { color: #f0b072; }
+.berean-mermaid-error-msg {
+  margin: 0.4rem 0 0.2rem;
+  font-size: 0.78rem;
+  color: var(--text-muted, #6b7280);
+  white-space: pre-wrap;
+}
+
+/* Tables */
+.berean-md-table-wrap {
+  margin: 1rem 0;
+  border: 1px solid var(--border-subtle, rgba(128, 128, 128, 0.25));
+  border-radius: 10px;
+  overflow: auto;
+  max-height: 32rem;
+}
+.berean-md-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.82rem;
+}
+.berean-md-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-primary, #f3f4f6);
+  color: var(--text-primary, #111);
+  font-weight: 600;
+  text-align: left;
+  padding: 0.5rem 0.7rem;
+  border-bottom: 1px solid var(--border-subtle, rgba(128, 128, 128, 0.35));
+  white-space: nowrap;
+}
+.dark .berean-md-table thead th { background: #15171c; }
+.berean-md-table td {
+  padding: 0.45rem 0.7rem;
+  border-bottom: 1px solid var(--border-subtle, rgba(128, 128, 128, 0.15));
+  vertical-align: top;
+}
+.berean-md-table tbody tr:nth-child(even) {
+  background: var(--bg-elevated, rgba(128, 128, 128, 0.05));
+}
+.berean-md-table td.berean-td-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.berean-tier-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.78rem;
+  border: 1px solid transparent;
+}
+.berean-tier-S { background: rgba(201, 169, 78, 0.18); color: #a8842b; border-color: rgba(201, 169, 78, 0.5); }
+.berean-tier-A { background: rgba(107, 76, 154, 0.18); color: #6b4c9a; border-color: rgba(107, 76, 154, 0.5); }
+.berean-tier-B { background: rgba(80, 130, 200, 0.16); color: #3d6bb0; border-color: rgba(80, 130, 200, 0.45); }
+.berean-tier-C { background: rgba(128, 128, 128, 0.16); color: #6b7280; border-color: rgba(128, 128, 128, 0.45); }
+.berean-tier-D { background: rgba(180, 120, 60, 0.16); color: #a85e1f; border-color: rgba(180, 120, 60, 0.45); }
+.berean-tier-F { background: rgba(200, 80, 80, 0.16); color: #b04545; border-color: rgba(200, 80, 80, 0.45); }
+.dark .berean-tier-S { color: #d8be73; }
+.dark .berean-tier-A { color: #b79be0; }
+.dark .berean-tier-B { color: #8fb4e6; }
+.dark .berean-tier-D { color: #d89160; }
+.dark .berean-tier-F { color: #e69090; }
+
+/* Citation bubbles */
+.berean-cite-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  padding: 0 0.35rem;
+  margin: 0 0.1rem;
+  vertical-align: text-top;
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1;
+  border-radius: 999px;
+  cursor: pointer;
+  color: var(--accent-violet, #6b4c9a);
+  background: var(--bg-elevated, rgba(107, 76, 154, 0.1));
+  border: 1px solid var(--border-subtle, rgba(107, 76, 154, 0.35));
+  transition: background 0.15s ease;
+}
+.berean-cite-pill:hover { background: rgba(107, 76, 154, 0.2); }
+
+.berean-cite-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  padding: 0.4rem 0.4rem;
+  border-radius: 6px;
+  text-decoration: none;
+}
+.berean-cite-num {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.2rem;
+  height: 1.2rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  border-radius: 999px;
+  color: var(--accent-violet, #6b4c9a);
+  background: rgba(107, 76, 154, 0.12);
+  border: 1px solid rgba(107, 76, 154, 0.3);
+}

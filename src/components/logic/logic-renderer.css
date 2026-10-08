@@ -1,0 +1,118 @@
+/* Reuse KaTeX's own fonts with native text shaping. Letters keep the math
+   italic face; numbers, punctuation and logic symbols use the upright face.
+   Unlike KaTeX's generated layout tree, this leaves every character editable. */
+@font-face {
+  font-family: BEX_EditableMath;
+  src: url('katex/dist/fonts/KaTeX_Main-Regular.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: BEX_EditableMath;
+  src: url('katex/dist/fonts/KaTeX_Math-Italic.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+0041-005A, U+0061-007A, U+0391-03C9;
+}
+
+.logic-renderer {
+  color: inherit;
+  font-style: normal;
+}
+
+/* Logic is typeset at the size of the prose around it — no card, no
+   centering, no oversized display math. A formula should read as part of the
+   sentence ("Heat death (end as t → ∞) …"), not as a framed exhibit. */
+.logic-renderer--inline {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: baseline;
+  font-size: 1em;
+  line-height: inherit;
+}
+
+/* Still used by the read-only markdown renderer for genuinely standalone
+   formulas: its own line, but the same plain type as the paragraphs. */
+.logic-renderer--block {
+  position: relative;
+  display: block;
+  margin: 0.35rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  text-align: left;
+  font-size: 1em;
+  line-height: inherit;
+  -webkit-overflow-scrolling: touch;
+}
+
+.logic-renderer__surface {
+  display: inline-block;
+  min-width: max-content;
+}
+
+/* KaTeX scales display math up by 1.21em and centers it — undo both so a
+   block formula still matches the body text. */
+.logic-renderer .katex-display {
+  margin: 0;
+  text-align: left;
+}
+
+.logic-renderer .katex-display > .katex {
+  display: inline-block;
+  font-size: 1em;
+  text-align: left;
+}
+
+.logic-renderer .katex,
+.logic-renderer .katex * {
+  text-rendering: geometricPrecision;
+}
+
+.logic-renderer--editable {
+  display: inline;
+  cursor: text;
+  user-select: text;
+}
+
+.logic-renderer__content,
+.ProseMirror .logic-renderer.logic-renderer--editable .logic-renderer__content,
+.ProseMirror .logic-renderer.logic-renderer--editable .logic-renderer__content * {
+  font-family: BEX_EditableMath, KaTeX_Main, "Times New Roman", serif;
+  font-style: normal;
+}
+
+.logic-renderer__content {
+  display: inline;
+  font-size: 1.21em;
+  line-height: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  caret-color: currentColor;
+}
+
+.logic-renderer[data-logic-presentation$="text"] .logic-renderer__content,
+.ProseMirror .logic-renderer.logic-renderer--editable[data-logic-presentation$="text"] .logic-renderer__content,
+.ProseMirror .logic-renderer.logic-renderer--editable[data-logic-presentation$="text"] .logic-renderer__content * {
+  font-family: KaTeX_Main, "Times New Roman", serif;
+}
+
+.logic-renderer[data-logic-presentation="boxed-text"] .logic-renderer__content {
+  border: 0.06em solid currentColor;
+  padding: 0.15em 0.35em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* Un-typesettable input keeps its raw text, marked by a quiet underline. */
+.logic-renderer--error {
+  border-bottom: 1px dashed rgba(220, 85, 85, 0.55);
+}
+
+.logic-renderer__fallback {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: inherit;
+}

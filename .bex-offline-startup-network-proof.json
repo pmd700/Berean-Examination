@@ -1,0 +1,115 @@
+{
+  "checkedAt": "2026-07-31T20:17:59.941Z",
+  "elapsedMs": 1704,
+  "onlineModeEnabled": false,
+  "outsideRequests": [],
+  "requests": [
+    {
+      "outside": false,
+      "resourceType": "mainFrame",
+      "url": "http://127.0.0.1:50939/"
+    },
+    {
+      "outside": false,
+      "resourceType": "script",
+      "url": "http://127.0.0.1:50939/assets/index-Du5gfJdN.js"
+    },
+    {
+      "outside": false,
+      "resourceType": "stylesheet",
+      "url": "http://127.0.0.1:50939/assets/index-CEkiyHjJ.css"
+    },
+    {
+      "outside": false,
+      "resourceType": "image",
+      "url": "http://127.0.0.1:50939/logo.png"
+    },
+    {
+      "outside": false,
+      "resourceType": "font",
+      "url": "http://127.0.0.1:50939/assets/rajdhani-latin-500-normal-ByNUCHrt.woff2"
+    },
+    {
+      "outside": false,
+      "resourceType": "font",
+      "url": "http://127.0.0.1:50939/assets/rajdhani-latin-400-normal-CurJOxDW.woff2"
+    },
+    {
+      "outside": false,
+      "resourceType": "font",
+      "url": "http://127.0.0.1:50939/assets/rajdhani-latin-500-normal-ByNUCHrt.woff2"
+    },
+    {
+      "outside": false,
+      "resourceType": "font",
+      "url": "http://127.0.0.1:50939/assets/rajdhani-latin-400-normal-CurJOxDW.woff2"
+    },
+    {
+      "outside": false,
+      "resourceType": "font",
+      "url": "http://127.0.0.1:50939/assets/rajdhani-latin-700-normal-BPDUZo87.woff2"
+    },
+    {
+      "outside": false,
+      "resourceType": "font",
+      "url": "http://127.0.0.1:50939/assets/rajdhani-latin-600-normal-CXCVEoA9.woff2"
+    },
+    {
+      "outside": false,
+      "resourceType": "font",
+      "url": "http://127.0.0.1:50939/assets/rajdhani-latin-700-normal-BPDUZo87.woff2"
+    },
+    {
+      "outside": false,
+      "resourceType": "font",
+      "url": "http://127.0.0.1:50939/assets/rajdhani-latin-600-normal-CXCVEoA9.woff2"
+    }
+  ],
+  "ok": true,
+  "libraryReady": true,
+  "activationReady": true,
+  "privacyReady": true,
+  "normalAppVisible": true,
+  "route": "/",
+  "title": "Berean Examination",
+  "gateState": {
+    "library": {
+      "ok": true,
+      "status": {
+        "available": true,
+        "configured": true,
+        "folders": [
+          "Database",
+          "Courses",
+          "Media",
+          "Imports",
+          "Exports",
+          "Backups"
+        ],
+        "issue": null,
+        "message": null,
+        "missingFolders": [],
+        "path": "/Users/davidmartinez/Documents/Personal BEX Library"
+      }
+    },
+    "activation": {
+      "ok": true,
+      "status": {
+        "activated": true
+      }
+    },
+    "privacy": {
+      "ok": true,
+      "status": {
+        "locked": false,
+        "mode": "automatic",
+        "pinEnabled": false,
+        "attempts": 0,
+        "retryAfterMs": 0,
+        "encryption": "AES-256-GCM",
+        "localOnly": true,
+        "protectedBy": "macOS Keychain"
+      }
+    }
+  }
+}

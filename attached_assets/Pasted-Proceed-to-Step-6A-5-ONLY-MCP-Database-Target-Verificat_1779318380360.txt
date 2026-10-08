@@ -1,0 +1,62 @@
+Proceed to Step 6A.5 ONLY: MCP Database Target Verification.
+
+Important:
+Do not build new features.
+Do not build Step 6B yet.
+Do not modify MCP tools unless a bug is found.
+Do not add write tools.
+Do not modify admin/auth/bootstrap logic.
+Do not change schema yet unless you first explain why.
+
+Context:
+Step 6A completed the read-only MCP server at /mcp/brain.
+
+However, the final report said the running dev Repl is connected through BEREAN_DATABASE_URL to an external Neon DB that does not contain the Brain Spine schema, while the Replit-managed DATABASE_URL does contain the Brain tables.
+
+Goal:
+Determine which database the live app and MCP endpoint should use, and make sure Step 6B will point ChatGPT to the environment that actually contains the Brain Spine data.
+
+Audit only first:
+
+1. Identify which env var the app uses to choose the active database:
+- DATABASE_URL
+- BEREAN_DATABASE_URL
+- any fallback order
+
+2. Confirm which database currently has these required Brain Spine objects:
+- brain_sources table
+- brain_indexes table
+- brain_logs table
+- web_cards.source_ids
+- web_cards.created_by
+- web_cards.status
+- web_cards.visibility
+- web_connections.relationship_type
+- web_connections.created_by
+- web_connections.status
+
+3. Confirm which database is used by:
+- /BrainInbox
+- /BrainSearch
+- /BrainChat
+- /mcp/brain
+
+4. Tell me clearly:
+- Are the website and MCP using the same database?
+- Does that database contain the Brain Spine schema?
+- Will ChatGPT see real second-brain data if connected to /mcp/brain right now?
+
+5. If there is a mismatch, recommend the safest fix:
+Option A: point app/MCP to the database that already has the Brain Spine schema
+Option B: run the Brain Spine schema push/migration on the external BEREAN_DATABASE_URL database
+Option C: remove/disable the override if it is not supposed to be used
+
+Do not implement the fix yet.
+Stop after the audit and recommendation.
+
+Final output should be:
+A. Active DB resolution order
+B. Schema presence by database
+C. Which DB each surface uses
+D. Risk if we proceed to Step 6B now
+E. Recommended fix

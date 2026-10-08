@@ -1,0 +1,6 @@
+- [MAM Hebrew source](mam-hebrew-source.md) — how the MAM "plus" Wikisource JSON is parsed into plain RTL verse text; which templates are text vs metadata.
+- [Rich Bible rendering](rich-bible-rendering.md) — NASB2020 segment renderer; token stream must equal plainText.split(/\s+/) & markers are zero-width, or highlights drift.
+- [Berean DB connection resolution](berean-db-host.md) — server prefers `Neon_connection_string` (a different live DB than `BEREAN_DATABASE_URL`); mirror that precedence for DB checks.
+- [KnowledgeWeb canvas portals](knowledgeweb-canvas-portals.md) — overlays over the transform:scale() canvas must portal to document.body or they render off-screen/invisible ("black screen").
+- [KnowledgeWeb card fade mask](knowledgeweb-card-fade-mask.md) — "full-width fade" bug is a fragile tag-width measurement, NOT mask-composite; measure first row relatively + estimate fallback + ResizeObserver.
+- [KnowledgeWeb loadWeb race](knowledgeweb-load-race.md) — web-switch flicker on cold start = un-guarded concurrent loadWeb stale writes; fix with a monotonic load token + live ref compare.

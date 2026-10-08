@@ -1,0 +1,1 @@
+export { desktopClient as platformClient } from '@/api/desktopClient';

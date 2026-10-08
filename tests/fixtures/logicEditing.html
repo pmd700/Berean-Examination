@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Disposable formula editing proof</title>
+<link rel="stylesheet" href="./fixture.css">
+<style>
+body { background:#0f111a; color:#e8ebf0; padding:48px; font:21.333px/1.5 -apple-system,sans-serif; }
+h1 { font-size:24px; }
+h2 { font-size:14px; color:#9ca3af; font-weight:500; margin-top:36px; }
+#editor { padding:20px; border:1px solid #303549; border-radius:10px; }
+.ProseMirror { outline:0; font-size:21.333px; }
+.ProseMirror :not(.katex):not(.katex *) { font-family:var(--bex-app-font-family); }
+</style>
+</head>
+<body>
+<h1>Shared editor · live formula editing at maximum text size</h1>
+<h2>Existing KaTeX rendering (reference)</h2>
+<div id="reference"></div>
+<h2>Editable formula · click or select any character</h2>
+<div id="editor"></div>
+<script src="./fixture.js"></script>
+</body>
+</html>

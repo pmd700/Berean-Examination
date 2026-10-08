@@ -1,0 +1,132 @@
+STOP.
+
+You reverted the correct work because stale task context appeared again.
+
+The “Kill PIN Bootstrap, Restore Admin Login” task is already complete and must be ignored permanently in this session.
+
+Current task only:
+Step 6A — Read-Only MCP Server Foundation for the Second Brain.
+
+Do not verify the PIN task.
+Do not inspect KeyEntry.
+Do not inspect /api/admin/setup.
+Do not discuss ADMIN_SETUP_PIN.
+Do not revert MCP files as “unrelated.”
+Do not uninstall @modelcontextprotocol/sdk if it is needed for MCP.
+Do not mark the PIN task complete again.
+
+Resume Step 6A from scratch.
+
+The MCP work you started was correct:
+- extracting brain retrieval helpers
+- creating server/brainRetrieval.ts
+- creating server/mcp.ts
+- mounting /mcp/brain
+- using @modelcontextprotocol/sdk if it is the cleanest stable path
+
+Proceed with Step 6A ONLY:
+
+Goal:
+Build a read-only MCP server foundation so external AI clients can access the second-brain context through approved tools.
+
+Hard boundaries:
+- no web_cards created
+- no web_connections created
+- no brain_sources modified
+- no brain_indexes modified
+- no approved writes
+- no create/update/delete tools
+- no ChatGPT UI widget
+- no public publishing
+- no admin/auth/bootstrap changes
+
+MCP endpoint:
+- mount at /mcp/brain or the appropriate MCP-compatible path
+- require Authorization: Bearer <MCP_BRAIN_TOKEN>
+- if MCP_BRAIN_TOKEN is missing, return clear 503
+- no unauthenticated access
+
+User scoping:
+- do not accept user_id from MCP tool args
+- resolve the MCP user from:
+  1. OWNER_AUTH0_USER_ID if set
+  2. else OWNER_EMAIL if safely resolvable
+  3. else clear 503 owner not configured
+
+Expose read-only MCP tools only:
+
+1. search_second_brain
+Input:
+- query required
+- scope optional: all, sources, cards, connections
+- web_id optional
+- limit optional
+
+2. get_brain_context_pack
+Input:
+- query optional
+- web_id optional
+- source_ids optional
+- card_ids optional
+- include_neighbors optional
+- limit optional
+
+3. get_card_context
+Input:
+- card_id required
+
+4. get_source_context
+Input:
+- source_id required
+- include_raw optional default false
+
+Optional:
+5. ask_second_brain_readonly
+Only if low-risk and clean. It should reuse existing BrainChat logic and remain read-only.
+
+Implementation rules:
+- reuse existing Step 4/Step 5 retrieval helpers wherever possible
+- if helper extraction is needed, create a shared module such as server/brainRetrieval.ts
+- do not duplicate large route logic if it can be shared cleanly
+- normal MCP tool outputs should not return full raw_text
+- get_source_context should default include_raw=false
+- all outputs should include IDs and titles for citations
+- no writes, no mutations, no hidden updates
+
+Docs:
+Add a short internal note to replit.md or an internal docs file explaining:
+- endpoint path
+- required env vars: MCP_BRAIN_TOKEN and OWNER_AUTH0_USER_ID or OWNER_EMAIL
+- tools exposed
+- read-only limitation
+- basic test steps
+
+Testing:
+- missing MCP_BRAIN_TOKEN returns 503
+- missing owner identity returns 503
+- no Authorization header returns 401
+- wrong token returns 401
+- correct token exposes tools
+- search_second_brain returns compact snippets
+- get_brain_context_pack returns compact context
+- get_card_context returns card neighbors
+- get_source_context defaults to no raw_text
+- existing /BrainInbox, /BrainSearch, and /BrainChat still work
+- server boots cleanly
+- no writes occurred to web_cards, web_connections, brain_sources, or brain_indexes
+
+Final report:
+- files changed
+- package added, if any
+- MCP endpoint path
+- env vars required
+- tools exposed
+- manual test steps
+- whether schema/db push was needed
+- whether any write path was introduced
+- whether we are clear for Step 6B ChatGPT Developer Mode connection
+
+Again:
+Ignore the stale PIN Bootstrap task.
+Do not revert MCP work.
+This is Step 6A ONLY.

@@ -1,0 +1,502 @@
+{
+  "version": 1,
+  "name": "Gospel",
+  "description": "Some leading questions for Evangelism",
+  "proxyImages": true,
+  "defaultMap": "map-yq1rwJke",
+  "defaultPerspective": null,
+  "attributeRelevance": {},
+  "attributes": [
+    {
+      "_id": "attr-vdJq8RZK",
+      "name": "Connection Type",
+      "format": "string",
+      "private": false,
+      "limit": 1,
+      "category": "General",
+      "prompt": "list",
+      "locked": false,
+      "values": [],
+      "sort": false,
+      "cluster": false
+    },
+    {
+      "_id": "attr-M4y5T6Xx",
+      "name": "Description",
+      "format": "text",
+      "private": false,
+      "limit": 1,
+      "category": "General",
+      "prompt": "none",
+      "locked": false,
+      "values": [],
+      "sort": false,
+      "cluster": false
+    },
+    {
+      "_id": "attr-37bebFB5",
+      "name": "Element Type",
+      "format": "string",
+      "private": false,
+      "limit": 1,
+      "category": "General",
+      "prompt": "list",
+      "locked": false,
+      "values": [],
+      "sort": false,
+      "cluster": true
+    },
+    {
+      "_id": "attr-jC6XDswX",
+      "name": "Label",
+      "format": "string",
+      "private": false,
+      "limit": 1,
+      "category": "General",
+      "prompt": "autocomplete",
+      "locked": false,
+      "values": [],
+      "sort": false,
+      "cluster": false
+    },
+    {
+      "_id": "attr-MgQIET4K",
+      "name": "Loop Type",
+      "format": "string",
+      "private": false,
+      "limit": 1,
+      "category": "General",
+      "prompt": "list",
+      "locked": false,
+      "values": [],
+      "sort": false,
+      "cluster": false
+    },
+    {
+      "_id": "attr-W38UeOm8",
+      "name": "Tags",
+      "format": "string",
+      "private": false,
+      "limit": "none",
+      "category": "General",
+      "prompt": "autocomplete",
+      "locked": false,
+      "values": [],
+      "sort": false,
+      "cluster": true
+    }
+  ],
+  "elements": [
+    {
+      "_id": "elem-02JpZK8s",
+      "attributes": {
+        "label": "have you ever used bad language"
+      }
+    },
+    {
+      "_id": "elem-0MQzuxeC",
+      "attributes": {
+        "label": "Since we know there is a God, it matters how we live so do you think your a good person?",
+        "description": "Its true.. Ecclesiastes 12:14 says  \"For God will bring every deed into judgment, including every hidden thing, whether it is good or evil.\""
+      }
+    },
+    {
+      "_id": "elem-5LHRyXSH",
+      "attributes": {
+        "label": "Romans 3:23"
+      }
+    },
+    {
+      "_id": "elem-I17qrtps",
+      "attributes": {
+        "label": "not sure",
+        "description": "would You agree that this building I'm sitting in had a builder, or did it just appear by itself?\n**{wait for an answer}**\nThis building is evidence that it needed a builder. In the same way, when we look at the universe we know it had a beginning therefore it had to have a creator for it. The Universe is proof of a universe maker. Building needs bulilder, creation needs a creator, do you agree?"
+      }
+    },
+    {
+      "_id": "elem-SiSrRPIQ",
+      "attributes": {
+        "label": "nah",
+        "description": "Here you can thank them for theyre honesty and explain how we hae all done things wweong give exmples : lying taking things we shouldnt have being angry using bad languag . Then move to question 7"
+      }
+    },
+    {
+      "_id": "elem-WfgKdXTr",
+      "attributes": {
+        "label": "yeah"
+      }
+    },
+    {
+      "_id": "elem-YeA40V74",
+      "attributes": {
+        "label": "no"
+      }
+    },
+    {
+      "_id": "elem-YmJfAz4v",
+      "attributes": {
+        "label": "Have you ever been angry or disrespected someone"
+      }
+    },
+    {
+      "_id": "elem-aDlOzl0X",
+      "attributes": {
+        "label": "Have You ever Told a lie?"
+      }
+    },
+    {
+      "_id": "elem-ezG4JRMV",
+      "attributes": {
+        "label": "yeah im a good person"
+      }
+    },
+    {
+      "_id": "elem-m0mjHOTF",
+      "attributes": {
+        "label": "Do you believe there's a God?"
+      }
+    },
+    {
+      "_id": "elem-nTiyFAjL",
+      "attributes": {
+        "label": "yes"
+      }
+    },
+    {
+      "_id": "elem-rWJ2AuHl",
+      "attributes": {
+        "label": "Reincarnation",
+        "description": "Hebrews 9:27 \"And just as it is destined for people to die once, and after this comes judgment,\""
+      }
+    },
+    {
+      "_id": "elem-rX88CE7O",
+      "attributes": {
+        "label": "Hey can I ask you a question?"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "_id": "conn-01pOvioT",
+      "direction": "directed",
+      "delayed": false,
+      "reversed": false,
+      "attributes": {},
+      "from": "elem-YmJfAz4v",
+      "to": "elem-5LHRyXSH"
+    },
+    {
+      "_id": "conn-3mgytJFJ",
+      "direction": "directed",
+      "delayed": false,
+      "reversed": false,
+      "attributes": {},
+      "from": "elem-rX88CE7O",
+      "to": "elem-nTiyFAjL"
+    },
+    {
+      "_id": "conn-AVNtjSsx",
+      "direction": "directed",
+      "delayed": false,
+      "reversed": false,
+      "attributes": {},
+      "from": "elem-m0mjHOTF",
+      "to": "elem-I17qrtps"
+    },
+    {
+      "_id": "conn-B8ZsUSBP",
+      "direction": "directed",
+      "delayed": false,
+      "reversed": false,
+      "attributes": {},
+      "from": "elem-m0mjHOTF",
+      "to": "elem-WfgKdXTr"
+    },
+    {
+      "_id": "conn-EZafLkDp",
+      "direction": "directed",
+      "delayed": false,
+      "reversed": false,
+      "attributes": {},
+      "from": "elem-WfgKdXTr",
+      "to": "elem-0MQzuxeC"
+    },
+    {
+      "_id": "conn-IqzqgKR4",
+      "direction": "directed",
+      "delayed": false,
+      "reversed": false,
+      "attributes": {},
+      "from": "elem-02JpZK8s",
+      "to": "elem-5LHRyXSH"
+    },
+    {
+      "_id": "conn-Xx0d2MLn",
+      "direction": "directed",
+      "delayed": false,
+      "reversed": false,
+      "attributes": {},
+      "from": "elem-nTiyFAjL",
+      "to": "elem-m0mjHOTF"
+    },
+    {
+      "_id": "conn-ZrFdmS0S",
+      "direction": "directed",
+      "delayed": false,
+      "reversed": false,
+      "attributes": {},
+      "from": "elem-m0mjHOTF",
+      "to": "elem-rWJ2AuHl"
+    },
+    {
+      "_id": "conn-gtvBlq8n",
+      "direction": "directed",
+      "delayed": false,
+      "reversed": false,
+      "attributes": {},
+      "from": "elem-0MQzuxeC",
+      "to": "elem-SiSrRPIQ"
+    },
+    {
+      "_id": "conn-hB3x89sB",
+      "direction": "directed",
+      "delayed": false,
+      "reversed": false,
+      "attributes": {},
+      "from": "elem-rX88CE7O",
+      "to": "elem-YeA40V74"
+    },
+    {
+      "_id": "conn-tEqKyK5t",
+      "direction": "directed",
+      "delayed": false,
+      "reversed": false,
+      "attributes": {},
+      "from": "elem-aDlOzl0X",
+      "to": "elem-5LHRyXSH"
+    },
+    {
+      "_id": "conn-xStfqY62",
+      "direction": "directed",
+      "delayed": false,
+      "reversed": false,
+      "attributes": {},
+      "from": "elem-0MQzuxeC",
+      "to": "elem-ezG4JRMV"
+    }
+  ],
+  "loops": [],
+  "maps": [
+    {
+      "_id": "map-yq1rwJke",
+      "name": "Untitled map",
+      "description": "",
+      "scale": 1,
+      "center": {
+        "x": 0,
+        "y": 0
+      },
+      "defaultPerspective": "pers-Y5lsyxqL",
+      "defaultElementBehavior": "floating",
+      "defaultConnectionDirection": "directed",
+      "elements": [
+        {
+          "_id": "node-0KoGMNxp",
+          "position": null,
+          "pinned": false,
+          "style": {},
+          "element": "elem-WfgKdXTr"
+        },
+        {
+          "_id": "node-1C3jxe1S",
+          "position": null,
+          "pinned": false,
+          "style": {},
+          "element": "elem-m0mjHOTF"
+        },
+        {
+          "_id": "node-1OPnJSXi",
+          "position": {
+            "x": -246.04685602370782,
+            "y": 245.5727215796672
+          },
+          "pinned": false,
+          "style": {},
+          "element": "elem-nTiyFAjL"
+        },
+        {
+          "_id": "node-1lHp5ffg",
+          "position": null,
+          "pinned": false,
+          "style": {},
+          "element": "elem-0MQzuxeC"
+        },
+        {
+          "_id": "node-2BJpaRzO",
+          "position": {
+            "x": -96.45396997712328,
+            "y": 431.22968380385487
+          },
+          "pinned": false,
+          "style": {},
+          "element": "elem-ezG4JRMV"
+        },
+        {
+          "_id": "node-7nP6GHDm",
+          "position": null,
+          "pinned": false,
+          "style": {},
+          "element": "elem-rWJ2AuHl"
+        },
+        {
+          "_id": "node-F6WBwGdR",
+          "position": {
+            "x": -113.21859464520426,
+            "y": 555.6811036813097
+          },
+          "pinned": false,
+          "style": {},
+          "element": "elem-YmJfAz4v"
+        },
+        {
+          "_id": "node-fOMOYwbN",
+          "position": {
+            "x": 178.11344784411781,
+            "y": 485.7977165421265
+          },
+          "pinned": false,
+          "style": {},
+          "element": "elem-5LHRyXSH"
+        },
+        {
+          "_id": "node-gzyXG2zo",
+          "position": {
+            "x": 54.32789004222296,
+            "y": 503.03056952735307
+          },
+          "pinned": false,
+          "style": {},
+          "element": "elem-SiSrRPIQ"
+        },
+        {
+          "_id": "node-kLxCU0HH",
+          "position": {
+            "x": -56.94885435131654,
+            "y": 411.3764471211782
+          },
+          "pinned": false,
+          "style": {},
+          "element": "elem-aDlOzl0X"
+        },
+        {
+          "_id": "node-l7RxpELN",
+          "position": {
+            "x": -15.200337359077224,
+            "y": 460.3855757642417
+          },
+          "pinned": false,
+          "style": {},
+          "element": "elem-02JpZK8s"
+        },
+        {
+          "_id": "node-sGF9Q3zo",
+          "position": {
+            "x": -449.3903560237078,
+            "y": 245.0727215796672
+          },
+          "pinned": false,
+          "style": {},
+          "element": "elem-I17qrtps"
+        },
+        {
+          "_id": "node-ttOivQml",
+          "position": null,
+          "pinned": false,
+          "style": {},
+          "element": "elem-rX88CE7O"
+        },
+        {
+          "_id": "node-uim7YJzy",
+          "position": {
+            "x": -155.38715364254693,
+            "y": 180.1481940881078
+          },
+          "pinned": false,
+          "style": {},
+          "element": "elem-YeA40V74"
+        }
+      ],
+      "connections": [
+        {
+          "_id": "edge-6NA6GwJe",
+          "style": {},
+          "connection": "conn-gtvBlq8n"
+        },
+        {
+          "_id": "edge-7jS7eddm",
+          "style": {},
+          "connection": "conn-hB3x89sB"
+        },
+        {
+          "_id": "edge-AOYT8jO8",
+          "style": {},
+          "connection": "conn-IqzqgKR4"
+        },
+        {
+          "_id": "edge-B8TEFOj3",
+          "style": {},
+          "connection": "conn-3mgytJFJ"
+        },
+        {
+          "_id": "edge-GJIjqSBw",
+          "style": {},
+          "connection": "conn-01pOvioT"
+        },
+        {
+          "_id": "edge-Sa9R8p3q",
+          "style": {},
+          "connection": "conn-Xx0d2MLn"
+        },
+        {
+          "_id": "edge-b9zvUkBy",
+          "style": {},
+          "connection": "conn-tEqKyK5t"
+        },
+        {
+          "_id": "edge-bR1tZqAz",
+          "style": {},
+          "connection": "conn-ZrFdmS0S"
+        },
+        {
+          "_id": "edge-cSfxslLM",
+          "style": {},
+          "connection": "conn-xStfqY62"
+        },
+        {
+          "_id": "edge-mmBJXFXb",
+          "style": {},
+          "connection": "conn-B8ZsUSBP"
+        },
+        {
+          "_id": "edge-mxFC2PM9",
+          "style": {},
+          "connection": "conn-AVNtjSsx"
+        },
+        {
+          "_id": "edge-pT5HIPfv",
+          "style": {},
+          "connection": "conn-EZafLkDp"
+        }
+      ],
+      "loops": []
+    }
+  ],
+  "perspectives": [
+    {
+      "_id": "pers-Y5lsyxqL",
+      "name": "Untitled view",
+      "style": "@settings {\n  template: custom;\n}\n\n"
+    }
+  ]
+}

@@ -1,0 +1,169 @@
+We are upgrading the visual Knowledge Web into an AI-accessible second brain.
+
+The plan is to:
+redesign the UI
+build ChatGPT integration yt
+build MCP
+build a chatbot
+
+or you can think of it like this:
+
+Step 1: Brain Spine data model
+
+Step 2: Raw source inbox
+
+Step 3: AI processing pipeline
+
+Step 4: Search/retrieval tools
+
+Step 5: In-app AI chat
+
+Step 6: MCP / ChatGPT.com connection
+
+Step 7: AI suggestions and approved writes
+
+But dont do any of those yet
+
+This is Step 1 ONLY: create the Brain Spine data model.
+
+Current app:
+Users already have Knowledge Webs with cards and visual connections.
+
+Goal of Step 1:
+Add the database/data-model foundation needed for AI to later read, search, organize, and suggest updates to the user’s second brain.
+
+Core architecture:
+We need to separate raw source material from AI-processed knowledge cards.
+
+Create or update the data model so the app supports these entities:
+
+1. BrainSource
+
+Purpose:
+Stores original raw material before AI processing.
+
+Fields:
+
+- id
+- user_id
+- web_id optional
+- title
+- source_type: article, youtube, tweet, podcast, book, note, journal, crm, meeting, AI, scripture, other
+- source_url optional
+- raw_text
+- metadata_json optional
+- processing_status: unprocessed, processing, processed, failed
+- created_at
+- updated_at
+- processed_at optional
+
+Important:
+Raw source material should never be destroyed.
+
+1. KnowledgeCard
+
+Purpose:
+Visually remains the same: Stores clean AI-”readable” data.
+
+Fields:
+
+- id
+- user_id
+- web_id
+- title
+- body
+- card_type: belief, doctrine, objection, verse, person, customer, goal, plan, project, idea, quote, source_summary, journal_entry, crm_contact, question, other
+- tags
+- source_ids: array of BrainSource ids if supported, or separate join table if better
+- created_by: user, ai
+- status: confirmed, suggested, rejected, archived
+- visibility: private, shared, public
+- created_at
+- updated_at
+
+Important:
+AI-created cards should default to status = suggested unless the user explicitly approves them.
+
+1. KnowledgeConnection
+
+Purpose:
+Stores relationships between cards.
+
+Fields:
+
+- id
+- user_id
+- web_id
+- from_card_id
+- to_card_id
+- relationship_type: supports, contradicts, explains, depends_on, related_to, example_of, source_for, strengthens, weakens
+- label
+- strength optional
+- evidence optional
+- created_by: user, ai
+- status: confirmed, suggested, rejected
+- created_at
+- updated_at
+
+Important:
+AI-created connections should default to status = suggested unless the user explicitly approves them.
+
+1. BrainIndex
+
+Purpose:
+Stores lightweight searchable summaries of webs, cards, clusters, and categories.
+
+Fields:
+
+- id
+- user_id
+- web_id optional
+- index_type: global, web, category, card_cluster
+- title
+- summary
+- key_card_ids
+- key_connection_ids
+- updated_at
+
+Important:
+This kind of like a [index.md](http://index.md/) database
+
+1. BrainLog
+
+Purpose:
+Stores an audit trail of what happened in the second brain.
+
+Fields:
+
+- id
+- user_id
+- web_id optional
+- action_type: source_added, source_processed, card_created, card_updated, connection_created, ai_suggestion_created, ai_suggestion_approved, ai_suggestion_rejected, index_updated
+- actor: user, ai, system
+- entity_type
+- entity_id
+- summary
+- before_json optional
+- after_json optional
+- created_at
+
+Important:
+Every AI-created card, AI-created connection, and AI update should be logged.
+
+Rules:
+
+- Do not silently modify existing user cards.
+- Do not delete existing user data.
+- Preserve the current Knowledge Web functionality.
+- Existing cards should continue to work.
+- If the existing app already has card/connection entities, extend them instead of duplicating them.
+- If migrations are needed, create safe migrations.
+- Add comments explaining what each new entity is for.
+
+Deliverables:
+
+1. Inspect the existing Knowledge Web data model.
+2. Tell me what entities/tables already exist.
+3. Implement the minimal safe schema changes for the Brain Spine.
+4. Do not change the frontend except if absolutely required to prevent errors.
+5. After implementation, summarize exactly what changed and what files were edited.

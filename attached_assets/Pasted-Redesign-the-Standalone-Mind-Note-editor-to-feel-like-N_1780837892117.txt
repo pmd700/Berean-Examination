@@ -1,0 +1,55 @@
+Redesign the Standalone Mind Note editor to feel like Notion’s page editor.
+
+Do not touch the sidebar, routing, note list, read/edit toggle behavior, delete button, saving logic, linked-note/linking logic, markdown rendering, or anything outside the note editor layout.
+
+ONLY change the note editor UI/layout.
+
+Remove these three fields completely from the note editor:
+1. Color Group
+2. Category
+3. Tags
+
+Keep:
+- Title
+- Content / markdown body
+- Linked To feature
+- Edit / Read mode
+- Add link button
+- Existing save/update behavior
+
+Design goal:
+Make the note itself become the UI. It should not feel like a boxed form. No visible form sections. No heavy borders. No labeled input grid. It should feel like a blank document page like Notion.
+
+Target layout:
+- The main editor area should be a clean centered document canvas.
+- Max content width around 760–900px.
+- Lots of empty breathing room.
+- Title sits at the top as a large, borderless editable text field.
+- Title should look like page text, not an input.
+- Placeholder can be “Untitled” when empty.
+- Body/content sits directly underneath the title as a borderless markdown editor.
+- Body should feel like the page body, not a textarea inside a card.
+- Use a very subtle placeholder like “Write your note…”
+- Remove the large boxed markdown textarea styling. No hard rectangle around the editor.
+- Linked To should appear below the body as a quiet inline section, not a boxed panel.
+- “Linked to” can be a small muted label with existing links shown underneath.
+- “Add link” should be a subtle ghost/minimal button aligned naturally with that section.
+- In read mode, render the markdown as a clean document with the same spacing and width.
+
+Visual reference:
+Notion’s editor is minimal and document-first:
+- large title at the top
+- blank page body underneath
+- no visible form borders
+- no metadata fields unless needed
+- controls are quiet and low-contrast
+- the document content is the center of attention
+
+Important:
+Do not redesign the whole app.
+Do not modify the sidebar.
+Do not add new features.
+Do not create a new note system.
+Do not change the database/schema unless absolutely required to stop showing the removed fields.
+Do not remove Linked To.
+Only make the note editor minimal, clean, borderless, and Notion-like.

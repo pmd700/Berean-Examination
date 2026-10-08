@@ -1,0 +1,1230 @@
+@import './styles/theme.css';
+@import './styles/timegraph.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Fallback used before the JavaScript typography switch is installed. The
+   authoritative value lives in styles/typography.js for one-line font swaps. */
+:root {
+  --bex-app-font-family: Georgia, Cambria, "Times New Roman", Times, serif;
+}
+
+@layer base {
+  :root {
+    /* Height of the workspace tab bar. Anything pinned to the top of the
+       viewport (a fullscreen editor, a floating toolbar) must start below it,
+       or the bar covers its controls. Keep in step with TabBar's h-9. */
+    --bex-tabbar-height: 2.25rem;
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 0 0% 3.9%;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.5rem;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 83.1%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  /* html/body baseline — overridden by the inline style in index.html
+     before React mounts, but kept here so Tailwind's design-token
+     variables (--foreground, etc.) are applied correctly once the
+     stylesheet loads.                                                 */
+  html,
+  body {
+    color: hsl(var(--foreground));
+  }
+
+  /* Both themes read the same token, so the app background follows the
+     theme instead of being pinned to one tone. */
+  html,
+  body {
+    background-color: rgb(var(--app));
+  }
+}
+/* Knowledge Web — formatted preview inside canvas cards. Mirrors the editor look. */
+.canvas-card-preview {
+  font-size: 11px;
+  line-height: 1.35;
+  color: #D1D5DB;
+}
+.canvas-card-preview > * + * { margin-top: 4px; }
+.canvas-card-preview p { margin: 0; }
+.canvas-card-preview h1,
+.canvas-card-preview h2,
+.canvas-card-preview h3,
+.canvas-card-preview h4 {
+  margin: 6px 0 2px;
+  font-weight: 700;
+  color: #F3F4F6;
+  line-height: 1.2;
+}
+.canvas-card-preview h1 { font-size: 1.18em; }
+.canvas-card-preview h2 { font-size: 1.09em; }
+.canvas-card-preview h3,
+.canvas-card-preview h4 { font-size: 1em; }
+.canvas-card-preview strong,
+.canvas-card-preview b { color: #F9FAFB; font-weight: 700; }
+.canvas-card-preview em,
+.canvas-card-preview i { font-style: italic; }
+.canvas-card-preview u { text-decoration: underline; }
+.canvas-card-preview a { color: #A78BFA; text-decoration: underline; }
+.canvas-card-preview ul,
+.canvas-card-preview ol {
+  margin: 2px 0;
+  padding-left: 14px;
+}
+.canvas-card-preview ul { list-style: disc outside; }
+.canvas-card-preview ol { list-style: decimal outside; }
+.canvas-card-preview li { margin: 1px 0; }
+.canvas-card-preview li::marker { color: #9CA3AF; }
+.canvas-card-preview blockquote {
+  margin: 2px 0;
+  padding: 1px 0 1px 7px;
+  border: 0;
+  border-left: 2px solid rgba(243, 244, 246, 0.72);
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-style: normal;
+}
+.canvas-card-preview blockquote p { margin: 0; }
+
+/* Saved rich text outside the live ProseMirror surface (keywords and other
+   compact previews) keeps the same Notion-style quote treatment. */
+.prose blockquote {
+  margin: 0.65em 0;
+  padding: 0.1em 0 0.1em 0.9em;
+  border: 0;
+  border-left: 3px solid hsl(var(--foreground) / 0.72);
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-style: normal;
+}
+.prose blockquote p { margin: 0; }
+.prose blockquote p + p { margin-top: 0.25em; }
+.prose blockquote p:first-of-type::before,
+.prose blockquote p:last-of-type::after { content: none; }
+.canvas-card-preview code {
+  background: rgba(255,255,255,0.06);
+  padding: 0 3px;
+  border-radius: 3px;
+  font-family: var(--bex-app-font-family, serif);
+  font-size: 10px;
+}
+.canvas-card-preview pre {
+  background: rgba(255,255,255,0.05);
+  padding: 4px 6px;
+  border-radius: 4px;
+  overflow: hidden;
+  font-size: 10px;
+}
+.canvas-card-preview hr {
+  border: none;
+  border-top: 1px solid #374151;
+  margin: 4px 0;
+}
+.canvas-card-preview img {
+  max-width: 100%;
+  max-height: 60px;
+  border-radius: 4px;
+  margin: 2px 0;
+  object-fit: contain;
+}
+/* The description fade mask is applied as an inline style in CanvasCard.jsx
+   so the horizontal extent can be limited to the tag-row width (when tags are
+   present the fade only covers the bottom-left corner where the tags sit;
+   the right portion of the card stays fully visible). */
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Rich-text tables — shared styles for editor + read-only display.
+   The editor outputs <table class="rt-table">, but we also style every
+   <table> inside .ProseMirror as a safety net (TipTap's table-extension
+   sometimes drops the class on subsequent transactions). These rules give
+   the editor view the same look as the read-only card preview.
+   `!important` is required because every render site (and the editor
+   itself) wraps content in a `.prose` container; @tailwindcss/typography
+   applies a default table reset that we need to override consistently.
+   ────────────────────────────────────────────────────────────────────── */
+table.rt-table,
+.ProseMirror table {
+  border-collapse: collapse !important;
+  table-layout: auto;
+  width: auto;
+  max-width: 100%;
+  margin: 0.75rem 0;
+  border: 1px solid #9ca3af !important;
+  font-size: 0.875em;
+  background: rgba(255, 255, 255, 0.02);
+}
+.dark table.rt-table,
+.dark .ProseMirror table {
+  border-color: #6b7280 !important;
+  background: rgba(15, 23, 42, 0.4);
+}
+table.rt-table td,
+table.rt-table th,
+.ProseMirror table td,
+.ProseMirror table th {
+  border: 1px solid #9ca3af !important;
+  padding: 6px 10px !important;
+  vertical-align: top !important;
+  word-break: break-word;
+  text-align: left !important;
+}
+.dark table.rt-table td,
+.dark table.rt-table th,
+.dark .ProseMirror table td,
+.dark .ProseMirror table th {
+  border-color: #6b7280 !important;
+}
+table.rt-table th,
+.ProseMirror table th {
+  background: rgba(196, 106, 43, 0.18) !important;
+  font-weight: 600 !important;
+  color: #2B1D12 !important;
+}
+.dark table.rt-table th,
+.dark .ProseMirror table th {
+  background: rgba(120, 65, 30, 0.55) !important;
+  color: #f3ede3 !important;
+  border-color: #6b7280 !important;
+}
+table.rt-table tbody tr:nth-child(even) > td,
+.ProseMirror table tbody tr:nth-child(even) > td {
+  background: rgba(0, 0, 0, 0.04);
+}
+.dark table.rt-table tbody tr:nth-child(even) > td,
+.dark .ProseMirror table tbody tr:nth-child(even) > td {
+  background: rgba(255, 255, 255, 0.04);
+}
+table.rt-table p,
+.ProseMirror table p {
+  margin: 0 !important;
+}
+
+/* Notion-style top-level block interaction. Gutter controls hang outside the
+   text flow, so document text stays flush with the shared editor's left edge. */
+.ProseMirror.bex-block-editor {
+  padding-left: 0 !important;
+}
+
+/* Knowledge Web card editors live inside a bounded inspector rather than a
+   wide document page. Keep a small strip inside that boundary for starting a
+   marquee and for the six-dot block handle; otherwise both controls hang over
+   the panel edge. Full-page notes intentionally remain flush. */
+.bex-card-text-editor .ProseMirror.bex-block-editor {
+  padding-left: 36px !important;
+}
+
+.bex-draggable-block {
+  position: relative;
+  isolation: isolate;
+  border-radius: 0.55rem;
+  margin-top: 0.2rem !important;
+  margin-bottom: 0.2rem !important;
+  transition: background-color 120ms ease;
+}
+
+.bex-draggable-block.bex-block-selected {
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
+.bex-draggable-block.bex-block-selected::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  right: -0.25rem;
+  bottom: 0;
+  left: -0.65rem;
+  border-radius: 0.65rem;
+  background: rgba(124, 92, 183, 0.24);
+  pointer-events: none;
+}
+
+.ProseMirror.bex-block-selection-active {
+  caret-color: transparent;
+}
+
+.bex-draggable-block.bex-drop-before {
+  box-shadow: 0 -3px 0 -1px #8b5cf6;
+}
+
+.bex-draggable-block.bex-drop-after {
+  box-shadow: 0 3px 0 -1px #8b5cf6;
+}
+
+.bex-block-drag-handle {
+  position: fixed;
+  z-index: 10000;
+  display: grid;
+  grid-template-columns: repeat(2, 4px);
+  grid-auto-rows: 4px;
+  gap: 2px;
+  width: 28px;
+  height: 30px;
+  place-content: center;
+  border: 0;
+  border-radius: 9px;
+  color: #9ca3af;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+  cursor: grab;
+  transform: translateY(-1px) scale(0.94);
+  transition: opacity 100ms ease, transform 100ms ease, background-color 100ms ease;
+}
+
+.bex-block-drag-handle span {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.bex-block-drag-handle.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(-1px) scale(1);
+}
+
+/* Keep the resting grip unobtrusive. Hovering enlarges its visible purple
+   target so the six dots are easier to find and grab. */
+.bex-block-drag-handle:hover,
+.bex-block-drag-handle.is-dragging {
+  color: #e9d5ff;
+  background: rgba(124, 92, 183, 0.22);
+}
+
+.bex-block-drag-handle.is-dragging,
+.bex-is-dragging-blocks {
+  cursor: grabbing !important;
+  user-select: none !important;
+}
+
+/* Compact preview on knowledge-web cards: scroll instead of overflow */
+.canvas-card-preview table.rt-table {
+  font-size: 9px;
+  margin: 4px 0;
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
+  border-color: #374151;
+}
+.canvas-card-preview table.rt-table td,
+.canvas-card-preview table.rt-table th {
+  padding: 2px 4px;
+  border-color: #374151;
+  white-space: normal;
+}
+.canvas-card-preview table.rt-table th {
+  background: rgba(196, 106, 43, 0.18);
+  color: #f3ede3;
+}
+.canvas-card-preview table.rt-table tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Mind View hover preview card entrance */
+@keyframes mvPreviewIn {
+  from { opacity: 0; transform: translateY(4px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ───────────────────────────────────────────────────────────────────────
+   Confirm dialog (confirm-dialog.jsx) — metallic glass card, shader glow,
+   3D cursor tilt, fast enter/exit + satisfying confirm/cancel states.
+   ─────────────────────────────────────────────────────────────────────── */
+.cfm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(6, 7, 10, 0);
+  backdrop-filter: blur(0px);
+  -webkit-backdrop-filter: blur(0px);
+  transition: background 200ms ease, backdrop-filter 220ms ease;
+}
+.cfm-overlay[data-open='true'] {
+  background: rgba(6, 7, 10, 0.62);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+}
+
+/* Outer wrapper owns perspective + the enter/exit transform. */
+.cfm-card-wrap {
+  width: 100%;
+  max-width: 27rem;
+  perspective: 1100px;
+  opacity: 0;
+  transform: translateY(10px) scale(0.94);
+  transition:
+    opacity 190ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 230ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
+}
+.cfm-card-wrap[data-open='true'] {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+/* Satisfying micro-states: a confident settle on confirm, a quick dip on cancel. */
+.cfm-card-wrap[data-phase='confirming'] {
+  animation: cfmConfirmPulse 360ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.cfm-card-wrap[data-phase='cancelling'] {
+  transform: translateY(6px) scale(0.965);
+  opacity: 0;
+}
+@keyframes cfmConfirmPulse {
+  0%   { transform: translateY(0) scale(1); }
+  35%  { transform: translateY(-2px) scale(1.018); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+/* The glass card itself — receives the cursor tilt via CSS vars. */
+.cfm-card {
+  --rx: 0deg;
+  --ry: 0deg;
+  position: relative;
+  border-radius: 0.85rem;
+  overflow: hidden;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--rx)) rotateY(var(--ry)) translateZ(0);
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid rgb(var(--ink-muted) / 0.12);
+  background: linear-gradient(180deg, rgb(var(--surface) / 0.88) 0%, rgb(var(--app) / 0.94) 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.55) inset,
+    0 28px 70px -24px rgba(0, 0, 0, 0.85),
+    0 8px 24px -10px rgba(107, 76, 154, 0.32);
+}
+.cfm-card[data-tone='danger'] {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.55) inset,
+    0 28px 70px -24px rgba(0, 0, 0, 0.85),
+    0 8px 26px -10px rgba(192, 69, 94, 0.34);
+}
+.cfm-shader {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: 0.8;
+}
+.cfm-glass {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgb(var(--surface) / 0.5) 0%, rgb(var(--app) / 0.8) 100%);
+}
+.cfm-specular {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transition: background 120ms ease;
+}
+.cfm-rim {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgb(var(--ink-muted) / 0.4), transparent);
+}
+
+/* Leading icon medallion. */
+.cfm-icon {
+  flex: 0 0 auto;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: grid;
+  place-items: center;
+  border-radius: 0.6rem;
+  color: #c9a94e;
+  background: radial-gradient(120% 120% at 30% 20%, rgba(201, 169, 78, 0.22), rgba(201, 169, 78, 0.06));
+  border: 1px solid rgba(201, 169, 78, 0.32);
+  box-shadow: 0 6px 18px -8px rgba(201, 169, 78, 0.4), 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+}
+.cfm-icon[data-tone='danger'] {
+  color: #e98298;
+  background: radial-gradient(120% 120% at 30% 20%, rgba(192, 69, 94, 0.26), rgba(192, 69, 94, 0.07));
+  border-color: rgba(192, 69, 94, 0.38);
+  box-shadow: 0 6px 18px -8px rgba(192, 69, 94, 0.5), 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+}
+
+/* Buttons. */
+.cfm-btn {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 6.25rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.55rem;
+  font-family: var(--bex-app-font-family, serif);
+  font-weight: 600;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  user-select: none;
+  transition: transform 130ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 160ms ease,
+    background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+.cfm-btn:disabled { cursor: default; }
+.cfm-btn:active { transform: translateY(1px) scale(0.985); }
+.cfm-btn-label {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+/* Cancel — quiet metallic outline. */
+.cfm-btn-cancel {
+  color: #c8cfda;
+  background: linear-gradient(180deg, rgba(40, 45, 55, 0.65), rgba(24, 28, 35, 0.85));
+  border: 1px solid rgb(var(--ink-muted) / 0.18);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 4px 12px -8px rgba(0, 0, 0, 0.7);
+}
+.cfm-btn-cancel:hover:not(:disabled) {
+  color: #eef1f5;
+  border-color: rgb(var(--ink-muted) / 0.34);
+  transform: translateY(-1px);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.07) inset, 0 8px 18px -10px rgba(0, 0, 0, 0.8);
+}
+
+/* Confirm — accent fill that "charges" on press. */
+.cfm-btn-confirm {
+  color: #fff;
+  border: 1px solid transparent;
+}
+/* Keep the countdown and confirm action in the same slot to avoid shifting
+   the dialog when the five-second wait ends. */
+.cfm-confirm-slot { display: grid; align-items: center; }
+.cfm-confirm-slot > * { grid-area: 1 / 1; }
+.cfm-countdown {
+  padding: 0 1rem;
+  text-align: center;
+  color: rgb(var(--ink-muted));
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+.cfm-btn-confirm[data-waiting] { transition: opacity 300ms ease, transform 180ms ease, box-shadow 180ms ease; }
+.cfm-btn-confirm[data-waiting='true'] { opacity: 0; pointer-events: none; }
+.cfm-btn-confirm[data-waiting='false'] { opacity: 1; }
+
+.cfm-btn-confirm[data-tone='danger'] {
+  background: linear-gradient(180deg, #c2495f 0%, #9c3147 100%);
+  border-color: rgba(255, 180, 195, 0.28);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.18) inset, 0 8px 22px -10px rgba(192, 69, 94, 0.7);
+}
+.cfm-btn-confirm[data-tone='default'] {
+  background: linear-gradient(180deg, #7c5cb7 0%, #5b3f8f 100%);
+  border-color: rgba(201, 169, 78, 0.3);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.16) inset, 0 8px 22px -10px rgba(107, 76, 154, 0.7);
+}
+.cfm-btn-confirm:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+}
+.cfm-btn-confirm[data-tone='danger']:hover:not(:disabled) {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.2) inset, 0 12px 26px -10px rgba(192, 69, 94, 0.85);
+}
+.cfm-btn-confirm[data-tone='default']:hover:not(:disabled) {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.18) inset, 0 12px 26px -10px rgba(107, 76, 154, 0.85);
+}
+
+/* A specular sweep that flies across the confirm button on activation. */
+.cfm-btn-sweep {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  transform: translateX(-120%) skewX(-18deg);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  opacity: 0;
+}
+
+/* Icon swap: trash/check -> animated check on confirm. */
+.cfm-btn-ico {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 1rem;
+  height: 1rem;
+}
+.cfm-btn-ico > * { grid-area: 1 / 1; }
+.cfm-ico-done {
+  opacity: 0;
+  transform: scale(0.5) rotate(-12deg);
+}
+
+/* When confirming, the whole inner content reacts. */
+[data-phase='confirming'] .cfm-btn-confirm {
+  filter: brightness(1.14);
+}
+[data-phase='confirming'] .cfm-btn-confirm .cfm-btn-sweep {
+  animation: cfmSweep 420ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+[data-phase='confirming'] .cfm-btn-confirm .cfm-ico-default {
+  animation: cfmIcoOut 160ms ease forwards;
+}
+[data-phase='confirming'] .cfm-btn-confirm .cfm-ico-done {
+  animation: cfmIcoIn 260ms 120ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+[data-phase='confirming'] .cfm-btn-cancel { opacity: 0.45; }
+[data-phase='cancelling'] .cfm-btn-cancel { transform: scale(0.96); }
+
+@keyframes cfmSweep {
+  0%   { opacity: 0; transform: translateX(-120%) skewX(-18deg); }
+  20%  { opacity: 1; }
+  100% { opacity: 0; transform: translateX(120%) skewX(-18deg); }
+}
+@keyframes cfmIcoOut {
+  to { opacity: 0; transform: scale(0.4) rotate(10deg); }
+}
+@keyframes cfmIcoIn {
+  from { opacity: 0; transform: scale(0.5) rotate(-12deg); }
+  to   { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cfm-card-wrap,
+  .cfm-card,
+  .cfm-btn, .cfm-btn-confirm[data-waiting] { transition-duration: 1ms; }
+  .cfm-card-wrap[data-phase='confirming'] { animation: none; }
+  [data-phase='confirming'] .cfm-btn-confirm .cfm-btn-sweep,
+  [data-phase='confirming'] .cfm-btn-confirm .cfm-ico-default,
+  [data-phase='confirming'] .cfm-btn-confirm .cfm-ico-done { animation-duration: 1ms; }
+}
+
+/* ── Rich Bible (segment) rendering ─────────────────────────────────────── */
+
+.bible-rich-para {
+  margin-bottom: 1.25rem;
+  text-align: left;
+}
+
+.bible-rich-verse {
+  position: relative;
+}
+
+/* True superscript verse numbers (clickable → Bible Hub). */
+.bible-verse-num {
+  vertical-align: super;
+  font-size: 0.62em;
+  font-weight: 700;
+  line-height: 0;
+  color: #6B4C9A;
+  margin-right: 0.18em;
+  text-decoration: none;
+  user-select: none;
+  white-space: nowrap;
+}
+.dark .bible-verse-num { color: #7C5CB7; }
+.bible-verse-num:hover { color: #C9A94E; }
+.bible-verse-num:focus-visible {
+  outline: 2px solid #6B4C9A;
+  outline-offset: 1px;
+  border-radius: 2px;
+}
+.bible-verse-num-icon { display: none; }
+
+/* Divine-name / small-caps reading runs. */
+.bible-smallcaps {
+  font-size: 0.82em;
+  letter-spacing: 0.02em;
+}
+
+/* Footnote markers — superscript, clickable, keyboard-accessible. */
+.bible-footnote-wrap {
+  position: relative;
+  white-space: nowrap;
+}
+.bible-footnote-marker {
+  vertical-align: super;
+  font-size: 0.62em;
+  font-weight: 700;
+  line-height: 0;
+  color: #C9A94E;
+  background: none;
+  border: none;
+  padding: 0 0.12em;
+  margin: 0;
+  cursor: pointer;
+  user-select: none;
+  font-family: inherit;
+}
+.bible-footnote-marker:hover { color: #6B4C9A; }
+.dark .bible-footnote-marker:hover { color: #7C5CB7; }
+.bible-footnote-marker:focus-visible {
+  outline: 2px solid #6B4C9A;
+  outline-offset: 1px;
+  border-radius: 2px;
+}
+
+.bible-footnote-popover {
+  position: absolute;
+  z-index: 60;
+  top: 1.3em;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: max-content;
+  max-width: 340px;
+  padding: 0.75rem 0.9rem;
+  border-radius: 0.6rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  text-align: left;
+  white-space: normal;
+  user-select: text;
+  font-family: var(--bex-app-font-family, serif);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+.bible-footnote-popover-head {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #C9A94E;
+}
+.bible-footnote-type { color: #A8B2C1; }
+.bible-footnote-popover-body { color: #F5F7FB; }
+.bible-footnote-debug {
+  font-family: var(--bex-app-font-family, serif);
+  font-size: 0.65rem;
+  color: #5A6478;
+  word-break: break-all;
+}
+
+/* ── ⌘F + Spotlight highlights (RichTextEditor) ──
+   Purple is BEX's navigation colour: all hits stay readable and the exact
+   destination receives a brief ring without changing the saved document. */
+.bex-find-hit {
+  background: rgba(139, 92, 246, 0.28);
+  border-radius: 3px;
+  transition: background 140ms ease, box-shadow 140ms ease;
+}
+.bex-find-hit-active {
+  background: rgba(139, 92, 246, 0.78);
+  color: #fff;
+  box-shadow: 0 0 0 1px rgba(196, 181, 253, 0.95);
+  animation: bexFindPulse 260ms ease-out;
+}
+@keyframes bexFindPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(167, 139, 250, 0.72); }
+  60%  { box-shadow: 0 0 0 5px rgba(167, 139, 250, 0); }
+  100% { box-shadow: 0 0 0 1px rgba(196, 181, 253, 0.95); }
+}
+
+.bex-spotlight-field::selection {
+  background: rgba(139, 92, 246, 0.82);
+  color: #fff;
+}
+
+/* Knowledge Web card inspector: arrive quickly from the edge, then ease into
+   place. The steep ease-out gives the panel a speed-ramped feel without
+   delaying access to its fields. */
+.kw-card-inspector-enter {
+  transform-origin: right center;
+  animation: kwCardInspectorIn 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity;
+}
+
+@keyframes kwCardInspectorIn {
+  0% {
+    opacity: 0;
+    transform: translate3d(2.25rem, 0, 0) scaleX(0.985);
+  }
+  68% {
+    opacity: 1;
+    transform: translate3d(-0.1rem, 0, 0) scaleX(1);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kw-card-inspector-enter {
+    animation: none;
+    will-change: auto;
+  }
+}
+
+/* ── Comment cards: a full editor squeezed into a margin card ──
+   The nested editor keeps every writing feature, so its output needs the same
+   styling the main editor gives — just scaled down to card size and with the
+   tall empty canvas removed. */
+.bex-nested-editor {
+  min-height: 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.bex-nested-editor > * + * { margin-top: 0.35rem; }
+.bex-nested-editor p { margin: 0; }
+.bex-nested-editor h1 { font-size: 1.35em; font-weight: 700; margin: 0.2em 0 0.1em; }
+.bex-nested-editor h2 { font-size: 1.2em; font-weight: 700; margin: 0.2em 0 0.1em; }
+.bex-nested-editor h3,
+.bex-nested-editor h4 { font-size: 1.08em; font-weight: 600; margin: 0.2em 0 0.1em; }
+.bex-nested-editor hr { border: none; border-top: 1px solid #2A3040; margin: 0.45rem 0; }
+.bex-nested-editor ul { list-style: disc outside; padding-left: 1.1rem; margin: 0.2rem 0; }
+.bex-nested-editor ol { list-style: decimal outside; padding-left: 1.1rem; margin: 0.2rem 0; }
+.bex-nested-editor li > p { margin: 0; }
+.bex-nested-editor blockquote {
+  margin: 0.25rem 0;
+  padding: 0.08em 0 0.08em 0.7em;
+  border: 0;
+  border-left: 2px solid hsl(var(--foreground) / 0.72);
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-style: normal;
+}
+.bex-nested-editor img,
+.bex-nested-editor .uploaded-image { max-width: 100%; height: auto; border-radius: 4px; }
+.bex-nested-editor .rt-table { font-size: 0.92em; }
+
+/* Saved rich text rendered read-only — comments in the margin, and the
+   tooltip and footnote bodies, which take the same shapes as the editor above. */
+.bex-comment-body > * + *,
+.bex-annotation-body > * + * { margin-top: 0.35rem; }
+.bex-annotation-body { font-size: var(--bex-annotation-text-size, 12.5px) !important; }
+.bex-comment-body p,
+.bex-annotation-body p { margin: 0; }
+.bex-comment-body h1,
+.bex-annotation-body h1 { font-size: 1.35em; font-weight: 700; margin: 0.2em 0 0.1em; }
+.bex-comment-body h2,
+.bex-annotation-body h2 { font-size: 1.2em; font-weight: 700; margin: 0.2em 0 0.1em; }
+.bex-comment-body h3,
+.bex-comment-body h4,
+.bex-annotation-body h3,
+.bex-annotation-body h4 { font-size: 1.08em; font-weight: 600; margin: 0.2em 0 0.1em; }
+.bex-comment-body strong,
+.bex-annotation-body strong { font-weight: 700; }
+.bex-comment-body em,
+.bex-annotation-body em { font-style: italic; }
+.bex-comment-body u,
+.bex-annotation-body u { text-decoration: underline; }
+.bex-comment-body hr,
+.bex-annotation-body hr { border: none; border-top: 1px solid #2A3040; margin: 0.45rem 0; }
+.bex-comment-body ul,
+.bex-annotation-body ul { list-style: disc outside; padding-left: 1.1rem; margin: 0.2rem 0; }
+.bex-comment-body ol,
+.bex-annotation-body ol { list-style: decimal outside; padding-left: 1.1rem; margin: 0.2rem 0; }
+.bex-comment-body li > p,
+.bex-annotation-body li > p { margin: 0; }
+.bex-comment-body a,
+.bex-annotation-body a { color: #A78BFA; text-decoration: underline; }
+.bex-comment-body img,
+.bex-annotation-body img { max-width: 100%; height: auto; border-radius: 4px; }
+.bex-comment-body blockquote,
+.bex-annotation-body blockquote {
+  margin: 0.25rem 0;
+  padding: 0.08em 0 0.08em 0.7em;
+  border: 0;
+  border-left: 2px solid hsl(var(--foreground) / 0.72);
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-style: normal;
+}
+.bex-comment-body blockquote p,
+.bex-annotation-body blockquote p { margin: 0; }
+.bex-comment-body code,
+.bex-annotation-body code {
+  font-family: var(--bex-app-font-family, serif);
+  font-size: 0.9em;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 3px;
+  padding: 0 3px;
+}
+
+/* ── The tooltip badge ──
+   A filled disc with an "i" knocked out of it, drawn as a mask so it takes the
+   colour of whatever it sits next to instead of being a fixed-colour image. It
+   lives in index.css rather than in the editor's own <style> because the same
+   badge has to appear on a page rendered read-only — the sheet mid-turn, the
+   cards in the overview — where no editor is running to draw decorations. */
+
+:root {
+  --bex-tooltip-badge-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23000' fill-rule='evenodd' d='M12 1C5.925 1 1 5.925 1 12s4.925 11 11 11 11-4.925 11-11S18.075 1 12 1zm0 4.4a1.8 1.8 0 100 3.6 1.8 1.8 0 000-3.6zm0 5.1a1.65 1.65 0 00-1.65 1.65v5.4a1.65 1.65 0 103.3 0v-5.4A1.65 1.65 0 0012 10.5z'/%3E%3C/svg%3E");
+}
+
+.bex-tooltip-badge {
+  display: inline-block;
+  width: 0.82em;
+  height: 0.82em;
+  margin-left: 0.12em;
+  /* Lifted a touch so it rides with the text rather than sitting on the
+     baseline like a full-size character. */
+  vertical-align: 0.06em;
+  background-color: #A78BFA;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 140ms ease, transform 140ms ease;
+  -webkit-mask-image: var(--bex-tooltip-badge-mask);
+  mask-image: var(--bex-tooltip-badge-mask);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
+
+.bex-tooltip-badge:hover {
+  background-color: #DDD6FE;
+  transform: scale(1.12);
+}
+
+.bex-tooltip-badge--active {
+  background-color: #EDE9FE;
+}
+
+/* A still page is not interactive, so the badge is a marker only. */
+.bex-page-snapshot .bex-tooltip-badge {
+  cursor: default;
+}
+
+/* ── Drag-to-itemize ──
+   A gutter drag draws a rubber band from the press to the pointer, while each
+   block it catches previews as the list row it is about to become. */
+
+.bex-block-drag-overlay {
+  position: fixed;
+  z-index: 9998;
+  /* Square corners and a faint fill so this reads as a selection rectangle
+     being dragged, not as a highlight sitting on the text. Which blocks are
+     caught is already shown by .bex-block-selected. */
+  border-radius: 1px;
+  background: rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(167, 139, 250, 0.7);
+  opacity: 0;
+  pointer-events: none;
+  /* Only opacity transitions. Animating position or size would make the band
+     trail a frame behind the cursor. */
+  transition: opacity 90ms ease;
+}
+
+.bex-block-drag-overlay.is-visible {
+  opacity: 1;
+}
+
+/* Each covered block, shown as the itemized row it will become. The bullet
+   sits in the gutter so the text itself doesn't shift while you drag. */
+.bex-draggable-block.bex-item-box::after {
+  content: '•';
+  position: absolute;
+  left: -1.05rem;
+  top: 0;
+  color: rgba(196, 181, 253, 0.95);
+  font-weight: 700;
+  pointer-events: none;
+}
+
+/* No outline: the translucent fill alone marks a caught row. A 1px inset border
+   on every row turned a multi-block selection into a stack of hard-edged boxes,
+   which read as chrome rather than as one highlighted passage. */
+.bex-draggable-block.bex-item-box {
+  border-radius: 0.4rem;
+}
+
+/* With no conversion configured the drag is pure selection, so the rows must
+   not show a bullet they are never going to get. */
+.ProseMirror[data-list-style="none"] .bex-draggable-block.bex-item-box::after {
+  content: none;
+}
+
+/* Numbered and toggle previews swap the marker for the matching one. */
+.ProseMirror[data-list-style="numbered"] .bex-draggable-block.bex-item-box::after {
+  content: attr(data-item-row) ".";
+  left: -1.35rem;
+  font-size: 0.85em;
+}
+
+.ProseMirror[data-list-style="toggle"] .bex-draggable-block.bex-item-box::after {
+  content: '▸';
+  left: -1.1rem;
+}
+
+/* ── Table column / row grips ──
+   The pills that appear on a table's top and left borders. They sit OUTSIDE
+   the table's own rectangle, which is why they are body-level elements placed
+   in viewport coordinates rather than anything drawn inside the table. */
+.bex-table-grip {
+  position: fixed;
+  z-index: 10000;
+  display: grid;
+  gap: 1.5px;
+  place-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  color: rgb(255 255 255 / 0.55);
+  background: rgb(var(--ink-muted) / 0.34);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease, background-color 120ms ease, color 120ms ease;
+}
+
+/* Six dots, laid out along the pill: two columns for a row's upright pill,
+   three for a column's flat one, so the dots read the same way round as the
+   handle you are about to drag. */
+.bex-table-grip--row {
+  grid-template-columns: repeat(2, 2px);
+  grid-auto-rows: 2px;
+}
+
+.bex-table-grip--column {
+  grid-template-columns: repeat(3, 2px);
+  grid-auto-rows: 2px;
+}
+
+.bex-table-grip span {
+  width: 2px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.bex-table-grip.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+  cursor: grab;
+}
+
+.bex-table-grip:hover,
+.bex-table-grip:focus-visible {
+  color: #fff;
+  background: rgb(139 92 246 / 0.9);
+  outline: none;
+}
+
+.bex-table-grip.is-dragging {
+  color: #fff;
+  background: rgb(139 92 246 / 0.95);
+  cursor: grabbing;
+}
+
+/* The band itself, carried under the pointer.
+   A line alone says where the column will land but not which column is moving —
+   so a faded copy of the real cells travels with the cursor, the same way a
+   dragged paragraph does. */
+.bex-table-band-ghost {
+  position: fixed;
+  z-index: 10000;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  border-radius: 4px;
+  box-shadow: 0 18px 40px -16px rgba(0, 0, 0, 0.9);
+  transition: opacity 100ms ease;
+}
+
+.bex-table-band-ghost.is-visible {
+  opacity: 0.6;
+}
+
+/* Everything the .ProseMirror wrapper adds for a live editing surface has to
+   come back off; only its table styling is wanted here. */
+.bex-table-band-ghost__surface.ProseMirror {
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  caret-color: transparent;
+}
+
+.bex-table-band-ghost table {
+  margin: 0 !important;
+  width: 100% !important;
+}
+
+/* Where the band will land, drawn down the edge it will rest against. */
+.bex-table-drop-marker {
+  position: fixed;
+  z-index: 10000;
+  border-radius: 2px;
+  background: rgb(139 92 246 / 0.95);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.bex-table-drop-marker.is-visible {
+  opacity: 1;
+}
+
+/* A band being carried should not also be selecting text under the pointer. */
+body.bex-is-dragging-table-band {
+  cursor: grabbing;
+  user-select: none;
+}
+
+/* The dragged content, following the pointer.
+   Deliberately not a card. This used to be a small dark box holding the blocks'
+   text at 12px, which read as a tooltip about the paragraph rather than as the
+   paragraph itself. What lifts off the page is a clone of the real block at its
+   real width and type size, faded — so no background, no border, no shadow and
+   no font of its own to override the editor's. */
+.bex-block-drag-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 10001;
+  opacity: 0;
+  pointer-events: none;
+  /* Off during the lift so the ghost cannot lag behind the pointer. */
+  transition: opacity 120ms ease;
+}
+
+.bex-block-drag-ghost.is-visible {
+  opacity: 0.45;
+}
+
+/* The clones sit inside a .ProseMirror so the editor's own typography rules
+   reach them; everything that rule set adds for a live editing surface — its
+   minimum height, its padding, its caret — has to come back off. */
+.bex-block-drag-ghost__surface.ProseMirror {
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  caret-color: transparent;
+}
+
+/* A block's first child normally has its top margin collapsed away by the
+   editor; the clone is a first child too, so it would sit a line too low. */
+.bex-block-drag-ghost__surface > :first-child {
+  margin-top: 0;
+}
+
+.bex-block-drag-ghost__surface > :last-child {
+  margin-bottom: 0;
+}
+
+.bex-block-drag-ghost__more {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgb(var(--ink-muted) / 0.9);
+}
+
+/* ── Tab panes own the viewport ──
+   A page inside a tab is no longer the full window: the tab bar takes the top
+   strip. Pages sized in viewport units would therefore be taller than the pane
+   holding them, leaving a permanent sliver of scroll and — before the shell
+   clipped its overflow — spilling out of the app entirely. Inside a pane,
+   "full height" means the pane. */
+.bex-tab-pane .h-screen { height: 100%; }
+.bex-tab-pane .min-h-screen { min-height: 100%; }
+.bex-tab-pane .max-h-screen { max-height: 100%; }
+
+/* The pane paints the app background itself, so no gap can ever reveal the
+   document behind it. */
+.bex-tab-pane {
+  background-color: rgb(var(--app));
+}
+
+/* A few third-party/Tailwind helpers assign their own font family instead of
+   inheriting. Route those helpers through the same global token too. KaTeX and
+   interlinear Scripture retain their language-specific glyph fonts. */
+.font-sans,
+.font-serif,
+.font-mono,
+code,
+pre,
+button,
+input,
+textarea,
+select,
+option,
+svg text {
+  font-family: var(--bex-app-font-family, serif) !important;
+}
+
+html,
+body,
+#root {
+  font-family: var(--bex-app-font-family, serif);
+}

@@ -1,0 +1,133 @@
+Proceed to Step 6B.3C ONLY: Fix MCP Auth0 Audience Acceptance for ChatGPT Token.
+
+Purpose of this step:
+ChatGPT now successfully reaches Auth0, logs in, receives consent, and completes the authorization-code exchange.
+The remaining failure is likely that /mcp/brain rejects the Auth0 access token because the token audience is now the MCP resource:
+
+https://bereanexamination.com/mcp/brain
+
+while the existing app verifier may still only accept:
+
+https://berean-api
+
+This step is successful if:
+1. Existing app login remains unchanged.
+2. MCP_BRAIN_TOKEN still works.
+3. /mcp/brain accepts Auth0 access tokens whose audience is https://bereanexamination.com/mcp/brain.
+4. /mcp/brain still rejects wrong users.
+5. ChatGPT can connect and list/call the MCP tools.
+
+Important boundaries:
+Do not change Auth0 dashboard settings.
+Do not change existing app login behavior.
+Do not replace AUTH0_AUDIENCE globally.
+Do not remove MCP_BRAIN_TOKEN.
+Do not weaken auth.
+Do not create a no-auth endpoint.
+Do not modify schema.
+Do not modify Neon.
+Do not add write tools.
+Do not modify admin/auth/bootstrap logic.
+
+Current facts:
+- Auth0 logs show Success Login for ChatGPT.
+- Auth0 logs show Success Exchange: Authorization Code for Access Token.
+- The Auth0 API/resource identifier is:
+  https://bereanexamination.com/mcp/brain
+- ChatGPT then reports connection errors.
+- The likely issue is MCP server token verification rejecting the audience.
+
+Tasks:
+
+1. Inspect deployed/server logs for the failed ChatGPT /mcp/brain request.
+
+Look for:
+- Auth0 verification failure
+- invalid audience
+- jwt audience invalid
+- 401 from MCP auth
+- 403 from owner mismatch
+
+Do not print token values.
+
+2. Update MCP-only Auth0 token verification.
+
+Do not change the normal app API verifier.
+
+Add a MCP-specific verifier or parameterized verifier that accepts:
+
+issuer:
+https://dev-3kfj4yn0i303lnnd.us.auth0.com/
+
+audience:
+https://bereanexamination.com/mcp/brain
+
+Prefer reading the MCP audience from an env var:
+
+MCP_AUTH0_AUDIENCE=https://bereanexamination.com/mcp/brain
+
+Fallback may be:
+PUBLIC_BASE_URL + "/mcp/brain"
+
+Do not use temporary dev URLs.
+
+3. Keep owner enforcement.
+
+For Auth0-token MCP path:
+- verify issuer
+- verify RS256/JWKS signature
+- verify audience equals MCP_AUTH0_AUDIENCE
+- verify decoded.sub === OWNER_AUTH0_USER_ID
+- wrong user → 403
+- invalid token → 401
+
+4. Preserve static bearer path.
+
+MCP_BRAIN_TOKEN must still work exactly as before:
+- initialize 200
+- tools/list 200
+- search_second_brain returns real Neon data
+
+5. Verify OAuth metadata still matches.
+
+GET https://bereanexamination.com/.well-known/oauth-protected-resource
+
+Confirm:
+- resource = https://bereanexamination.com/mcp/brain
+- authorization_servers = existing Auth0 issuer
+
+6. Tests.
+
+Run:
+- no auth → 401 with WWW-Authenticate header
+- wrong bearer → 401
+- MCP_BRAIN_TOKEN → initialize 200
+- MCP_BRAIN_TOKEN → tools/list 200
+- MCP_BRAIN_TOKEN → search_second_brain returns real Neon data
+- if a real ChatGPT/Auth0 token is visible only through safe logs, do not print it
+- if possible, confirm the new verifier would accept audience https://bereanexamination.com/mcp/brain
+
+7. Redeploy after code/env changes.
+
+If MCP_AUTH0_AUDIENCE must be added to Deployment Secrets, tell David the exact value:
+
+MCP_AUTH0_AUDIENCE=https://bereanexamination.com/mcp/brain
+
+Then stop until David confirms it is set and redeployed.
+
+8. Final report.
+
+Tell me:
+A. What the server-side failure was
+B. Files changed
+C. Env vars needed
+D. Existing app login changed? should be no
+E. MCP_BRAIN_TOKEN still works? yes/no
+F. MCP Auth0 audience accepted? yes/no
+G. Owner-only check preserved? yes/no
+H. Any Auth0 dashboard changes? should be no
+I. Any schema/Neon changes? should be no
+J. Any write tools added? should be no
+K. Are we ready to retry ChatGPT connector?
+
+Stop after Step 6B.3C.

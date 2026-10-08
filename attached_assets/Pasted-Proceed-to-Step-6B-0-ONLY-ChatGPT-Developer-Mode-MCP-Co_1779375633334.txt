@@ -1,0 +1,82 @@
+Proceed to Step 6B.0 ONLY: ChatGPT Developer Mode MCP Compatibility Check.
+
+Important:
+Do not weaken auth.
+Do not remove MCP_BRAIN_TOKEN.
+Do not make /mcp/brain public without auth.
+Do not add write tools.
+Do not modify schema.
+Do not modify Neon.
+Do not build OAuth yet.
+Do not build UI widgets.
+Do not modify admin/auth/bootstrap logic.
+
+Context:
+Step 6A.8 passed.
+The MCP endpoint works at /mcp/brain.
+Neon is active and returns real Brain data.
+MCP currently requires Authorization: Bearer MCP_BRAIN_TOKEN.
+
+Goal:
+Determine whether the current bearer-gated MCP endpoint can be connected directly to ChatGPT Developer Mode, or whether Step 6B needs an OAuth-compatible auth layer.
+
+Tasks:
+
+1. Confirm the public HTTPS URL for the deployed Replit app.
+
+Give me the exact MCP URL in this shape:
+
+https://<public-host>/mcp/brain
+
+Do not use localhost.
+
+2. Test the public HTTPS MCP endpoint.
+
+Confirm:
+- POST /mcp/brain with no Authorization returns 401
+- POST /mcp/brain with wrong bearer returns 401
+- POST /mcp/brain with correct bearer returns initialize 200
+- tools/list returns the 4 tools
+
+3. Confirm whether ChatGPT Developer Mode connector setup supports custom static Authorization headers.
+
+Important:
+Do not guess.
+Check current OpenAI documentation or the actual connector creation UI if accessible.
+We need to know whether ChatGPT lets us provide:
+
+Authorization: Bearer <MCP_BRAIN_TOKEN>
+
+for the MCP server.
+
+4. If static bearer is supported:
+
+Tell me the exact ChatGPT setup fields:
+- connector name
+- connector description
+- connector URL
+- auth setting
+- where the bearer token goes
+
+Do not change code.
+
+5. If static bearer is NOT supported:
+
+Tell me the safest next path.
+
+Likely options:
+A. Add proper OAuth support for MCP using Auth0 or another provider.
+B. Add a temporary dev-only no-auth connector endpoint — NOT recommended unless locked down another way.
+C. Use API Playground or another MCP client that supports custom headers for testing only.
+D. Keep current bearer endpoint for non-ChatGPT MCP clients and build ChatGPT-compatible OAuth next.
+
+6. Final report:
+
+A. Public MCP URL
+B. Public endpoint test results
+C. Does ChatGPT support static bearer headers for MCP connectors? yes/no/unclear
+D. Recommended Step 6B path
+E. Whether any code changed
+F. Whether auth remained protected
+
+Stop after this audit.

@@ -1,0 +1,133 @@
+Proceed to Step 6B.2A ONLY: Prepare /mcp/brain for ChatGPT OAuth Connection Testing.
+
+Purpose of this step:
+ChatGPT.com cannot use our static MCP_BRAIN_TOKEN.
+So this step must add the minimum server-side OAuth compatibility required for ChatGPT to begin an OAuth flow and later call /mcp/brain with an Auth0 bearer token.
+
+This step is successful if:
+1. /mcp/brain still works with MCP_BRAIN_TOKEN.
+2. /mcp/brain can also accept a valid Auth0 access token for OWNER_AUTH0_USER_ID.
+3. unauthenticated /mcp/brain responses include the OAuth discovery header ChatGPT needs.
+4. /.well-known/oauth-protected-resource returns valid metadata pointing ChatGPT to Auth0.
+5. no write tools, schema changes, Neon changes, or app-login changes are introduced.
+
+Important boundaries:
+Do not create a new Auth0 app.
+Do not recommend creating a new Auth0 app in this step.
+Do not change Auth0 dashboard settings.
+Do not change the existing app login flow.
+Do not remove MCP_BRAIN_TOKEN.
+Do not weaken auth.
+Do not create a no-auth endpoint.
+Do not add write tools.
+Do not modify schema.
+Do not modify Neon.
+Do not modify admin/auth/bootstrap logic.
+
+Current facts:
+- The app already uses Auth0.
+- Existing Auth0 JWT verification already works in server/auth0.ts.
+- Current /mcp/brain accepts only Authorization: Bearer MCP_BRAIN_TOKEN.
+- ChatGPT needs OAuth-compatible discovery and bearer-token verification.
+- Existing MCP tools are read-only and owner-scoped.
+
+Implementation tasks:
+
+1. Reuse existing Auth0 verification.
+
+In server/auth0.ts:
+- export the existing token verification helper, or create a tiny exported wrapper around the same verification logic.
+- preserve current isAuthenticated behavior.
+- do not change existing login behavior.
+
+2. Update /mcp/brain auth.
+
+In server/mcp.ts, add an authenticateMcp(req) helper.
+
+Auth rules:
+- Missing Authorization → 401
+- Bearer token equals MCP_BRAIN_TOKEN → allow via static
+- Otherwise try Auth0 token verification
+- Valid Auth0 token with decoded.sub === OWNER_AUTH0_USER_ID → allow via auth0
+- Valid Auth0 token with wrong decoded.sub → 403
+- Invalid token → 401
+- If no auth method is configured → 503
+
+Never accept user_id from request body, headers, query params, or tool arguments.
+Always resolve the owner server-side.
+
+3. Add OAuth protected-resource metadata.
+
+Add:
+
+GET /.well-known/oauth-protected-resource
+
+It should return JSON describing /mcp/brain as a protected resource and Auth0 as the authorization server.
+
+Use PUBLIC_BASE_URL if available.
+
+If PUBLIC_BASE_URL is missing:
+- do not hardcode the temporary Replit dev URL
+- return a clear server config error or use request host only if that is already safe in this app’s pattern
+- report exactly what env var value David must set before ChatGPT connection testing
+
+Metadata should point to:
+- resource: <base-url>/mcp/brain
+- authorization_servers: existing Auth0 issuer
+- bearer_methods_supported: ["header"]
+- scopes_supported: ["openid", "profile", "email"]
+
+4. Add WWW-Authenticate header on MCP 401 responses.
+
+401 responses from /mcp/brain should include:
+
+WWW-Authenticate: Bearer resource_metadata="<base-url>/.well-known/oauth-protected-resource", error="invalid_token"
+
+This is what lets ChatGPT discover the OAuth metadata.
+
+5. Preserve all MCP tools exactly.
+
+Keep:
+- search_second_brain
+- get_brain_context_pack
+- get_card_context
+- get_source_context
+
+Do not add write tools.
+
+6. Tests.
+
+Run:
+- no auth → 401 with WWW-Authenticate header
+- wrong bearer → 401 with WWW-Authenticate header
+- correct MCP_BRAIN_TOKEN → initialize 200
+- correct MCP_BRAIN_TOKEN → tools/list 200
+- correct MCP_BRAIN_TOKEN → search_second_brain returns real Neon data
+- GET /.well-known/oauth-protected-resource → 200 JSON or clear config error if PUBLIC_BASE_URL is missing
+- metadata points to /mcp/brain and the existing Auth0 issuer
+
+If a valid owner Auth0 access token is safely available:
+- owner Auth0 token → initialize 200
+
+If a wrong-user token is safely available:
+- wrong-user Auth0 token → 403
+
+If tokens are not available, do not fake this. Report that Auth0-token testing remains for the actual ChatGPT connection step.
+
+7. Final report.
+
+Tell me:
+A. Files changed
+B. Existing login changed? yes/no
+C. MCP_BRAIN_TOKEN still works? yes/no
+D. Auth0-token path implemented? yes/no
+E. OAuth metadata endpoint works? yes/no
+F. WWW-Authenticate header works? yes/no
+G. PUBLIC_BASE_URL needed? yes/no, and exact value required
+H. Any Auth0 dashboard changes made? should be no
+I. Any new Auth0 app created or recommended? should be no
+J. Any schema/Neon changes? should be no
+K. Any write tools added? should be no
+L. Are we ready for Step 6B.3: actual ChatGPT.com connection attempt?
+
+Stop after Step 6B.2A.

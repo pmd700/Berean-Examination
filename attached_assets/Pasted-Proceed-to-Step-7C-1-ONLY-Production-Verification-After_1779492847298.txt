@@ -1,0 +1,114 @@
+Proceed to Step 7C.1 ONLY: Production Verification After 7C Redeploy.
+
+Do not modify code.
+Do not modify schema.
+Do not modify Neon.
+Do not modify Auth0.
+Do not modify OAuth.
+Do not add write tools.
+Do not create cards, connections, or sources.
+
+Endpoint:
+https://bereanexamination.com/mcp/brain
+
+Purpose:
+Confirm production is now running Step 7C, meaning the MCP tools default to AI Graph Markdown while still supporting compact JSON through the format parameter.
+
+Run these checks:
+
+1. Auth checks:
+- no auth → 401
+- wrong bearer → 401
+- MCP_BRAIN_TOKEN → initialize 200
+- MCP_BRAIN_TOKEN → tools/list returns exactly 4 read-only tools
+
+2. Tool schema checks:
+Confirm each tool has optional format parameter:
+- search_second_brain
+- get_brain_context_pack
+- get_card_context
+- get_source_context
+
+Allowed values:
+- markdown
+- json
+- both
+
+Default:
+- markdown
+
+3. Markdown default checks.
+
+Run:
+- search_second_brain query="Daily Schedule" limit=20
+- get_brain_context_pack query="Daily Schedule Monday" limit=15
+- get_brain_context_pack query="faith alone" limit=15
+- get_card_context card_id=229
+
+Confirm default output:
+- starts with markdown-style headings or tables
+- mimeType text/markdown if available
+- includes card IDs
+- includes web names
+- includes tags where available
+- includes notes/snippets
+- preserves graph/connection information where available
+- does not return a raw JSON wall by default
+
+4. JSON mode checks.
+
+Run:
+- get_brain_context_pack query="Daily Schedule Monday" format="json"
+- get_brain_context_pack query="Daily Schedule Monday" format="both"
+
+Confirm:
+- format=json returns compact structured JSON
+- format=both returns markdown_context plus compact structured_context
+- compact JSON does not include full DB rows
+
+5. Safety checks.
+
+Search outputs for forbidden content:
+- BEREAN_KNOWLEDGE_WEB
+- long base64 strings
+- auth0|
+- user_id
+- enc_payload
+- raw HTML tags like <p>, <strong>, <a>
+- giant hidden restore block
+
+Expected:
+all absent.
+
+6. Daily Schedule / Monday content check.
+
+The markdown should include relevant items such as:
+- Daily Schedule
+- Monday
+- Prayer + Morning Bible Study
+- Adult Nogi
+- Shower + Eat First Meal
+- Investing Workflow
+- Splits Based Stretch
+- Truth Workflow
+- Social Time
+- 8:30 PM Prayer
+- Sleep
+
+7. Final report:
+
+A. Is production running 7C? yes/no
+B. Same 4 tools? yes/no
+C. format parameter present on all 4 tools? yes/no
+D. Default output is markdown? yes/no
+E. JSON mode works? yes/no
+F. Both mode works? yes/no
+G. Graph/card IDs preserved? yes/no
+H. Base64 restore block absent? yes/no
+I. Auth0 IDs absent? yes/no
+J. HTML absent? yes/no
+K. Auth checks pass? yes/no
+L. Schema/Neon/Auth0/OAuth/write tools untouched? yes/no
+M. Ready for live ChatGPT test? yes/no
+
+Stop after Step 7C.1 verification.

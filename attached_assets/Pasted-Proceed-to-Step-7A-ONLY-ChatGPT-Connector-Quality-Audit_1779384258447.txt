@@ -1,0 +1,139 @@
+Proceed to Step 7A ONLY: ChatGPT Connector Quality Audit.
+
+Purpose of this step:
+The Berean Examination MCP connector now works in ChatGPT.com. Before adding new features, audit the quality of the read-only ChatGPT experience.
+
+This step is successful if:
+1. The MCP connector remains working.
+2. The four read-only tools still work.
+3. We identify any quality problems in retrieval, snippets, citations, card ranking, and answer usefulness.
+4. No schema changes, Neon changes, write tools, Auth0 changes, or OAuth changes are introduced.
+5. We get a clear recommendation for the next product upgrade.
+
+Important boundaries:
+Do not modify code yet.
+Do not modify schema.
+Do not modify Neon.
+Do not modify Auth0.
+Do not modify OAuth.
+Do not add write tools.
+Do not create cards.
+Do not create connections.
+Do not process sources.
+Do not change MCP auth.
+Do not change deployment secrets.
+Audit only.
+
+Context:
+ChatGPT.com successfully connected to the deployed MCP endpoint:
+
+https://bereanexamination.com/mcp/brain
+
+The connector currently exposes four read-only tools:
+- search_second_brain
+- get_brain_context_pack
+- get_card_context
+- get_source_context
+
+A first test query about “God” worked, but surfaced possible quality issues:
+- sources array was empty
+- returned card snippets contained HTML
+- some cards were loosely related
+- citation format is still raw card IDs
+- source/card data may need better normalization for ChatGPT answers
+
+Goal:
+Audit the current ChatGPT connector quality from the server/tool perspective.
+
+Tasks:
+
+1. Test representative queries.
+
+Run tool-level tests against the deployed MCP server using MCP_BRAIN_TOKEN or local equivalent.
+
+Test these queries:
+- God
+- gospel
+- Catholicism
+- justification
+- faith alone
+- hell
+- Christ paid for sins
+- universe brute fact
+- BGV theorem
+- Angel Catholicism
+
+For each query, record:
+- number of sources returned
+- number of cards returned
+- number of connections returned
+- whether results look relevant
+- whether snippets contain messy HTML
+- whether the result has enough context for ChatGPT to answer well
+
+2. Inspect result quality.
+
+For each query, identify:
+- best matching cards
+- weak/noisy matches
+- missing obvious matches
+- whether source coverage is empty or weak
+- whether connections help or clutter
+
+3. Audit snippets.
+
+Check whether card/source snippets are clean enough for ChatGPT.
+
+Look for:
+- raw HTML tags
+- broken entities
+- huge chunks
+- duplicate snippets
+- empty snippets
+- irrelevant snippets
+- Bible links overwhelming the text
+
+4. Audit citation usability.
+
+Check whether returned IDs/titles are enough for ChatGPT to cite clearly.
+
+Evaluate whether we should later return:
+- card title
+- card id
+- web name
+- card type
+- tags
+- source title
+- source id
+- direct app URL if available
+
+5. Audit tool descriptions.
+
+Review MCP tool descriptions and parameter descriptions.
+
+Check whether ChatGPT is likely to understand:
+- when to use search_second_brain
+- when to use get_brain_context_pack
+- when to use get_card_context
+- when to use get_source_context
+
+Suggest improvements, but do not implement them.
+
+6. Final report.
+
+Give me:
+
+A. Overall connector quality grade
+B. Queries tested
+C. Best-performing queries
+D. Weakest-performing queries
+E. Main retrieval problems
+F. Main snippet/HTML problems
+G. Main citation problems
+H. Whether the source layer is underfilled
+I. Whether tool descriptions need improvement
+J. Recommended Step 7B
+K. Exact files that would probably change later
+L. Confirmation that no code/schema/Auth0/Neon/write-tool changes were made
+
+Stop after Step 7A audit.

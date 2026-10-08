@@ -1,0 +1,214 @@
+{
+  "schemaVersion": 1,
+  "translations": [
+    {
+      "code": "AKJV",
+      "title": "American King James Version",
+      "scope": "full",
+      "file": "AKJV.json",
+      "sourceFile": "akjv - American King James Version.txt",
+      "sourceSha256": "3678696ed111c20f3347f303ce0cffcd9bcb209cc6ea2394ccff67cbc504018c",
+      "assetSha256": "50a4ff30f94e017765cccae2fe738258c66f455be99dcf706ac8c96d4b1749b4",
+      "chapterCount": 1189,
+      "verseCount": 31102
+    },
+    {
+      "code": "ASV",
+      "title": "American Standard Version",
+      "scope": "full",
+      "file": "ASV.json",
+      "sourceFile": "asv - American Standard Version.txt",
+      "sourceSha256": "aecff150eb9cadb2b178bc1a9bc67690c5d726401531d8d6a113ba82db7108cc",
+      "assetSha256": "61cc1ee409cc24f5479597ff3a73fe0c19fad8ede067c394aa2207d3879652a4",
+      "chapterCount": 1189,
+      "verseCount": 31102
+    },
+    {
+      "code": "BAB",
+      "title": "Berean Annotated Bible",
+      "scope": "full",
+      "file": "BAB.json",
+      "sourceFile": "bab - Berean Annotated Bible.txt",
+      "sourceSha256": "ad930053ad0091e87f7643822eefb6ce0acec4b80aac6f57ced0d224184d9b25",
+      "assetSha256": "b5b427fe7c5a0156a43ae05fd82520124c374812708e00b19ae4934f1d9f376d",
+      "chapterCount": 1189,
+      "verseCount": 31102
+    },
+    {
+      "code": "BGB",
+      "title": "Berean Greek Bible",
+      "scope": "nt",
+      "file": "BGB.json",
+      "sourceFile": "bgb - Berean Greek Bible NT.docx",
+      "sourceSha256": "56eb9ba026316e6d66d675a4f1812deae362d46244541b9071e937d77d21eac7",
+      "assetSha256": "b5be5485d4e35f348c3e187f319381a849effaae9c4d39c5f4804eec715504bb",
+      "chapterCount": 260,
+      "verseCount": 7941
+    },
+    {
+      "code": "BIB",
+      "title": "Berean Interlinear Bible",
+      "scope": "nt",
+      "file": "BIB.json",
+      "sourceFile": "bib - Berean Interlinear Bible.docx",
+      "sourceSha256": "2d969f0a3831a2edd0e374677fd793dc02808575cf9ed9ba555b6970a3e99352",
+      "assetSha256": "4f6f4f4b1c40b69d8b6f29e7c04dd007467a6b9e466f714eb20a69e708fa8a38",
+      "chapterCount": 260,
+      "verseCount": 7941
+    },
+    {
+      "code": "BLB",
+      "title": "Berean Literal Bible",
+      "scope": "full",
+      "file": "BLB.json",
+      "sourceFile": "blb - Berean Literal Bible.txt",
+      "sourceSha256": "4db24ae985c244ba83538f5e6e39ab7f3a1d027a6ffe8b1292e503f6dcd88054",
+      "assetSha256": "481b712a0fb159671619e4afbcffb1af8ef7fcd8dd064334f17fcdfc63e002ee",
+      "chapterCount": 1189,
+      "verseCount": 31102
+    },
+    {
+      "code": "BRB",
+      "title": "Berean Reader's Bible",
+      "scope": "full",
+      "file": "BRB.json",
+      "sourceFile": "brb - Berean Reader's Bible.txt",
+      "sourceSha256": "7477dd3e23b53783cb225fbda04f362e8a8318d5063c41c31c9f95d62b0aa507",
+      "assetSha256": "57ec13f6de952889661eb8c2353d2bd8da05a9da2017f1756029fb4d3cd9cab9",
+      "chapterCount": 1189,
+      "verseCount": 31102
+    },
+    {
+      "code": "BSB",
+      "title": "Berean Standard Bible",
+      "scope": "full",
+      "file": "BSB.json",
+      "sourceFile": "bsb - berean standard bible.txt",
+      "sourceSha256": "2ac3af1de52d4e68261cba91d85c320b7eadc6560e830d99e591767b8ff5ca96",
+      "assetSha256": "913e40ce935ee15364a2cae5fdd1429587bc95dba96067473261702ec4af01f3",
+      "chapterCount": 1189,
+      "verseCount": 31102
+    },
+    {
+      "code": "CPDV",
+      "title": "Catholic Public Domain Version",
+      "scope": "full",
+      "file": "CPDV.json",
+      "sourceFile": "cpdv - Catholic Public Domain Version.txt",
+      "sourceSha256": "21e1f2ff13806357c7986481c705ac90e614d95bbfa01c30875d8c7d67c7547d",
+      "assetSha256": "c517c619d52e6e3b0b0be777942e1f9a843d2247568d02f343141a14fa880e85",
+      "chapterCount": 1189,
+      "verseCount": 31102
+    },
+    {
+      "code": "DBT",
+      "title": "Darby Bible Translation",
+      "scope": "full",
+      "file": "DBT.json",
+      "sourceFile": "dbt - Darby Bible Translation.txt",
+      "sourceSha256": "2a3a4d979bce5b2bf251bc7a4aae8e4c86b7ff123d881d190545c40f44f38b5c",
+      "assetSha256": "214967dbeaf426b1b8e67f65f9456dc4b8b319e545c29efba47e388b6fcd92ce",
+      "chapterCount": 1189,
+      "verseCount": 31102
+    },
+    {
+      "code": "DRB",
+      "title": "Douay-Rheims Bible",
+      "scope": "full",
+      "file": "DRB.json",
+      "sourceFile": "drb - Douay-Rheims Bible.txt",
+      "sourceSha256": "48f1ebef7a76c00b35c42333d98ca492ae83b75023d273a431b328fe1f9f713c",
+      "assetSha256": "a4679d0ee92c796e3cb3c25792eb2b82da0f3930726fb184c9f406a996d14dd4",
+      "chapterCount": 1189,
+      "verseCount": 31102
+    },
+    {
+      "code": "ERV",
+      "title": "English Revised Version",
+      "scope": "full",
+      "file": "ERV.json",
+      "sourceFile": "erv - English Revised Version.txt",
+      "sourceSha256": "ea90f0b6caf99686cab456f297989be2a7f383a011b45f2521fd80c4adc0feac",
+      "assetSha256": "a4a49e6b07004325c540599b659c9ba5c8d6b90ae57d3dfafcedc56dd7f6f68a",
+      "chapterCount": 1189,
+      "verseCount": 31102
+    },
+    {
+      "code": "JPS",
+      "title": "JPS Tanakh 1917 / Weymouth New Testament",
+      "scope": "full",
+      "file": "JPS.json",
+      "sourceFile": "jps - JPS Tanakh 1917 OT.txt",
+      "sourceSha256": "3ebe28639597acbbc5697cd46aaf366115a3cf469941435a51d66bfb159361a9",
+      "assetSha256": "57f1806961511b6f2b2fa617958b48079931c8564ff7a93588650002247f5492",
+      "chapterCount": 1189,
+      "verseCount": 31102
+    },
+    {
+      "code": "KJV",
+      "title": "King James Version",
+      "scope": "full",
+      "file": "KJV.json",
+      "sourceFile": "kjv - King James Version.txt",
+      "sourceSha256": "6e84e15d2a42eaba3a689ba696384bc79047840cf9dde36bd1b9fc52219d45ce",
+      "assetSha256": "b4e6f63842b91de9323d4dba64cf2a9361b2fbee5c7fc773ca75ffe458f28373",
+      "chapterCount": 1189,
+      "verseCount": 31102
+    },
+    {
+      "code": "MSB",
+      "title": "Majority Standard Bible",
+      "scope": "full",
+      "file": "MSB.json",
+      "sourceFile": "msb - Majority Standard Bible.txt",
+      "sourceSha256": "99ca452c23fb901a0f5a814b16d9a52fd61015e2e80987d9bf26dfb2ea850d24",
+      "assetSha256": "e730bf408bb463116bbea97a194a2f4cfc192107726c48881c4e3ab3793d0f1e",
+      "chapterCount": 1189,
+      "verseCount": 31102
+    },
+    {
+      "code": "SLT",
+      "title": "Smith's Literal Translation",
+      "scope": "full",
+      "file": "SLT.json",
+      "sourceFile": "slt - Smith's Literal Translation .txt",
+      "sourceSha256": "e0321aff670fa18a63b9bd11f3d10cc566dc3dc4b1a53b5c24cb2ed81b682263",
+      "assetSha256": "94355b507e65cded032e99423b479413a242ff0469dd37aa2df45f8252f9c26a",
+      "chapterCount": 1189,
+      "verseCount": 31102
+    },
+    {
+      "code": "WBT",
+      "title": "Webster's Bible Translation",
+      "scope": "full",
+      "file": "WBT.json",
+      "sourceFile": "wbt - Webster's Bible Translation.txt",
+      "sourceSha256": "b991d5f109c9b7db0c01327c62b66f72077e348cc0f389781680611e7646cf93",
+      "assetSha256": "ef1cedaa805630c5640d53a3b7ffd449eae136a2f16745b2908e8e9c970d69c7",
+      "chapterCount": 1189,
+      "verseCount": 31102
+    },
+    {
+      "code": "WEB",
+      "title": "World English Bible",
+      "scope": "full",
+      "file": "WEB.json",
+      "sourceFile": "web - World English Bible.txt",
+      "sourceSha256": "0a2a7082689cb32c731d547b4660c38d0e9d1a2691dcce8584a4f65a6094e19f",
+      "assetSha256": "dd917587fc59833c2ffd1ce84046c4b852f148313fc3785c60b84a911635af0a",
+      "chapterCount": 1189,
+      "verseCount": 31102
+    },
+    {
+      "code": "YLT",
+      "title": "Young's Literal Translation",
+      "scope": "full",
+      "file": "YLT.json",
+      "sourceFile": "ylt - Young's Literal Translation.txt",
+      "sourceSha256": "2572770b93885deff56e73e3fb6982116bfeac37e17cbbfebb2bb5f06353e3ce",
+      "assetSha256": "7aa0cd902cace244c6464526e00049266627c76751255cea610d94be694f9dad",
+      "chapterCount": 1189,
+      "verseCount": 31102
+    }
+  ]
+}

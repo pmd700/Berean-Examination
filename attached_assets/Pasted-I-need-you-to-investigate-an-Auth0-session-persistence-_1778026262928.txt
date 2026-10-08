@@ -1,0 +1,105 @@
+I need you to investigate an Auth0 session persistence issue in this app.
+
+Problem:
+Every time I come back to the app, refresh, or reopen it, I have to log in again. Auth0 seems to authenticate successfully, but the app does not “remember me.”
+
+Do NOT make changes yet. First inspect the codebase and answer these questions with exact file paths and code snippets.
+
+1. Where is Auth0Provider configured?
+   - Find the exact file where Auth0Provider is used.
+   - Show me the current configuration.
+   - Specifically check whether these are present:
+     - useRefreshTokens={true}
+     - cacheLocation="localstorage"
+     - authorizationParams.scope includes "openid profile email offline_access"
+     - authorizationParams.audience is set correctly if this app calls a backend API
+
+2. Is the app using refresh tokens correctly?
+   - Check whether the Auth0 SDK is actually requesting offline_access.
+   - Check whether refresh token rotation would be used by the frontend.
+   - Tell me whether the current code would lose auth state after a refresh because it only stores tokens in memory.
+
+3. Are protected routes forcing login too early?
+   - Search for loginWithRedirect().
+   - Check whether any code redirects when isAuthenticated is false before waiting for isLoading to finish.
+   - Bad pattern:
+     if (!isAuthenticated) loginWithRedirect()
+   - Good pattern:
+     if (isLoading) return loading
+     if (!isAuthenticated) loginWithRedirect()
+   - Report every place where this logic exists.
+
+4. Is the app manually clearing Auth0/localStorage/sessionStorage?
+   - Search for:
+     localStorage.clear
+     sessionStorage.clear
+     removeItem
+     logout
+     clear cache
+     auth0
+   - Tell me if anything is deleting Auth0 tokens or forcing logout on reload.
+
+5. Is the app using the correct callback URL / redirect URI?
+   - Check the redirect_uri used in the code.
+   - Confirm whether it matches one of these Auth0 allowed callback URLs:
+     https://bereanexamination.com
+     https://886ca8f7-f8c2-4a42-a2ea-0efe5c4474d6-00-170ffdpjjdsc3.riker.replit.dev
+   - Also check whether the app ever uses a different Replit preview URL or localhost URL that is not listed.
+
+6. Is the app checking authentication from Auth0 or from a separate custom state?
+   - Find where the app determines whether a user is logged in.
+   - Check whether it uses Auth0’s isAuthenticated/user/getAccessTokenSilently, or whether it has custom auth state that resets on reload.
+
+7. Is getAccessTokenSilently failing silently?
+   - Search for getAccessTokenSilently.
+   - Check whether errors are caught and then immediately trigger login/logout.
+   - Report the exact behavior if token retrieval fails.
+
+8. Is the app calling logout automatically?
+   - Search for logout().
+   - Check whether logout is called on mount, on token error, on route change, or when the user object is temporarily missing.
+
+9. Is there any issue caused by Brave/browser privacy?
+   - Tell me whether this app depends on silent authentication through cookies/iframe instead of refresh token rotation.
+   - If yes, explain whether Brave could be causing the user to be sent back to login.
+
+10. Final diagnosis:
+   - Based on the code, tell me the most likely cause.
+   - Rank possible causes from most likely to least likely.
+   - Do not guess. Use the actual code.
+   - Then propose the minimal code changes needed, but do not apply them until I approve.
+
+Expected final answer format:
+
+AUTH0 SESSION PERSISTENCE AUDIT
+
+1. Auth0Provider location:
+   - File:
+   - Current config:
+   - Missing settings:
+
+2. Refresh token setup:
+   - offline_access present? yes/no
+   - useRefreshTokens present? yes/no
+   - cacheLocation localstorage present? yes/no
+   - likely persistent across refresh? yes/no
+
+3. Protected route behavior:
+   - Safe or unsafe?
+   - Files involved:
+   - Problem code if any:
+
+4. Manual clearing/logout:
+   - Found? yes/no
+   - Details:
+
+5. Redirect/callback URL issues:
+   - Found? yes/no
+   - Details:
+
+6. Most likely root cause:
+   - Explain in plain English.
+
+7. Minimal recommended fix:
+   - Show the exact code change you recommend.
+   - Do not apply it yet.

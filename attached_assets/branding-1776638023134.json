@@ -1,0 +1,106 @@
+{
+  "colorScheme": "light",
+  "fonts": [
+    {
+      "family": "Georgia",
+      "role": "body"
+    },
+    {
+      "family": "Cambria",
+      "role": "body"
+    },
+    {
+      "family": "Times New Roman",
+      "role": "body"
+    },
+    {
+      "family": "Times",
+      "role": "body"
+    },
+    {
+      "family": "ui-serif",
+      "role": "body"
+    }
+  ],
+  "colors": {
+    "primary": "#D9BBBB",
+    "secondary": "#9CA3AF",
+    "accent": "#B1BAC7",
+    "background": "#FFFFFF",
+    "textPrimary": "#8F949B",
+    "link": "#B1BAC7"
+  },
+  "typography": {
+    "fontFamilies": {
+      "primary": "Georgia",
+      "heading": "Georgia"
+    },
+    "fontStacks": {
+      "heading": [
+        "ui-serif",
+        "Georgia",
+        "Cambria",
+        "Times New Roman",
+        "Times",
+        "serif"
+      ],
+      "body": [
+        "ui-sans-serif",
+        "system-ui",
+        "sans-serif",
+        "Apple Color Emoji",
+        "Segoe UI Emoji",
+        "Segoe UI Symbol",
+        "Noto Color Emoji"
+      ],
+      "paragraph": [
+        "ui-serif",
+        "Georgia",
+        "Cambria",
+        "Times New Roman",
+        "Times",
+        "serif"
+      ]
+    },
+    "fontSizes": {
+      "h1": "128px",
+      "h2": "128px",
+      "body": "20px"
+    }
+  },
+  "spacing": {
+    "baseUnit": 4,
+    "borderRadius": "4px"
+  },
+  "components": {},
+  "images": {
+    "logo": null,
+    "favicon": "https://bereanexamination.com/logo.png",
+    "ogImage": null
+  },
+  "personality": {
+    "tone": "professional",
+    "energy": "medium",
+    "targetAudience": "unknown"
+  },
+  "designSystem": {
+    "framework": "unknown",
+    "componentLibrary": ""
+  },
+  "confidence": {
+    "buttons": 0,
+    "colors": 0.9,
+    "overall": 0.45
+  },
+  "__llm_metadata": {
+    "logoSelection": {
+      "llmCalled": false,
+      "llmSucceeded": false,
+      "finalSource": "none"
+    },
+    "buttonClassification": {
+      "llmCalled": false,
+      "llmSucceeded": false
+    }
+  }
+}

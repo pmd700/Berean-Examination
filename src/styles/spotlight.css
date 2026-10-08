@@ -1,0 +1,30 @@
+/* Navigation paint only: these classes never enter saved editor HTML. */
+.bex-spotlight-hit {
+  border-radius: 3px;
+  background-color: rgba(167, 139, 250, 0.52);
+  box-shadow: 0 0 0 2px rgba(196, 181, 253, 0.35);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  animation: bexSpotlightArrive 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.bex-spotlight-hit--fading {
+  animation: bexSpotlightLeave 650ms ease-out forwards;
+}
+@keyframes bexSpotlightArrive {
+  from { background-color: transparent; box-shadow: 0 0 0 8px rgba(196, 181, 253, 0); }
+  55% { background-color: rgba(167, 139, 250, 0.7); box-shadow: 0 0 0 3px rgba(196, 181, 253, 0.45); }
+  to { background-color: rgba(167, 139, 250, 0.52); box-shadow: 0 0 0 2px rgba(196, 181, 253, 0.35); }
+}
+@keyframes bexSpotlightLeave {
+  from { background-color: rgba(167, 139, 250, 0.52); box-shadow: 0 0 0 2px rgba(196, 181, 253, 0.35); }
+  to { background-color: transparent; box-shadow: 0 0 0 2px transparent; }
+}
+.bex-spotlight-field.bex-spotlight-field-arrival::selection,
+.bex-spotlight-field-arrival::selection {
+  background-color: rgba(167, 139, 250, var(--bex-spotlight-alpha, 0.75));
+  color: inherit;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bex-spotlight-hit { animation: none; }
+  .bex-spotlight-hit--fading { background: transparent; box-shadow: none; }
+}

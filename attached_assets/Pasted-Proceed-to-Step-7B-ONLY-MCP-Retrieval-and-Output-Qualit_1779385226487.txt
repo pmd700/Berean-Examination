@@ -1,0 +1,258 @@
+Proceed to Step 7B ONLY: MCP Retrieval and Output Quality Upgrade.
+
+Purpose of this step:
+The ChatGPT connector now works, but Step 7A showed that retrieval and presentation quality are weak.
+This step should improve the read-only MCP output so ChatGPT gets cleaner snippets, better multi-word search results, and more useful citation metadata.
+
+This step is successful if:
+1. The connector still works.
+2. MCP_BRAIN_TOKEN still works.
+3. Auth0 OAuth still works.
+4. The four read-only tools still exist.
+5. Multi-word queries return better results.
+6. Snippets are plain text instead of raw HTML.
+7. Empty/noisy connections are reduced.
+8. Citation metadata is more useful.
+9. No schema changes, Neon changes, Auth0 changes, OAuth changes, source ingestion, card creation, or write tools are introduced.
+
+Important boundaries:
+Do not modify schema.
+Do not modify Neon structure.
+Do not run migrations.
+Do not modify Auth0.
+Do not modify OAuth.
+Do not modify MCP auth.
+Do not remove MCP_BRAIN_TOKEN.
+Do not add write tools.
+Do not create cards.
+Do not create connections.
+Do not create or process sources.
+Do not change the existing app login flow.
+Do not add AI generation.
+Do not add new UI.
+Do not change deployment secrets unless absolutely required, and this step should not require any.
+
+Current findings from Step 7A:
+- Overall connector quality grade: C+
+- The connector is technically healthy, but retrieval and presentation are weak.
+- brain_sources is empty, so source results are expected to be empty for now.
+- Multi-word queries often return zero results because matching is too literal.
+- Raw HTML appears in snippets.
+- Some long “magnet” cards rank too high across unrelated searches.
+- Empty/null connections can clutter results.
+- Citations are too raw: card IDs without enough readable context.
+- Tool descriptions need small improvements so ChatGPT knows when to use each tool.
+
+Target files:
+Likely files:
+- server/brainRetrieval.ts
+- server/mcp.ts
+- server/storage.ts only if needed for tokenized candidate retrieval
+
+Do not touch:
+- server/auth0.ts
+- schema files
+- database migration files
+- Auth0 config
+- deployment config
+- frontend UI files
+
+Implementation tasks:
+
+1. Add clean plain-text snippet formatting.
+
+In server/brainRetrieval.ts:
+- Add a helper that converts card/source HTML descriptions into readable plain text before snippet slicing.
+- Strip HTML tags.
+- Decode common HTML entities like &nbsp;, &amp;, &quot;, &#39;.
+- Preserve useful text from Bible references and links, but remove anchor markup.
+- Collapse repeated whitespace.
+- Avoid returning snippets that start in the middle of an HTML tag.
+- Keep snippet length compact.
+
+Use this cleaned text for:
+- card description snippets
+- source snippets if relevant
+- connection evidence snippets if any HTML ever appears there
+
+Do not alter database content. This is read-time formatting only.
+
+2. Improve multi-word retrieval.
+
+Audit the current search flow first:
+- If server/storage.ts prefilters candidates with ILIKE '%full query%', then post-processing alone is not enough.
+- In that case, update storage search methods so multi-word queries retrieve candidates when any meaningful token appears.
+
+Implement simple tokenized retrieval:
+- Normalize query to lowercase.
+- Split on whitespace/punctuation.
+- Remove tiny useless tokens if needed, like “the”, “and”, “of”, “to”, “for”, “a”, “an”.
+- Search with OR over meaningful tokens at the database candidate stage.
+- Then score candidates in server/brainRetrieval.ts using token coverage.
+
+Example:
+“Christ paid for sins” should be able to find:
+“Christ Pays for your sins past present and Future”
+
+“universe brute fact” should be able to find:
+“Why can’t the universe itself be a brute fact”
+
+“Angel Catholicism” should be able to find cards mentioning both Angel and Catholicism, even if the exact phrase is not present.
+
+3. Improve ranking.
+
+Implement lightweight scoring improvements:
+- Title matches should rank highest.
+- More matched query tokens should rank higher.
+- Exact phrase matches should get a bonus.
+- Cards that match only because of huge descriptions should be down-ranked.
+- Very long “magnet” cards should not dominate every theological query.
+- Keep scoring understandable and easy to debug.
+
+Return score/match_reason in a way that remains useful to ChatGPT.
+
+4. Reduce noisy connection results.
+
+Do not return connection results that have no usable content.
+
+Drop or down-rank connections where all of these are empty/null:
+- label
+- relationship_type
+- evidence
+
+If a connection is returned, enrich it enough to be useful:
+- from_card_id
+- to_card_id
+- from_card_title
+- to_card_title
+- label
+- relationship_type
+- evidence_snippet if present
+
+5. Improve citation metadata.
+
+For each card result, return:
+- result_type
+- id
+- title
+- web_id
+- web_name if available
+- card_type
+- tags as a real array, not a JSON string
+- status
+- created_by
+- source_ids
+- app_url if a stable card URL pattern exists, otherwise app_url: null
+- clean snippet
+- match_reason
+- score
+
+For source results, return:
+- result_type
+- id
+- title
+- source_type
+- processing_status if available
+- app_url if available, otherwise null
+- clean snippet
+- match_reason
+- score
+
+For connection results, return:
+- result_type
+- id
+- web_id
+- web_name if available
+- from_card_id
+- from_card_title
+- to_card_id
+- to_card_title
+- label
+- relationship_type
+- evidence_snippet
+- app_url if available, otherwise null
+- match_reason
+- score
+
+Do not create new URL routes. Only include app_url if a stable route already exists.
+
+6. Improve MCP tool descriptions.
+
+In server/mcp.ts, update tool descriptions only.
+
+Make the tool descriptions clearer for ChatGPT:
+- search_second_brain = discovery search when the assistant needs to find relevant cards/sources/connections.
+- get_brain_context_pack = best tool for answering a user question with compact, prompt-ready context.
+- get_card_context = use after a card ID is known and deeper neighborhood context is needed.
+- get_source_context = use after a source ID is known; raw text is omitted unless explicitly requested.
+
+Add domain language:
+- Bible study
+- theology
+- apologetics
+- gospel conversation notes
+- knowledge web cards/connections
+
+Clarify that the tools are read-only.
+
+7. Re-run the Step 7A test suite.
+
+Test the same 10 queries:
+- God
+- gospel
+- Catholicism
+- justification
+- faith alone
+- hell
+- Christ paid for sins
+- universe brute fact
+- BGV theorem
+- Angel Catholicism
+
+For each query, report:
+- total results
+- sources count
+- cards count
+- connections count
+- whether snippets contain HTML
+- best result titles
+- whether results improved compared to Step 7A
+
+Important expected improvements:
+- “faith alone” should no longer return 0 if relevant token matches exist.
+- “Christ paid for sins” should find the Christ payment card or close equivalent.
+- “universe brute fact” should find the brute fact card or close equivalent.
+- “Angel Catholicism” should find Angel/Catholicism material or close equivalent.
+- HTML snippet count should drop sharply, ideally to 0.
+
+8. Verify safety and auth did not regress.
+
+Run:
+- no auth → 401 with WWW-Authenticate header
+- wrong bearer → 401
+- MCP_BRAIN_TOKEN → initialize 200
+- MCP_BRAIN_TOKEN → tools/list returns the same 4 tools
+- MCP_BRAIN_TOKEN → search_second_brain returns real data
+- deployed metadata endpoint still works
+- no write tools exist
+
+Do not alter Auth0/OAuth.
+
+9. Final report.
+
+Tell me:
+A. Files changed
+B. What retrieval logic changed
+C. What snippet cleanup changed
+D. What citation fields were added
+E. What connection clutter was removed
+F. Tool description changes
+G. Before/after table for the same 10 queries
+H. HTML snippet count before/after
+I. Whether MCP_BRAIN_TOKEN still works
+J. Whether OAuth/auth files were untouched
+K. Whether schema/Neon/Auth0 were untouched
+L. Whether write tools were added, should be no
+M. Recommended Step 7C
+
+Stop after Step 7B.

@@ -1,0 +1,103 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   Theme tokens.
+
+   The app's own palette (surfaces, text, lines, accents) resolves through
+   semantic tokens, so a component saying `bg-surface` or `text-ink` is correct
+   in either theme without knowing which one is active. Flipping the class on
+   <html> retones all of it at once.
+
+   Values are space-separated RGB channels, not hex, so Tailwind's opacity
+   modifiers (`bg-gray-800/60`, `bg-surface/97`) keep working through
+   `rgb(var(--x) / <alpha-value>)`.
+   ────────────────────────────────────────────────────────────────────────── */
+
+:root,
+html.dark {
+  /* Tailwind's stock gray, i.e. exactly what the app renders today. */
+  --gray-50: 249 250 251;
+  --gray-100: 243 244 246;
+  --gray-200: 229 231 235;
+  --gray-300: 209 213 219;
+  --gray-400: 156 163 175;
+  --gray-500: 107 114 128;
+  --gray-600: 75 85 99;
+  --gray-700: 55 65 81;
+  --gray-800: 31 41 55;
+  --gray-850: 24 32 44;
+  --gray-900: 17 24 39;
+  --gray-950: 3 7 18;
+
+  /* The app's own palette, previously written as raw hex in class names. */
+  --app: 11 13 17;            /* #0B0D11 deepest background      */
+  --surface: 18 21 27;        /* #12151B panels, menus           */
+  --elevated: 26 30 39;       /* #1A1E27 raised surfaces         */
+  --card: 30 35 48;           /* #1E2330 cards                   */
+  --line: 42 48 64;           /* #2A3040 subtle border           */
+  --line-strong: 52 59 77;    /* #343B4D emphasised border       */
+  --ink: 232 235 240;         /* #E8EBF0 primary text            */
+  --ink-muted: 168 178 193;   /* #A8B2C1 secondary text          */
+  --ink-soft: 139 148 167;    /* #8B94A7 tertiary text           */
+  --ink-faint: 90 100 120;    /* #5A6478 hints, placeholders     */
+
+  /* Accents keep their identity in both themes. */
+  --brand: 107 76 154;        /* #6B4C9A violet   */
+  --brand-strong: 124 92 183; /* #7C5CB7          */
+  --gold: 201 169 78;         /* #C9A94E          */
+
+  color-scheme: dark;
+}
+
+html.light {
+  /* Gray is deliberately NOT inverted. Two conventions live in this codebase:
+     light-first components (`text-gray-900 dark:text-white`, ~675 usages)
+     whose base class is already the light value, and dark-first components
+     (`bg-gray-900`, no variant) that mean "dark surface". Inverting fixes the
+     second and turns the first into black-on-black / white-on-white. Keeping
+     the ramp stable means light-first components are correct immediately, and
+     dark-first ones are converted deliberately, component by component. */
+
+  --app: 247 248 251;
+  --surface: 255 255 255;
+  --elevated: 241 243 247;
+  --card: 255 255 255;
+  --line: 214 219 229;
+  --line-strong: 189 196 210;
+  --ink: 22 27 38;
+  --ink-muted: 78 88 105;
+  --ink-soft: 99 110 130;
+  --ink-faint: 129 139 158;
+
+  /* Darkened a touch so violet/gold keep their contrast on white. */
+  --brand: 92 62 140;
+  --brand-strong: 108 76 166;
+  --gold: 150 120 40;
+
+  color-scheme: light;
+}
+
+/* ── The crossfade ──
+   Switching themes swaps variable values, which browsers apply instantly.
+   Transitioning colour on everything makes the whole app ease from one tone
+   to the other instead of snapping. The class is only present during a
+   switch, so it never slows ordinary interaction (hover states keep their
+   own faster transitions the rest of the time). */
+html.bex-theme-animating,
+html.bex-theme-animating body,
+html.bex-theme-animating *:not(svg):not(path) {
+  transition:
+    background-color 420ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 420ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 420ms cubic-bezier(0.4, 0, 0.2, 1),
+    fill 420ms cubic-bezier(0.4, 0, 0.2, 1),
+    stroke 420ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 420ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transition-delay: 0ms !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.bex-theme-animating,
+  html.bex-theme-animating body,
+  html.bex-theme-animating *:not(svg):not(path) {
+    transition: none !important;
+  }
+}

@@ -1,0 +1,133 @@
+The MAM-parsed repository has already been cloned into the project at data/sources/mam-parsed/. Please inspect the real JSON files there before coding.
+
+Add MAM as a Hebrew Tanakh source, not as a New Testament source.
+
+Goal:
+I want the app to support a new interlinear Hebrew Bible for display apart from the UXLC that we already have (the UXLC does not work by the way if you can look into that it would be nice) the framework stays the same: where an English Bible version such as NASB2020 can be viewed verse-by-verse alongside the Hebrew text of the newly added Miqra ʿal pi ha-Mesorah (MAM). For now, implement verse-level alignment and tokenized Hebrew words. Do not falsely claim perfect word-to-word alignment with NASB2020 yet unless we have a real alignment dataset.
+
+Source files:
+I provided the MAM-parsed repository locally inside the project at:
+
+data/sources/mam-parsed/
+
+Use the JSON files from either:
+
+data/sources/mam-parsed/plus/
+
+preferred, or fall back to:
+
+data/sources/mam-parsed/plain/
+
+if plus is harder to parse.
+
+Do not hardcode only Genesis/Exodus/Leviticus. Build the importer to scan all 24 MAM book JSON files.
+
+Important detail:
+MAM is “Miqra According to the Masorah,” a Hebrew edition of the Tanakh / Old Testament. It is not a New Testament version so we should not see it anywhere in new testament like matthew or revelation. Register it in the app as a Hebrew Tanakh source.
+
+Implementation requirements:
+
+1. Add a Bible source/version record:
+    - id: mam
+    - name: Miqra According to the Masorah
+    - abbreviation: MAM
+    - language: Hebrew
+    - languageCode: he
+    - textDirection: rtl
+    - scope: tanakh
+    - source: Hebrew Wikisource
+    - license: CC-BY-SA
+    - attributionRequired: true
+2. Build an import script that reads all MAM JSON files from data/sources/mam-parsed/plus.
+    - Convert the raw MAM structure into our app’s stable internal Bible schema.
+    - Store verses by canonical reference: book, chapter, verse.
+    - Preserve the full pointed Hebrew verse text.
+    - Preserve right-to-left display.
+    - Tokenize each verse into Hebrew word tokens for interlinear display.
+    - Each token should have at minimum:
+        - book
+        - chapter
+        - verse
+        - wordIndex
+        - surface text
+        - normalized text if possible
+    - Do not strip vowels/cantillation from the displayed surface text.
+    - Normalization may remove cantillation/vowels only for search/matching fields, not for display.
+3. Add UI support:
+    - When the user opens an Old Testament/Tanakh passage such as Proverbs 30 in NASB2020, allow MAM to be selected as the Hebrew interlinear/source text.
+    - Show the English verse and the MAM Hebrew verse aligned by verse reference.
+    - Render Hebrew RTL correctly.
+    - Show each Hebrew word as a separate clickable token.
+    - If lemma, gloss, morphology, or Strong’s data is not available yet, show “Not available yet” instead of inventing it.
+4. Add documentation/attribution page content exactly as below, preserving links:
+
+Miqra According to the Masorah (MAM) is a digital Hebrew edition of the Tanakh based on the Aleppo Codex and related manuscripts. It is designed for readers, and as such it contains added elements to aid vocalization of the text. For instance: When an accent is marked in an unstressed syllable, an extra accent is added in the proper place (pashta, zarqa, segol, telisha). Legarmeih and paseq are visibly distinguished. Qamaz qatan is indicated by its designated Unicode character (alternatives are documented where traditions differ about its application). The text of MAM is fully documented. The complete introduction to the edition (Hebrew) explains the types of editorial decisions that have been made and the reasons for them (English abstract). In addition, every word in the Bible about which there is some textual concern or ambiguity includes a documentation note; these notes can be viewed conveniently here. If an error is discovered, it may be reported to User:Dovi at Hebrew Wikisource. Please check the documentation notes before reporting an error.
+
+Source: Hebrew Wikisource
+License: CC-BY-SA
+
+Required links:
+
+- English abstract: https://en.wikisource.org/wiki/User:Dovi/Miqra_according_to_the_Masorah#About_this_Edition_(English_Abstract))
+- CC-BY-SA: https://creativecommons.org/licenses/by-sa/4.0/
+- User:Dovi: https://he.wikisource.org/wiki/שיחת_משתמש:Dovi
+- viewed conveniently here: https://bdenckla.github.io/MAM-with-doc/
+- complete introduction: https://he.wikisource.org/wiki/ויקיטקסט:מבוא_למקרא_על_פי_המסורה
+1. perform tests:
+    - Importer loads all 24 MAM files.
+    - Proverbs 30 imports successfully.
+    - Hebrew text renders RTL.
+    - MAM is only available for Tanakh/Old Testament books.
+    - MAM does not appear as a New Testament version.
+    - Word tokens are created in canonical order.
+    - No fake lemma/gloss/morphology data is generated.
+2. Important anti-hallucination rule:
+If the MAM JSON structure is unclear, inspect a real file and build the parser from the actual structure. Do not guess the schema. Add comments explaining which fields are being read and why.
+
+### Words Must Be clickable
+
+By “clickable,” I meant each Hebrew word should become its own **UI object**, not just part of one giant verse string.
+
+Example:
+
+```
+מַשָּׂ֥א דִּבְרֵ֗י אָג֥וּר
+```
+
+Instead of rendering that as one flat text blob, the app would internally treat it like:
+
+```
+word 1: מַשָּׂ֥א
+word 2: דִּבְרֵ֗י
+word 3: אָג֥וּר
+```
+
+Then later, when you tap/click a Hebrew word, the app can show:
+
+```
+Word: דִּבְרֵ֗י
+Lemma: not available yet
+Gloss: not available yet
+Morphology: not available yet
+Strong’s: not available yet
+```
+
+So “clickable” is mainly for future interlinear features: word info, glosses, morphology, Strong’s numbers, highlighting, notes, etc.
+
+This makes the app elite 
+
+### Look into why the UXLC and SBLGNT is not working
+
+While you're at it, no current inter linear function properly works, so this could possibly interfere with the new update. We're trying to push briefly look into it if you can't fix those two, but you can definitely push the MAM then Prioritize MAM and we can look into the other two afterward.
+
+maybe you've not been given the data format correctly.
+
+Done means:
+
+- I can open any book in the old testament (eg. Proverbs 30) in any english translation that the app supports (eg. NASB2020)
+- I can enable MAM as the Hebrew interlinear/source text.
+- The app displays NASB2020 verse text with the corresponding MAM Hebrew verse.
+- Hebrew words are tokenized and CLICKABLE.
+- You have looked into the “UXLC and SBLGNT is not working” error , even briefly
+- Documentation and attribution are visible and linked correctly to our documentations page.
+- The app makes no false claim that MAM is a New Testament version or that we already have perfect word-to-word NASB, ESV, or KJV alignment or any other bible version.

@@ -1,0 +1,115 @@
+For copyright/legal cleanup, remove all **NLT, NASB 1995, and NASB 2020 Bible text/data** from this app while preserving their integration architecture and parsers for fast future restoration after written permission or licensing is obtained.
+
+## Hard rules
+
+1. **Do not modify ESV, LSV, BSB, or KJV.**
+2. Keep the existing ESV API integration unchanged.
+3. Do not delete or weaken any NLT/NASB parser, renderer, schema, UI architecture, or reintegration pathway.
+4. Do not create backup copies, exports, dumps, or replacement cloud copies of the removed text.
+5. Preserve the rest of the BEX app.
+
+## Remove the copyrighted text/data
+
+Remove all NLT, NASB 1995, and NASB 2020 textual content from every location where it exists, including:
+
+* Neon/Postgres rows and tables containing those translation texts
+* seed data and import outputs
+* JSON, EPUB, RTF, TXT, SQL, generated files, and attached assets
+* static/public assets
+* caches and generated bundles containing embedded text
+* test fixtures containing real translation text
+* hardcoded verses or footnotes
+* server endpoints that return stored text
+* fallback text and offline caches
+* project exports or data dumps located inside Replit
+
+Delete bible **translation content**, not reusable code or schemas.
+
+When deleting database data, report only:
+
+* table name
+* translation identifier
+* number of rows deleted
+
+Never output the verse text.
+
+## Preserve the parsers extremely carefully
+
+Pay special attention to the **NASB 2020 rich parser**, because substantial work went into it.
+
+Preserve all code and concepts supporting:
+
+* ordered rich-text segments
+* normal text
+* italic text
+* verse numbers
+* superscript note markers
+* footnote markers
+* cross-reference markers
+* clickable popup data
+* line breaks
+* translation notes
+* rich chapter rendering
+* annotation anchoring
+* any NASB-specific normalization and parsing behavior
+
+If parser code is mixed together with copyrighted text, separate the parser into clean reusable modules before removing the text.
+
+Replace real copyrighted parser fixtures with clearly artificial mock content or public-domain test text. The mock fixtures should exercise italics, superscripts, note markers, footnotes, cross-references, verse numbers, and popups so the advanced NASB 2020 parser remains testable.
+
+Also preserve the NLT and NASB 1995 parsers and reintegration interfaces for future use.
+
+Add a concise developer document explaining:
+
+* where each translation can later be reconnected
+* expected data shape
+* import entry point
+* database adapter
+* renderer adapter
+* required environment variables
+* how to restore the translation after lawful permission is obtained
+
+Do not include copyrighted Bible text in that documentation.
+
+## Documentation page
+
+Do not erase NLT, NASB 1995, or NASB 2020 from the documentation.
+
+Display each one:
+
+* gray/dimmed
+* struck through
+* with a lock icon
+* with the message: **“Temporarily removed from the app for legal compliance.”**
+
+Keep their existing technical/parser documentation visible, but remove any embedded copyrighted verse examples and replace them with synthetic examples.
+
+## “Select a Chapter” Bible-version menu
+
+Keep all three entries visible, but make them unavailable:
+
+* `🔒 NLT — Temporarily removed`
+* `🔒 NASB 1995 — Temporarily removed`
+* `🔒 NASB 2020 — Temporarily removed`
+
+Each entry must be:
+
+* gray
+* struck through
+* disabled
+* inaccessible by mouse and keyboard selection
+* unable to trigger an API request
+* unable to load cached or fallback text
+
+A direct route or manually altered URL must also show a neutral “temporarily removed” state rather than loading translation text.
+
+## Verification
+
+After completing the cleanup:
+
+1. Search the codebase, assets, generated files, and database for the relevant translation identifiers.
+2. Confirm that no NLT, NASB 1995, or NASB 2020 text remains.
+3. Confirm their parsers, schemas, rendering architecture, and reintegration points remain intact.
+4. Confirm ESV, LSV, BSB, and KJV still work unchanged.
+5. Confirm the disabled documentation and version-menu states render correctly.
+6. Give me a concise report containing file paths, table names, deleted row counts, preserved parser modules, and tests performed—but never quote removed Bible text.

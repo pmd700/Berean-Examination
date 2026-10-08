@@ -1,0 +1,70 @@
+We are continuing the Auth0 MFA implementation, but we need to adjust the plan before going further.
+
+Current confirmed setup:
+
+- Our app uses a custom login UI.
+- The frontend submits login to POST /api/auth/login.
+- The backend route is in server/auth0.ts.
+- The backend forwards email/password to Auth0 /oauth/token using the password grant flow.
+- Auth0 handles password verification.
+- Auth0 also handles MFA.
+- Our Postgres database does not store password hashes or MFA secrets.
+- Auth0 MFA is set to Always.
+- Auth0 Email MFA is enabled.
+- Auth0 One-time Password/authenticator app MFA is enabled.
+- The MFA grant type is enabled for our Auth0 application.
+
+Decision:
+
+For v1, prioritize Email MFA because it prevents new users from getting locked out before they have an authenticator app enrolled.
+
+Do not migrate away from Auth0.
+Do not build first-party password storage.
+Do not build our own TOTP/MFA system.
+Do not store MFA secrets in Postgres.
+Do not rewrite the whole auth system.
+Do not build the full authenticator-app QR enrollment flow yet. That can be v2.
+
+What needs to happen now:
+
+1. Redact the mfa_token from all logs immediately.
+   It should not appear in frontend console logs or backend/server logs.
+
+2. Keep the current custom login UI and current Auth0 password flow.
+
+3. When Auth0 returns mfa_required, the app should not show it as a red login error.
+   It should move the user into the MFA verification step.
+
+4. Make the MFA step support Email MFA for v1.
+   Since Email MFA is enabled in Auth0, users should be able to receive an email code and enter it on the existing MFA verification screen.
+
+5. The backend should correctly coordinate the Auth0 Email MFA challenge and verification flow.
+   The user should receive the email MFA code, submit it, and then the backend should complete MFA with Auth0 and finish login normally.
+
+6. Keep authenticator-app OTP support if the current implementation already works for users who already have an enrolled authenticator app.
+   But do not make authenticator-app enrollment required for v1.
+
+Expected user flow:
+
+1. User enters email/password on our custom login page.
+2. Backend sends credentials to Auth0 like it already does.
+3. If Auth0 login succeeds normally, user enters the app.
+4. If Auth0 returns mfa_required, frontend goes to the MFA verification screen.
+5. For Email MFA, backend should trigger/handle the email challenge through Auth0.
+6. User enters the emailed code.
+7. Backend verifies the code with Auth0.
+8. If successful, login completes normally.
+9. If the code is wrong, show a clean readable error.
+10. If the MFA session expires, send the user back to sign in.
+
+User-facing errors should be simple, for example:
+
+- “That code didn’t match. Please try again.”
+- “Your verification session expired. Please sign in again.”
+- “We couldn’t send a verification code. Please try again.”
+
+Keep this focused and minimal:
+- fix token logging
+- make Email MFA work
+- preserve existing Auth0 architecture
+- avoid unnecessary rewrites

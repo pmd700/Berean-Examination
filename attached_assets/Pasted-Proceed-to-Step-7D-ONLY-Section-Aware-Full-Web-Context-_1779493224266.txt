@@ -1,0 +1,304 @@
+Proceed to Step 7D ONLY: Section-Aware / Full Web Context Retrieval.
+
+Purpose:
+Step 7C made MCP output clean AI Graph Markdown, but retrieval is still mostly semantic/top-match based. This causes section questions like “what do I do on Mondays?” to return only the highest-matching cards instead of the entire Monday section/flow.
+
+Build section-aware retrieval so if a query matches a canvas section such as “Monday,” the MCP returns all cards inside that section, all confirmed connections among those cards, and an ordered flow if detectable.
+
+This step is successful if:
+1. Neon DB remains the source of truth.
+2. No schema changes are made.
+3. No migrations are made.
+4. No Auth0/OAuth/MCP auth changes are made.
+5. No write tools are added.
+6. Existing four read-only MCP tools remain.
+7. get_brain_context_pack can detect a matching section and return full section context.
+8. Daily Schedule / Monday returns the full Monday flow, not just top semantic matches.
+9. AI Graph Markdown from Step 7C remains the default output.
+10. JSON / both format behavior remains intact.
+
+Important boundaries:
+Do not modify schema.
+Do not run migrations.
+Do not modify Neon structure.
+Do not change Auth0.
+Do not change OAuth.
+Do not change MCP auth.
+Do not remove MCP_BRAIN_TOKEN support.
+Do not add write tools.
+Do not create cards.
+Do not create connections.
+Do not create sources.
+Do not change export/import behavior.
+Do not expose Auth0 IDs.
+Do not expose hidden BEREAN_KNOWLEDGE_WEB base64.
+Do not expose raw HTML.
+Do not return raw JSON by default.
+
+Core design:
+Semantic search = find relevant entry points.
+Section-aware expansion = pull the full canvas section around those entry points.
+AI Graph Markdown = render the section cleanly.
+
+Implement:
+
+1. Audit canvas section data.
+
+Inspect how section objects are stored.
+
+Confirm:
+- table/model name for canvas objects
+- object_type value for sections
+- fields available: id, web_id, title, x, y, width, height, color, etc.
+- whether cards have x, y, width, height
+- whether section bounds can reliably determine card inclusion
+
+Report the findings briefly in the final report.
+
+2. Add section retrieval helpers.
+
+Likely location:
+server/brainRetrieval.ts
+
+Add read-only helpers such as:
+- getCanvasSectionsForWeb(webId)
+- findMatchingSectionsForQuery(query, webId?)
+- getCardsInsideSection(section)
+- getConnectionsAmongCards(cardIds)
+- buildSectionContextPack(section, options)
+
+Section match rules:
+- exact title match should be strongest
+- normalized title match should work: “Monday” == “monday”
+- query containing section title should match: “Daily Schedule Monday” should match section “Monday”
+- section matching should consider web name too when available
+- if multiple sections match, rank by title match, web relevance, and query coverage
+
+Card-in-section rule:
+A card is inside a section if the card center point is within the section rectangle.
+
+Use:
+cardCenterX = card.x + card.width / 2
+cardCenterY = card.y + card.height / 2
+
+Then:
+section.x <= cardCenterX <= section.x + section.width
+section.y <= cardCenterY <= section.y + section.height
+
+If width/height is missing, use x/y with a safe fallback.
+
+3. Add retrieval mode to get_brain_context_pack.
+
+Add optional parameter:
+
+retrieval_mode: "auto" | "search" | "section" | "web"
+
+Default:
+retrieval_mode = "auto"
+
+Behavior:
+- auto:
+  - if query matches a section, use section-aware retrieval
+  - otherwise use existing semantic retrieval
+- section:
+  - force section-aware retrieval
+  - if no section is found, return a clear markdown note and optionally fallback to search
+- search:
+  - existing 7B/7C semantic behavior
+- web:
+  - return full web context when web_id is provided or web name is strongly matched
+  - use cautiously with limits so it does not explode token usage
+
+Do not break existing callers that do not pass retrieval_mode.
+
+4. Preserve 7C format behavior.
+
+get_brain_context_pack should still support:
+
+format: "markdown" | "json" | "both"
+
+Default:
+format = "markdown"
+
+For section-aware retrieval:
+- markdown returns AI Graph Markdown
+- json returns compact structured section context
+- both returns markdown plus compact JSON sidecar
+
+5. Update AI Graph Markdown renderer for sections.
+
+Likely file:
+server/brainMarkdown.ts
+
+Add support for section context.
+
+Target markdown structure:
+
+# Brain Context Pack: Daily Schedule Monday
+
+## Matched Section
+Web: Daily Schedule
+Section: Monday
+
+## Ordered Flow
+1. Wake up at the first reasonable wakeup with energy
+2. Go Pee then Chug Some Lemon Water
+3. Skincare and Get Dressed for BJJ
+4. Prayer + Morning Bible Study
+5. Adult Nogi
+6. Shower + Eat First Meal
+7. Investing Workflow
+8. Splits Based Stretch
+9. Truth Workflow
+10. Social Time
+11. 8:30 PM Prayer
+12. Sleep
+
+## Cards
+| ID | Web | Title | Tags | Notes |
+|---|---|---|---|---|
+
+## Connections
+| From | Relationship | To | Evidence |
+|---|---|---|---|
+
+For section context:
+- include all cards inside the section
+- include all confirmed connections where both endpoints are inside the section
+- preserve card IDs
+- preserve web name
+- preserve tags
+- preserve notes/snippets
+- preserve from/to card titles
+- include section name
+- include ordered flow if the internal connections form a mostly linear chain
+
+6. Ordered flow logic.
+
+Use existing detectOrderedFlow if available from 7C, or extend it.
+
+For a strict chain:
+- one start node with no incoming edge
+- one end node with no outgoing edge
+- every middle node has one incoming and one outgoing edge
+- no cycles
+
+If connections are undirected but visually represent a chain:
+- infer order from connection sequence if possible
+- otherwise infer from x/y canvas positions inside the section as fallback
+
+For Daily Schedule / Monday, the expected flow is:
+
+1. Wake up at the first reasonable wakeup with energy
+2. Go Pee then Chug Some Lemon Water
+3. Skincare and Get Dressed for BJJ
+4. Prayer + Morning Bible Study
+5. Adult Nogi
+6. Shower + Eat First Meal
+7. Investing Workflow
+8. Splits Based Stretch
+9. Truth Workflow
+10. Social Time
+11. 8:30 PM Prayer
+12. Sleep
+
+7. Keep semantic search fallback.
+
+Do not replace existing retrieval.
+
+If no section is matched:
+- use existing 7B semantic retrieval
+- render with existing 7C markdown format
+
+If section is matched:
+- section context should override top-N semantic truncation
+- still respect a safety cap if needed, but the default should include the full section
+
+8. Tests.
+
+Run local tests against dev workflow.
+
+Test A:
+get_brain_context_pack query="Daily Schedule Monday" retrieval_mode="auto" limit=15
+
+Expected:
+- output says matched section Monday
+- includes all 12 Monday cards
+- includes all 11 Monday connections if stored as confirmed connections
+- includes Investing Workflow
+- includes Splits Based Stretch
+- includes Ordered Flow
+- no BEREAN_KNOWLEDGE_WEB
+- no long base64
+- no auth0|
+- no user_id
+- no raw HTML
+- markdown default
+
+Test B:
+get_brain_context_pack query="Monday" web_id=12 retrieval_mode="section"
+
+Expected:
+- same full Monday section
+
+Test C:
+get_brain_context_pack query="faith alone" retrieval_mode="auto"
+
+Expected:
+- falls back to normal semantic retrieval
+- does not falsely match Daily Schedule/Monday
+
+Test D:
+get_brain_context_pack query="Daily Schedule Monday" retrieval_mode="search"
+
+Expected:
+- old semantic behavior remains available
+
+Test E:
+get_brain_context_pack query="Daily Schedule Monday" retrieval_mode="auto" format="json"
+
+Expected:
+- compact JSON section context
+- no full DB rows
+- no Auth0 IDs
+- no canvas coordinates unless explicitly included under a compact section/card reference
+
+Test F:
+get_brain_context_pack query="Daily Schedule Monday" retrieval_mode="auto" format="both"
+
+Expected:
+- markdown first
+- compact JSON second
+
+9. MCP safety checks.
+
+Run:
+- no auth → 401
+- wrong bearer → 401
+- MCP_BRAIN_TOKEN → initialize 200
+- tools/list returns same 4 read-only tools
+- no write tools exist
+- all 4 tools still work
+
+10. Final report.
+
+Report:
+
+A. Files changed
+B. How canvas sections are stored
+C. New section helper functions
+D. retrieval_mode behavior
+E. Whether format=markdown/json/both still works
+F. Example output for Daily Schedule Monday
+G. Does Daily Schedule Monday include all 12 cards? yes/no
+H. Does it include all 11 internal connections? yes/no
+I. Does it include Investing Workflow and Splits Based Stretch? yes/no
+J. Does Ordered Flow render? yes/no
+K. Does faith alone still use semantic retrieval? yes/no
+L. Are base64/Auth0 IDs/HTML absent? yes/no
+M. Auth checks still pass? yes/no
+N. Same 4 read-only tools? yes/no
+O. Schema/Neon/Auth0/OAuth/write tools untouched? yes/no
+P. Ready for redeploy? yes/no
+
+Stop after Step 7D.

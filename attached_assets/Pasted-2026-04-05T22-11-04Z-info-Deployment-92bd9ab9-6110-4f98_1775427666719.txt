@@ -1,0 +1,72 @@
+2026-04-05T22:11:04Z info: Deployment: 92bd9ab9-6110-4f98-92a9-2d4a65c87bcc
+2026-04-05T22:11:04Z info: Build: 9aaf7e8c-5753-465a-8d9d-284de1e39666
+2026-04-05T22:11:05Z info: Running Security Scan
+2026-04-05T22:11:11Z info: Security Scan Complete
+2026-04-05T22:11:13Z info: Installing packages
+2026-04-05T22:11:13Z info: Starting Build
+
+> base44-app@0.0.0 build
+> vite build
+
+
+vite v6.3.6 building for production...
+
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+
+transforming...
+
+Browserslist: browsers data (caniuse-lite) is 7 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+
+[plugin vite:esbuild] src/components/knowledgeweb/FloatingToolbar.jsx: The character "}" is not valid inside a JSX element
+85 |              </button>
+86 |            </motion.div>
+87 |          )}
+   |           ^
+88 |  
+89 |          <motion.button
+
+
+✓ 3882 modules transformed.
+
+rendering chunks...
+
+[plugin vite:reporter] 
+(!) /home/runner/workspace/src/api/base44Client.js is dynamically imported by /home/runner/workspace/src/components/editor/ImageUploadExtension.jsx but also statically imported by /home/runner/workspace/src/Layout.jsx, /home/runner/workspace/src/components/admin/AdminInbox.jsx, /home/runner/workspace/src/components/admin/BiblicalGeographyDataSourcesManager.jsx, /home/runner/workspace/src/components/admin/BiblicalLocationsManager.jsx, /home/runner/workspace/src/components/drawing/DrawingEditor.jsx, /home/runner/workspace/src/components/editor/KeywordPreview.jsx, /home/runner/workspace/src/components/editor/RichTextEditor.jsx, /home/runner/workspace/src/components/interlinear/useInterlinearChapter.jsx, /home/runner/workspace/src/components/knowledgeweb/CanvasCard.jsx, /home/runner/workspace/src/components/knowledgeweb/CardEditor.jsx, /home/runner/workspace/src/components/knowledgeweb/CardLibraryPicker.jsx, /home/runner/workspace/src/components/navigation/GlobalNav.jsx, /home/runner/workspace/src/components/profile/PrivacyTab.jsx, /home/runner/workspace/src/components/profile/ProfileTab.jsx, /home/runner/workspace/src/components/profile/SettingsTab.jsx, /home/runner/workspace/src/components/progress/ProgressDashboard.jsx, /home/runner/workspace/src/components/progress/ProgressTracker.jsx, /home/runner/workspace/src/components/search/GlobalSearch.jsx, /home/runner/workspace/src/components/social/BlockedUsersPanel.jsx, /home/runner/workspace/src/components/social/CallView.jsx, /home/runner/workspace/src/components/social/ChatView.jsx, /home/runner/workspace/src/components/social/ConversationsPanel.jsx, /home/runner/workspace/src/components/social/CreateGroupDialog.jsx, /home/runner/workspace/src/components/social/FriendRequestsPanel.jsx, /home/runner/workspace/src/components/social/FriendsListPanel.jsx, /home/runner/workspace/src/components/social/GroupChatView.jsx, /home/runner/workspace/src/components/social/GroupConversationsPanel.jsx, /home/runner/workspace/src/components/social/GroupSettingsDialog.jsx, /home/runner/workspace/src/components/social/IncomingCallOverlay.jsx, /home/runner/workspace/src/components/social/NotificationManager.jsx, /home/runner/workspace/src/components/social/ReportDialog.jsx, /home/runner/workspace/src/components/social/UsernameSearch.jsx, /home/runner/workspace/src/components/study/AIInsightsButton.jsx, /home/runner/workspace/src/components/study/ChapterTransfer.jsx, /home/runner/workspace/src/components/updates/UpdatePopup.jsx, /home/runner/workspace/src/components/updates/UpdatePusherForm.jsx, /home/runner/workspace/src/components/updates/VersionHistory.jsx, /home/runner/workspace/src/components/utils/I18nContext.jsx, /home/runner/workspace/src/components/utils/activityTracker.jsx, /home/runner/workspace/src/lib/NavigationTracker.jsx, /home/runner/workspace/src/lib/PageNotFound.jsx, /home/runner/workspace/src/lib/platform/client.js, /home/runner/workspace/src/pages/AccountCenter.jsx, /home/runner/workspace/src/pages/AdminPanel.jsx, /home/runner/workspace/src/pages/ChapterArt.jsx, /home/runner/workspace/src/pages/CompleteRegistration.jsx, /home/runner/workspace/src/pages/ContactFeedback.jsx, /home/runner/workspace/src/pages/KnowledgeWeb.jsx, /home/runner/workspace/src/pages/Profile.jsx, /home/runner/workspace/src/pages/SignInKeyEntry.jsx, /home/runner/workspace/src/pages/Social.jsx, /home/runner/workspace/src/pages/SourcesLicenses.jsx, dynamic import will not move module into another chunk.
+
+
+[plugin vite:reporter] 
+(!) /home/runner/workspace/node_modules/jspdf/dist/jspdf.es.min.js is dynamically imported by /home/runner/workspace/src/components/drawing/DrawingEditor.jsx but also statically imported by /home/runner/workspace/src/components/knowledgeweb/exportKnowledgeWebToPdf.jsx, dynamic import will not move module into another chunk.
+
+
+computing gzip size...
+
+dist/index.html                        0.40 kB │ gzip:   0.27 kB
+
+dist/assets/index-CVsAj7Ug.css       141.73 kB │ gzip:  21.81 kB
+dist/assets/purify.es-B9ZVCkUG.js     22.64 kB │ gzip:   8.71 kB
+dist/assets/index.es-C0q4gICU.js     159.36 kB │ gzip:  53.24 kB
+dist/assets/index-hvYKae-q.js      2,920.58 kB │ gzip: 853.09 kB
+
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+✓ built in 12.03s
+
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.12.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.12.1
+npm notice To update run: npm install -g npm@11.12.1
+npm notice
+
+2026-04-05T22:11:29Z info: Pushing pid1 binary layer...
+2026-04-05T22:11:29Z info: Pushing Repl layer...
+2026-04-05T22:11:29Z info: Pushing hosting layer...
+2026-04-05T22:11:30Z info: Created pid1 binary layer
+2026-04-05T22:11:30Z info: Created hosting layer
+2026-04-05T22:11:53Z info: Created Repl layer
+2026-04-05T22:12:56Z info: Creating Autoscale service

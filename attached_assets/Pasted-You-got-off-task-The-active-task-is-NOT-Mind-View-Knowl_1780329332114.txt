@@ -1,0 +1,52 @@
+You got off task.
+
+The active task is NOT Mind View, Knowledge Web, T001–T006, keybinds, graph previews, sidebars, or anything related to that.
+
+The active task is adding MAM as a Hebrew Tanakh interlinear/source text.
+
+Please stop discussing or verifying Mind View. Do not mark that task complete again.
+
+First, check whether any MAM-related files were actually changed by running/inspecting:
+
+git status --short
+git diff --name-only
+
+Then tell me plainly:
+1. Which files, if any, were changed for MAM.
+2. Whether MAM is actually visible in the app UI yet.
+3. Whether Proverbs 30 with NASB2020 can actually show MAM Hebrew underneath it.
+
+If the answer is no, implement the smallest working MAM milestone now:
+
+Goal:
+When I open an Old Testament passage like Proverbs 30 with NASB2020, I should be able to enable/select MAM and see the corresponding Hebrew MAM verse text underneath each English verse.
+
+The MAM files already exist here:
+
+data/sources/mam-parsed/plus/
+
+Use this test file first:
+
+data/sources/mam-parsed/plus/D2-Proverbs.json
+
+Do not build the entire perfect interlinear system first. Build the smallest visible working version.
+
+Requirements for this milestone:
+- Register MAM as a Hebrew Tanakh / Old Testament source only.
+- Do not register it as New Testament.
+- Read/import MAM Proverbs from the local JSON file.
+- Render MAM Hebrew text RTL.
+- Align MAM to the English Bible by book/chapter/verse.
+- Make Proverbs 30 visibly work in the app.
+- Do not invent lemma, gloss, morphology, Strong’s, or word-level NASB alignment.
+- If word tokenization is easy, create token data, but the UI does not need full clickable popovers yet.
+- Add visible attribution:
+  Source: Hebrew Wikisource
+  License: CC-BY-SA 4.0
+  License link: https://creativecommons.org/licenses/by-sa/4.0/
+
+Do not spend another long cycle only planning. Make code changes. After the first implementation pass, show me:
+1. Files changed.
+2. Exact route/component/importer added.
+3. How I can test Proverbs 30 in the app.
+4. Any known limitations.

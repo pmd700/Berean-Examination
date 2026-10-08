@@ -1,0 +1,152 @@
+Proceed to Step 7D.1 ONLY: Production Verification After 7D Redeploy.
+
+Do not modify code.
+Do not modify schema.
+Do not modify Neon.
+Do not modify Auth0.
+Do not modify OAuth.
+Do not add write tools.
+Do not create cards, connections, or sources.
+
+Endpoint:
+https://bereanexamination.com/mcp/brain
+
+Purpose:
+Confirm production is now running Step 7D section-aware retrieval.
+
+Run these checks:
+
+1. Auth checks:
+- no auth → 401
+- wrong bearer → 401
+- MCP_BRAIN_TOKEN → initialize 200
+- tools/list returns exactly 4 read-only tools
+
+2. Tool schema check:
+Confirm get_brain_context_pack exposes:
+retrieval_mode: "auto" | "search" | "section" | "web"
+
+Confirm format still exposes:
+format: "markdown" | "json" | "both"
+
+3. Daily Schedule Monday section test:
+
+Run:
+get_brain_context_pack
+query="Daily Schedule Monday"
+retrieval_mode="auto"
+limit=50
+
+Expected:
+- matched section = Monday
+- web = Daily Schedule
+- output is markdown by default
+- includes all Monday cards:
+  - Wake up at the first reasonable wakeup with energy
+  - Go Pee then Chug Some Lemon Water
+  - Skincare and Get Dressed for BJJ
+  - Prayer + Morning Bible Study
+  - Adult Nogi
+  - Shower + Eat First Meal
+  - Investing Workflow
+  - Splits Based Stretch
+  - Truth Workflow
+  - Social Time
+  - 8:30 PM Prayer
+  - Sleep
+
+4. Forced section test:
+
+Run:
+get_brain_context_pack
+query="Monday"
+web_id=12
+retrieval_mode="section"
+limit=50
+
+Expected:
+- same full Monday section
+- includes Investing Workflow
+- includes Splits Based Stretch
+
+5. Forced search test:
+
+Run:
+get_brain_context_pack
+query="Daily Schedule Monday"
+retrieval_mode="search"
+limit=15
+
+Expected:
+- old semantic behavior remains available
+- does not force full section mode
+
+6. Semantic fallback test:
+
+Run:
+get_brain_context_pack
+query="faith alone"
+retrieval_mode="auto"
+limit=15
+
+Expected:
+- falls back to semantic retrieval
+- does not falsely match Daily Schedule/Monday
+
+7. Format tests:
+
+Run:
+get_brain_context_pack
+query="Daily Schedule Monday"
+retrieval_mode="auto"
+format="json"
+limit=50
+
+Run:
+get_brain_context_pack
+query="Daily Schedule Monday"
+retrieval_mode="auto"
+format="both"
+limit=50
+
+Expected:
+- json returns compact sanitized JSON
+- both returns markdown first, compact JSON second
+- no full DB rows
+- no Auth0 IDs
+- no hidden base64
+- no raw HTML
+
+8. Safety scan all outputs for:
+- BEREAN_KNOWLEDGE_WEB
+- long base64 strings
+- auth0|
+- google-oauth2|
+- user_id
+- enc_payload
+- raw HTML tags
+- raw JSON wall by default
+
+Expected:
+all absent.
+
+9. Final report:
+
+A. Is production running 7D? yes/no
+B. Same 4 read-only tools? yes/no
+C. retrieval_mode present? yes/no
+D. format still works? yes/no
+E. Daily Schedule Monday matched section? yes/no
+F. All 12 Monday cards included? yes/no
+G. All 11 Monday connections included? yes/no
+H. Investing Workflow included? yes/no
+I. Splits Based Stretch included? yes/no
+J. Ordered Flow rendered? yes/no
+K. retrieval_mode="search" still works? yes/no
+L. faith alone falls back to semantic search? yes/no
+M. base64/Auth0/HTML absent? yes/no
+N. Auth checks pass? yes/no
+O. Schema/Neon/Auth0/OAuth/write tools untouched? yes/no
+P. Ready for live ChatGPT test? yes/no
+
+Stop after Step 7D.1 verification.

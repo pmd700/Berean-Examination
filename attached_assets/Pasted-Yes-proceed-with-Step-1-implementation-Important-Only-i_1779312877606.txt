@@ -1,0 +1,110 @@
+Yes, proceed with Step 1 implementation.
+
+Important:
+Only implement the Brain Spine schema/data model.
+Do not build UI.
+Do not build chatbot.
+Do not build AI processing.
+Do not build MCP.
+Do not add ChatGPT integration.
+Do not modify admin/auth/bootstrap logic.
+Do not redesign Knowledge Web.
+
+Based on your audit, use this safe plan:
+
+1. Extend existing web_cards instead of creating a duplicate KnowledgeCard table.
+
+Add only these fields:
+- source_ids integer[] nullable, if supported cleanly by the existing Drizzle/Postgres setup
+- created_by varchar(16) NOT NULL DEFAULT 'user'
+- status varchar(16) NOT NULL DEFAULT 'confirmed'
+- visibility varchar(16) NOT NULL DEFAULT 'private'
+
+Do NOT add a new body field.
+Use the existing description field as the AI-readable body.
+
+Do NOT convert tags to an array yet.
+Leave tags as the existing text blob for now.
+
+2. Extend existing web_connections instead of creating a duplicate KnowledgeConnection table.
+
+Add only these fields:
+- relationship_type varchar(32) nullable
+- strength integer nullable
+- evidence text nullable
+- created_by varchar(16) NOT NULL DEFAULT 'user'
+- status varchar(16) NOT NULL DEFAULT 'confirmed'
+- updated_at timestamp DEFAULT NOW()
+
+3. Add new table: brain_sources
+
+Purpose:
+Raw source inbox / immutable source material before AI processing.
+
+Fields:
+- id serial primary key
+- user_id varchar not null
+- web_id integer nullable
+- title varchar(500) not null
+- source_type varchar(32) not null
+- source_url text nullable
+- raw_text text not null
+- metadata_json jsonb nullable
+- processing_status varchar(16) not null default 'unprocessed'
+- created_at timestamp default now
+- updated_at timestamp default now
+- processed_at timestamp nullable
+
+Important:
+Do not delete or overwrite raw_text in normal app flows.
+This is the raw source layer.
+
+4. Add new table: brain_indexes
+
+Purpose:
+Database equivalent of index.md for searchable summaries of webs/clusters/categories.
+
+Fields:
+- id serial primary key
+- user_id varchar not null
+- web_id integer nullable
+- index_type varchar(32) not null
+- title varchar(500) not null
+- summary text not null
+- key_card_ids integer[] nullable
+- key_connection_ids integer[] nullable
+- updated_at timestamp default now
+
+5. Add new table: brain_logs
+
+Purpose:
+Append-only audit trail for user, AI, and system actions.
+
+Fields:
+- id serial primary key
+- user_id varchar not null
+- web_id integer nullable
+- action_type varchar(64) not null
+- actor varchar(16) not null
+- entity_type varchar(32) not null
+- entity_id integer nullable
+- summary text not null
+- before_json jsonb nullable
+- after_json jsonb nullable
+- created_at timestamp default now
+
+6. Add schema types / insert schemas for the new tables according to the existing project pattern.
+
+7. Keep changes minimal and additive:
+- no drops
+- no renames
+- no destructive migrations
+- no frontend changes unless needed to prevent build errors
+- preserve all existing Knowledge Web functionality
+
+8. After implementation:
+- run the relevant typecheck/build checks if available
+- tell me exactly which files changed
+- summarize the schema changes
+- tell me whether db:push/migration is needed
+- stop after Step 1

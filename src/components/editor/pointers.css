@@ -1,0 +1,23 @@
+.bex-pointer-anchor {
+  text-decoration: underline dotted rgba(167, 139, 250, 0.46);
+  text-underline-offset: 4px;
+}
+.bex-pointer-draft { background: rgba(167, 139, 250, 0.16); outline: 1px dashed rgba(167, 139, 250, 0.65); border-radius: 2px; }
+.bex-pointer-surface { position: relative; }
+.bex-pointer-lines { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 35; color: #a78bfa; }
+.bex-pointer-line { opacity: 0.36; transition: opacity 160ms ease; }
+.bex-pointer-line:hover, .bex-pointer-line:focus-within, .bex-pointer-line.is-active { opacity: 0.9; }
+.bex-pointer-line-ink { fill: none; stroke: currentColor; stroke-width: 1.5; }
+.bex-pointer-origin { fill: currentColor; }
+.bex-pointer-line-hit { fill: none; stroke: transparent; stroke-width: 12; pointer-events: stroke; cursor: pointer; outline: none; }
+.bex-pointer-line-hit:focus-visible { stroke: rgba(167, 139, 250, 0.15); }
+.bex-pointer-status { position: fixed; z-index: 90; bottom: 22px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; max-width: calc(100vw - 32px); padding: 10px 12px 10px 16px; border: 1px solid rgba(167, 139, 250, 0.24); border-radius: 10px; background: var(--bg-secondary, #191d28); color: var(--text-primary, #e5e7eb); box-shadow: 0 4px 24px #0003; font: 13px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+.bex-pointer-status-text { min-width: 0; margin-right: 6px; overflow-wrap: anywhere; }
+.bex-pointer-status-text strong { display: block; font-weight: 600; }
+.bex-pointer-status-text span { display: block; opacity: 0.75; }
+.bex-pointer-status button { flex-shrink: 0; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; background: transparent; color: inherit; border: 0; border-radius: 5px; cursor: pointer; }
+.bex-pointer-status button:hover { background: rgba(167, 139, 250, 0.16); }
+.bex-pointer-status button:focus-visible { outline: 2px solid #a78bfa; }
+@media (prefers-reduced-motion: reduce) { .bex-pointer-line { transition: none; } }
+
+.bex-pointer-status .bex-pointer-echo[aria-pressed="true"] { background: rgba(167, 139, 250, 0.25); color: #c4b5fd; box-shadow: inset 0 0 0 1px rgba(167, 139, 250, 0.5); }
