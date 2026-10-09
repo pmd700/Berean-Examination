@@ -8,6 +8,7 @@ import { restartBex } from '@/lib/restartBex';
 import {
   clearScriptureKey, getScriptureSetup, saveScriptureKey, SCRIPTURE_SETUP_CHANGED_EVENT,
 } from '@/lib/scriptureSetup';
+import { useOptionalWorkspaceTabs, TAB_KINDS } from '@/lib/WorkspaceTabs';
 import './scriptureSearch.css';
 import freeUseBibleLogo from './free-use-bible-api.png';
 
@@ -27,22 +28,30 @@ function ScriptureMist() {
   );
 }
 
-function RouterNavigator({ onReady }) {
+function RouterNavigator({ navRef }) {
   const navigate = useNavigate();
   React.useEffect(() => {
-    onReady(navigate);
-  }, [navigate, onReady]);
+    navRef.current = navigate;
+  }, [navigate, navRef]);
   return null;
 }
 
-export default function ScriptureSearch() {
+export default function ScriptureSearch({ onSearch, initialQuery = '', className = '' } = {}) {
   const inRouter = useInRouterContext();
-  const [navigateFn, setNavigateFn] = React.useState(null);
+  const navRef = React.useRef(null);
+  const workspaceTabs = useOptionalWorkspaceTabs();
   const [configured, setConfigured] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
   const [key, setKey] = React.useState('');
-  const [query, setQuery] = React.useState('');
+  const [query, setQuery] = React.useState(initialQuery || '');
+
+  React.useEffect(() => {
+    if (initialQuery !== undefined) {
+      setQuery(initialQuery || '');
+    }
+  }, [initialQuery]);
+
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [message, setMessage] = React.useState('');
   const [error, setError] = React.useState('');
@@ -167,8 +176,8 @@ export default function ScriptureSearch() {
 
   return (
     <Dialog.Root open={settingsOpen} onOpenChange={setDialogOpen}>
-      {inRouter && <RouterNavigator onReady={setNavigateFn} />}
-      <div ref={rootRef} className="scripture-search" data-testid="scripture-search" data-locked={!configured} aria-busy={loading}>
+      {inRouter && <RouterNavigator navRef={navRef} />}
+      <div ref={rootRef} className={`scripture-search ${className}`} data-testid="scripture-search" data-locked={!configured} aria-busy={loading}>
         {!configured ? (
           <>
             <ScriptureMist />
@@ -186,8 +195,33 @@ export default function ScriptureSearch() {
             if (event.nativeEvent?.isComposing) return;
             const clean = query.trim();
             if (!clean) return;
-            if (navigateFn) {
-              navigateFn(`/ScriptureReader?q=${encodeURIComponent(clean)}`);
+            if (onSearch) {
+              onSearch(clean);
+            }
+            const targetPath = `/Study?q=${encodeURIComponent(clean)}`;
+            if (workspaceTabs) {
+              const { tabs, activeTab, openTab, updateTab, selectTab } = workspaceTabs;
+              const patch = {
+                kind: TAB_KINDS.STUDY,
+                path: targetPath,
+                title: clean,
+              };
+              if (activeTab?.kind === TAB_KINDS.HOME || activeTab?.kind === TAB_KINDS.STUDY) {
+                updateTab(activeTab.id, patch);
+              } else {
+                const existing = tabs.find((t) => t.path.startsWith('/Study?q='));
+                if (existing) {
+                  updateTab(existing.id, patch);
+                  selectTab(existing.id);
+                } else {
+                  openTab(TAB_KINDS.STUDY, patch);
+                }
+              }
+              if (navRef.current) {
+                navRef.current(targetPath);
+              }
+            } else if (navRef.current) {
+              navRef.current(targetPath);
             } else {
               setMessage('Your API key is saved. Scripture search is coming next.');
             }

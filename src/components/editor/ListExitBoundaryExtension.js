@@ -110,8 +110,63 @@ function splitListAtExitBoundaries(listNode) {
   return changed ? replacement : null;
 }
 
+function normalizeContinuationInContainer(container, contentStart, tr) {
+  let changed = false;
+  let currentPos = contentStart;
+  let lastOrderedListEnd = null;
+
+  for (let i = 0; i < container.childCount; i += 1) {
+    const child = container.child(i);
+    const childPos = currentPos;
+    currentPos += child.nodeSize;
+
+    if (child.type.name === 'orderedList') {
+      const currentStart = Number.isFinite(Number(child.attrs?.start))
+        ? Number(child.attrs.start)
+        : 1;
+
+      if (lastOrderedListEnd !== null) {
+        const expectedStart = lastOrderedListEnd + 1;
+        if (child.attrs?.start !== expectedStart) {
+          tr.setNodeMarkup(childPos, undefined, { ...child.attrs, start: expectedStart });
+          changed = true;
+        }
+        lastOrderedListEnd = expectedStart + child.childCount - 1;
+      } else {
+        lastOrderedListEnd = currentStart + child.childCount - 1;
+      }
+    } else if (child.isTextblock && child.textContent.trim() === '') {
+      // Empty or whitespace-only paragraph: preserve lastOrderedListEnd
+    } else {
+      lastOrderedListEnd = null;
+    }
+  }
+
+  return changed;
+}
+
+export function normalizeOrderedListContinuation(tr) {
+  let changed = false;
+
+  if (normalizeContinuationInContainer(tr.doc, 0, tr)) {
+    changed = true;
+  }
+
+  tr.doc.descendants((node, pos) => {
+    if (node.isBlock && !node.type.inlineContent && node.type.name !== 'doc' && !LIST_NODE_NAMES.has(node.type.name)) {
+      if (normalizeContinuationInContainer(node, pos + 1, tr)) {
+        changed = true;
+      }
+    }
+    return true;
+  });
+
+  return changed;
+}
+
 /** Normalize every qualifying list in a transaction, deepest positions first. */
 export function normalizeListExitBoundaries(tr) {
+  let changed = false;
   const replacements = [];
 
   tr.doc.descendants((node, pos) => {
@@ -124,11 +179,18 @@ export function normalizeListExitBoundaries(tr) {
     return false;
   });
 
-  if (!replacements.length) return { tr, changed: false };
-  replacements
-    .sort((a, b) => b.from - a.from)
-    .forEach(({ from, to, replacement }) => tr.replaceWith(from, to, replacement));
-  return { tr, changed: true };
+  if (replacements.length) {
+    replacements
+      .sort((a, b) => b.from - a.from)
+      .forEach(({ from, to, replacement }) => tr.replaceWith(from, to, replacement));
+    changed = true;
+  }
+
+  if (normalizeOrderedListContinuation(tr)) {
+    changed = true;
+  }
+
+  return { tr, changed };
 }
 
 /** Keep newly pasted or edited rich list content normalized automatically. */

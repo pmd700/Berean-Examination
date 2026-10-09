@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { desktopClient } from '@/api/desktopClient';
-import { useTheme } from '@/lib/ThemeContext';
 import { platformEntities } from '@/lib/platform/entities';
 import { platformFunctions } from '@/lib/platform/functions';
 import { Button } from "@/components/ui/button";
@@ -8,9 +7,13 @@ import { Button } from "@/components/ui/button";
 import RichTextEditor from '../components/editor/RichTextEditor';
 import { useAutoSave } from '../components/editor/useAutoSave';
 import {
-  Moon, Sun, ArrowLeft,
-  Edit2, MessageSquare, Pencil, FileText, PenLine, Send, Lock } from
-'lucide-react';
+  Edit2, MessageSquare, Pencil, FileText, PenLine, Send, Lock, Sparkles, Loader2
+} from 'lucide-react';
+import BibleVersionSelector from '../components/study/BibleVersionSelector';
+import ScriptureSearch from '../components/scripture/ScriptureSearch';
+import { parseScriptureQuery } from '@/lib/scriptureReferences';
+import { fetchScriptureBatch } from '@/lib/scriptureClient';
+import { buildStudyChapterFromBatch } from '@/lib/apiBibleToStudyBlocks';
 import { LoadingScreen } from '../components/ui/loading-screen';
 import { toast } from 'sonner';
 import { createPageUrl } from '@/utils';
@@ -25,8 +28,6 @@ import UnsavedChangesDialog from '../components/editor/UnsavedChangesDialog';
 import DrawingEditor from '../components/drawing/DrawingEditor';
 import ChapterNotesPanel from '../components/notes/ChapterNotesPanel';
 import AnnotationWindow from '../components/study/AnnotationWindow';
-import Breadcrumbs from '../components/navigation/Breadcrumbs';
-import StreakBadge from '../components/progress/StreakBadge';
 import { trackActivity } from '../components/utils/activityTracker';
 import TextSizeControl, { getScriptureTextClass, getVerseNumberClass, getHeaderClass, useTextSizePreference } from '../components/scripture/TextSizeControl';
 import AnnotationsListModal from '../components/study/AnnotationsListModal';
@@ -48,11 +49,8 @@ import {
 import { readLocalOwner } from '@/lib/localOwner';
 import { listAllChapterArt } from '@/lib/chapterArtRegistry';
 import { useNavigate } from 'react-router-dom';
-import DesktopPrivacySettings from '@/components/desktop/PrivacySettings';
 import ExternalWebLink from '@/components/navigation/ExternalWebLink';
 import { useCurrentWorkspaceTab, useTabTitle } from '@/lib/WorkspaceTabs';
-
-const logoPath = '/logo.png';
 
 function ScriptureAttribution({ material }) {
   const notice = getStudyExportRightsNotice(material);
@@ -87,7 +85,6 @@ function ScriptureAttribution({ material }) {
 export default function Study() {
   const navigate = useNavigate();
   const currentWorkspaceTab = useCurrentWorkspaceTab();
-  const { theme, toggleTheme } = useTheme();
   const { tr } = useI18n();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -103,6 +100,15 @@ export default function Study() {
   const savingChapterText = useRef(false);
 
   const [currentChapter, setCurrentChapter] = useState(null);
+  const [selectedBibleId, setSelectedBibleId] = useState(() => {
+    return localStorage.getItem('bex_scripture_selected_bible_id') || '317e03834065a236-01';
+  });
+  const [redLetters, setRedLetters] = useState(() => {
+    const saved = localStorage.getItem('bex_scripture_red_letters');
+    return saved !== null ? saved === 'true' : true;
+  });
+  const [currentSearchQuery, setCurrentSearchQuery] = useState('');
+  const [searchLoading, setSearchLoading] = useState(false);
   const [annotations, setAnnotations] = useState([]);
 
   const [userChapters, setUserChapters] = useState([]);
@@ -251,7 +257,12 @@ export default function Study() {
         const queryString = currentWorkspaceTab?.path?.split('?')[1] || window.location.search;
         const query = new URLSearchParams(queryString);
         const chapterId = query.get('chapter_id');
-        if (chapterId) await loadChapterById(chapterId);
+        const q = query.get('q');
+        if (chapterId) {
+          await loadChapterById(chapterId);
+        } else if (q) {
+          await loadScriptureQuery(q, selectedBibleId);
+        }
       } catch (error) {
         console.error('[Study] local owner check failed:', error);
       } finally {
@@ -264,6 +275,15 @@ export default function Study() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    const queryString = currentWorkspaceTab?.path?.split('?')[1] || window.location.search;
+    const query = new URLSearchParams(queryString);
+    const q = query.get('q');
+    if (q && q !== currentSearchQuery) {
+      loadScriptureQuery(q, selectedBibleId);
+    }
+  }, [currentWorkspaceTab?.path]);
 
   useEffect(() => {
     const handleKeywordClick = (e) => {
@@ -480,6 +500,7 @@ export default function Study() {
     try {
       const chapters = await platformEntities.StudyChapter.filter({ id: chapterId });
       if (chapters && chapters.length > 0) {
+        setCurrentSearchQuery('');
         setCurrentChapter(chapters[0]);
         await loadAnnotations(chapters[0]);
         setStage('view');
@@ -488,6 +509,56 @@ export default function Study() {
       console.error('Failed to load chapter by ID:', error);
     }
   };
+
+  const loadScriptureQuery = async (queryText, bibleId, bibleAbbr) => {
+    if (!queryText || !queryText.trim()) return;
+    const cleanQuery = queryText.trim();
+    setCurrentSearchQuery(cleanQuery);
+    setSearchLoading(true);
+    try {
+      const parsed = parseScriptureQuery(cleanQuery);
+      if (!parsed.isReference || parsed.requests.length === 0) {
+        toast.error(`Could not parse scripture reference: "${cleanQuery}"`);
+        return;
+      }
+      const bId = bibleId || selectedBibleId;
+      const batchId = `study-${Date.now()}`;
+      const batchResults = await fetchScriptureBatch(parsed.requests, {
+        bibleId: bId,
+        batchId,
+      });
+      const abbr = bibleAbbr || (bId === 'de4e12af7f28f599-02' ? 'KJV' : 'BSB');
+      const assembledChapter = buildStudyChapterFromBatch(parsed, batchResults, abbr);
+      setCurrentChapter(assembledChapter);
+      await loadAnnotations(assembledChapter);
+      setStage('view');
+    } catch (err) {
+      console.error('Failed to load scripture query:', err);
+      toast.error(err?.message || 'Failed to retrieve scripture from API.Bible');
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const handleSelectBible = async (bible) => {
+    setSelectedBibleId(bible.id);
+    localStorage.setItem('bex_scripture_selected_bible_id', bible.id);
+    if (currentSearchQuery) {
+      await loadScriptureQuery(currentSearchQuery, bible.id, bible.abbreviation);
+    } else if (currentChapter?.book && currentChapter?.chapter_number) {
+      const chapterRef = `${currentChapter.book} ${currentChapter.chapter_number}`;
+      await loadScriptureQuery(chapterRef, bible.id, bible.abbreviation);
+    }
+  };
+
+  const handleToggleRedLetters = () => {
+    setRedLetters((prev) => {
+      const next = !prev;
+      localStorage.setItem('bex_scripture_red_letters', String(next));
+      return next;
+    });
+  };
+
 
   // Theme lives in ThemeProvider now, so this button retones the whole app
   // rather than just this page.
@@ -595,7 +666,7 @@ export default function Study() {
   const handleOpenAnnotationPopup = () => {
     if (!selectionStart) return;
     const endPoint = selectionEnd || selectionStart;
-    const blocks = parseChapter(currentChapter.raw_text);
+    const blocks = currentChapter?.blocks || parseChapter(currentChapter?.raw_text);
 
     let selectedText = '';
     let capturing = false;
@@ -1005,66 +1076,57 @@ export default function Study() {
     } else setShowChapterText(false);
   };
 
-  if (loading) {
-    return <LoadingScreen message="Loading your Bible Study..." />;
+  if (loading || searchLoading) {
+    return <LoadingScreen message={searchLoading ? "Retrieving scripture from API.Bible…" : "Loading your Bible Study..."} />;
   }
 
   return (
     <div className="min-h-screen bg-app">
-      <header className="sticky top-0 z-40 bg-app/95 backdrop-blur-md border-b border-line">
-        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src={logoPath} alt="Berean Examination" className="w-8 h-8 object-contain" />
-            <h1 className="text-ink text-lg font-bold tracking-tight">Berean Examination</h1>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <StreakBadge chapters={userChapters} annotations={allAnnotations} keywords={keywords} user={user} />
-            <DesktopPrivacySettings />
-            <Button variant="ghost" size="icon" onClick={toggleTheme} className="text-ink-faint hover:text-ink">
-              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </Button>
-          </div>
-        </div>
-      </header>
-
       <main className="max-w-7xl mx-auto px-4 py-8">
-        {stage === 'progress' &&
-        <>
-            <Breadcrumbs items={[{ label: 'Bible Study', href: createPageUrl('Study') }]} />
-          </>
-        }
-
-        {stage === 'progress' &&
-        <div className="max-w-6xl mx-auto space-y-6">
+        {stage === 'progress' && (
+          <div className="max-w-6xl mx-auto space-y-6">
+            <div className="max-w-2xl mx-auto mb-6">
+              <ScriptureSearch
+                initialQuery={currentSearchQuery}
+                onSearch={(clean) => loadScriptureQuery(clean, selectedBibleId)}
+              />
+            </div>
             <h2 className="text-xl font-bold text-ink dark:text-ink">{tr('Chapter History')}</h2>
             <ProgressTracker
-            chapters={userChapters}
-            onSelectChapter={handleSelectChapter}
-            onDeleteChapter={handleDeleteChapter}
-            user={user} />
+              chapters={userChapters}
+              onSelectChapter={handleSelectChapter}
+              onDeleteChapter={handleDeleteChapter}
+              user={user}
+            />
           </div>
-        }
+        )}
 
         {stage === 'view' && currentChapter &&
-        <>
-            <Breadcrumbs items={[
-          { label: 'Bible Study', href: createPageUrl('Study') },
-          { label: `${currentChapter.book} ${currentChapter.chapter_number}` }]
-          } />
-          </>
-        }
-
-        {stage === 'view' && currentChapter &&
-        <div className="space-y-4">
+          <div className="space-y-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div className="flex flex-wrap items-center gap-1">
-                <Button variant="ghost" onClick={() => setStage('progress')} className="text-ink-faint dark:text-ink-faint hover:text-ink dark:hover:text-ink">
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Progress
-                </Button>
+              <div className="flex flex-wrap items-center gap-2">
                 <Button variant="ghost" onClick={handleNewChapter} className="text-ink-faint dark:text-ink-faint hover:text-ink dark:hover:text-ink">
                   Search Scripture
+                </Button>
+                <BibleVersionSelector
+                  selectedBibleId={selectedBibleId}
+                  onSelectBible={handleSelectBible}
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleToggleRedLetters}
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition ${
+                    redLetters
+                      ? 'border-rose-500/30 bg-rose-500/10 text-rose-300 shadow-[0_0_10px_rgba(244,63,94,0.15)] hover:bg-rose-500/20'
+                      : 'border-line text-ink-faint hover:text-ink hover:bg-elevated'
+                  }`}
+                  title="Words of Jesus in red"
+                  aria-pressed={redLetters}
+                  data-testid="button-red-letters"
+                >
+                  <Sparkles className={`w-3.5 h-3.5 ${redLetters ? 'text-rose-400' : 'text-ink-faint'}`} />
+                  <span>Red letters</span>
                 </Button>
               </div>
               <Button variant="outline" onClick={() => setShowAnnotationsModal(true)} className="dark:border-line">
@@ -1074,15 +1136,11 @@ export default function Study() {
             </div>
 
             <div className="bg-surface dark:bg-surface rounded-xl border border-line dark:border-line p-6 md:p-8">
-              <div className="mb-5">
-                <h2 className="text-ink text-3xl font-bold dark:text-ink">
-                  {currentChapter.book} {!isLsvSpecialSection(currentChapter.book) && currentChapter.chapter_number}
-                  {currentChapter.version &&
-                <span className="ml-3 text-base font-medium text-ink-faint dark:text-ink-faint">
-                      {currentChapter.version}
-                    </span>
-                }
-                </h2>
+              <div className="mb-6 max-w-2xl">
+                <ScriptureSearch
+                  initialQuery={currentSearchQuery}
+                  onSearch={(clean) => loadScriptureQuery(clean, selectedBibleId)}
+                />
               </div>
 
               {isRemovedTranslation(currentChapter.version) &&
@@ -1137,6 +1195,16 @@ export default function Study() {
                 <div className="shrink-0 rounded-2xl border border-line dark:border-line bg-elevated/80 dark:bg-elevated/80 px-4 py-3">
                   <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-ink-faint dark:text-ink-faint">Display</p>
                   <TextSizeControl value={textSize} onChange={handleTextSizeChange} />
+                  <div className="mt-3 flex flex-col gap-2 border-t border-line pt-3">
+                    <label className="flex items-center gap-2 text-xs text-ink-muted cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={redLetters}
+                        onChange={handleToggleRedLetters}
+                        data-testid="toggle-red-letters-display" />
+                      Words of Jesus in red
+                    </label>
+                  </div>
                   {isRichView &&
                     <div className="mt-3 flex flex-col gap-2 border-t border-line pt-3">
                       <label className="flex items-center gap-2 text-xs text-ink-muted cursor-pointer">
@@ -1228,7 +1296,7 @@ export default function Study() {
                       : null}
                   />
                 ) : (
-                  parseChapter(currentChapter.raw_text, currentChapter.version).map((block, blockIdx) =>
+                  (currentChapter.blocks || parseChapter(currentChapter.raw_text, currentChapter.version)).map((block, blockIdx) =>
               <div key={blockIdx} className="mb-6">
                     {block.type === 'header' ?
                 <h3 className={`${getHeaderClass(textSize)} font-semibold text-ink-muted dark:text-ink-muted mb-4`}>
@@ -1251,6 +1319,7 @@ export default function Study() {
                           const tokenAnns = getAnnotationsForToken(block.verseNumber, tokenIdx);
                           const isAnnotated = tokenAnns.length > 0;
                           const annotation = getAnnotationForToken(block.verseNumber, tokenIdx);
+                          const isRed = redLetters && block.wjTokens?.has(tokenIdx);
 
                           if (/^\s+$/.test(token)) {
                             const wsHighlight = getHighlightForToken(block.verseNumber, tokenIdx);
@@ -1258,6 +1327,7 @@ export default function Study() {
                               <span
                                 key={tokenIdx}
                                 style={buildTokenStyle(wsHighlight, tokenAnns.length)}
+                                className={isRed ? 'text-rose-400 dark:text-rose-400' : ''}
                                 onMouseEnter={tokenAnns.length ? (e) => showAnnotationPreview(e, tokenAnns) : undefined}
                                 onMouseLeave={tokenAnns.length ? hideAnnotationPreview : undefined}>
                                 {token}</span>);
@@ -1295,6 +1365,7 @@ export default function Study() {
                                     <span
                                 data-token-key={`token-${block.verseNumber}-${tokenIdx}`}
                                 style={buildTokenStyle(highlight, tokenAnns.length)}
+                                className={isRed ? 'text-rose-400 dark:text-rose-400 font-medium' : ''}
                                 onMouseEnter={isAnnotated ? (e) => showAnnotationPreview(e, tokenAnns) : undefined}
                                 onMouseLeave={isAnnotated ? hideAnnotationPreview : undefined}>
                                 

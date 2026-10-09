@@ -194,4 +194,32 @@ describe('scripture search setup', () => {
     expect(keyInput().value).toBe('');
     expect(api.saveScriptureKey).not.toHaveBeenCalled();
   });
+
+  it('navigates to /ScriptureReader with encoded query when submitted inside a router', async () => {
+    configured = true;
+    const { MemoryRouter, useLocation } = await import('react-router-dom');
+    function LocationWatcher({ onLocation }) {
+      const loc = useLocation();
+      React.useEffect(() => { onLocation(loc); }, [loc, onLocation]);
+      return null;
+    }
+    let currentLoc;
+    render(
+      <MemoryRouter initialEntries={['/LibraryHome']}>
+        <LocationWatcher onLocation={(l) => { currentLoc = l; }} />
+        <ScriptureSearch />
+      </MemoryRouter>
+    );
+    const input = await screen.findByLabelText('Search scripture');
+    const complexQuery = 'revelation 4:1, 4, 9; Col 1:1, 2:2, 4-5; jere 50:1 - song of solomon 1:1, 4';
+    fireEvent.change(input, { target: { value: complexQuery } });
+    fireEvent.submit(screen.getByRole('form', { name: 'Scripture search' }));
+    await waitFor(() => {
+      expect(currentLoc.pathname).toBe('/Study');
+      expect(currentLoc.search).toBe(`?q=${encodeURIComponent(complexQuery)}`);
+    });
+    // Ensure "search is coming next" popover is NOT displayed
+    expect(screen.queryByText(/search is coming next/i)).toBeNull();
+  });
 });
+

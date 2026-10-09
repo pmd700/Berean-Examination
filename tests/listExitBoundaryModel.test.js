@@ -153,4 +153,89 @@ describe('rich-list exit boundary normalization', () => {
     assert.equal(normalized.tr.doc.child(4).attrs.start, 5);
     assert.equal(normalized.tr.doc.child(4).textContent, 'Five');
   });
+
+  it('remembers numbering across blank lines when an ordered list is split', () => {
+    const doc = schema.node('doc', null, [
+      schema.node('orderedList', { start: 1 }, [
+        listItem(paragraph('Sell outcomes not services')),
+      ]),
+      paragraph(),
+      schema.node('orderedList', { start: 1 }, [
+        listItem(paragraph('Sell belief quickly')),
+        listItem(paragraph('control the conversation')),
+        listItem(paragraph('move toward a decision without sounding needy')),
+      ]),
+    ]);
+    const state = EditorState.create({ schema, doc });
+    const normalized = normalizeListExitBoundaries(state.tr);
+
+    assert.equal(normalized.changed, true);
+    assert.equal(normalized.tr.doc.child(0).attrs.start, 1);
+    assert.equal(normalized.tr.doc.child(1).type.name, 'paragraph');
+    assert.equal(normalized.tr.doc.child(2).attrs.start, 2);
+    assert.equal(normalized.tr.doc.child(2).childCount, 3);
+  });
+
+  it('remembers numbering across multiple consecutive blank paragraphs', () => {
+    const doc = schema.node('doc', null, [
+      schema.node('orderedList', { start: 1 }, [
+        listItem(paragraph('Item 1')),
+        listItem(paragraph('Item 2')),
+      ]),
+      paragraph(),
+      paragraph(),
+      schema.node('orderedList', { start: 1 }, [
+        listItem(paragraph('Item 3')),
+      ]),
+    ]);
+    const state = EditorState.create({ schema, doc });
+    const normalized = normalizeListExitBoundaries(state.tr);
+
+    assert.equal(normalized.changed, true);
+    assert.equal(normalized.tr.doc.child(0).attrs.start, 1);
+    assert.equal(normalized.tr.doc.child(3).attrs.start, 3);
+  });
+
+  it('chains three ordered lists separated by blank lines continuously', () => {
+    const doc = schema.node('doc', null, [
+      schema.node('orderedList', { start: 1 }, [listItem(paragraph('One'))]),
+      paragraph(),
+      schema.node('orderedList', { start: 1 }, [listItem(paragraph('Two'))]),
+      paragraph(),
+      schema.node('orderedList', { start: 1 }, [listItem(paragraph('Three'))]),
+    ]);
+    const state = EditorState.create({ schema, doc });
+    const normalized = normalizeListExitBoundaries(state.tr);
+
+    assert.equal(normalized.changed, true);
+    assert.equal(normalized.tr.doc.child(0).attrs.start, 1);
+    assert.equal(normalized.tr.doc.child(2).attrs.start, 2);
+    assert.equal(normalized.tr.doc.child(4).attrs.start, 3);
+  });
+
+  it('resets numbering when a heading separates the lists', () => {
+    const doc = schema.node('doc', null, [
+      schema.node('orderedList', { start: 1 }, [listItem(paragraph('One'))]),
+      schema.node('heading', { level: 2 }, schema.text('Section 2')),
+      schema.node('orderedList', { start: 1 }, [listItem(paragraph('Two'))]),
+    ]);
+    const state = EditorState.create({ schema, doc });
+    const normalized = normalizeListExitBoundaries(state.tr);
+
+    assert.equal(normalized.changed, false);
+    assert.equal(normalized.tr.doc.child(2).attrs.start, 1);
+  });
+
+  it('resets numbering when a non-empty paragraph separates the lists', () => {
+    const doc = schema.node('doc', null, [
+      schema.node('orderedList', { start: 1 }, [listItem(paragraph('One'))]),
+      paragraph('Here is an intervening comment that starts a new list'),
+      schema.node('orderedList', { start: 1 }, [listItem(paragraph('Two'))]),
+    ]);
+    const state = EditorState.create({ schema, doc });
+    const normalized = normalizeListExitBoundaries(state.tr);
+
+    assert.equal(normalized.changed, false);
+    assert.equal(normalized.tr.doc.child(2).attrs.start, 1);
+  });
 });

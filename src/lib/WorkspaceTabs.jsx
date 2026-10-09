@@ -136,7 +136,7 @@ export function kindForPath(path) {
     || path.startsWith(createPageUrl('BrainInbox'))
   ) return TAB_KINDS.AI_SECOND_BRAIN;
   if (path.startsWith(createPageUrl('KnowledgeWeb'))) return TAB_KINDS.KNOWLEDGE_WEB;
-  if (path.startsWith(createPageUrl('ScriptureReader')) || path.startsWith('/ScriptureReader')) return TAB_KINDS.SCRIPTURE;
+  if (path.startsWith('/ScriptureReader')) return TAB_KINDS.STUDY;
   return TAB_KINDS.STUDY;
 }
 
@@ -238,6 +238,11 @@ export function useWorkspaceTabs() {
   if (!value) throw new Error('useWorkspaceTabs must be used inside WorkspaceTabsProvider');
   return value;
 }
+
+export function useOptionalWorkspaceTabs() {
+  return React.useContext(WorkspaceTabsContext);
+}
+
 
 /** The tab that owns the calling page, even while another tab is active. */
 export function useCurrentWorkspaceTab() {

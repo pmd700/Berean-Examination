@@ -171,4 +171,42 @@ describe('Enter under a passage that was pasted into a list item', () => {
     expect(editor.getHTML().match(/<li>/g)).toHaveLength(2);
     editor.destroy();
   });
+
+  it('remembers numbering across a blank line in RichTextEditor', async () => {
+    const content = `
+      <ol>
+        <li><p>Sell outcomes not services</p></li>
+      </ol>
+      <p></p>
+      <ol>
+        <li><p>Sell belief quickly</p></li>
+        <li><p>control the conversation</p></li>
+        <li><p>move toward a decision without sounding needy</p></li>
+      </ol>
+    `;
+    let editor = null;
+    const { container } = render(
+      <MemoryRouter>
+        <RichTextEditor
+          content={content}
+          onChange={() => {}}
+          onEditorReady={(instance) => { editor = instance; }}
+          bare
+        />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(editor).not.toBeNull();
+      const ols = container.querySelectorAll('ol');
+      expect(ols).toHaveLength(2);
+      expect(ols[0].getAttribute('start')).toBeNull(); // or 1
+      expect(ols[1].getAttribute('start')).toBe('2');
+    });
+
+    const secondOl = container.querySelectorAll('ol')[1];
+    expect(secondOl.getAttribute('start')).toBe('2');
+    expect(secondOl.querySelectorAll('li')).toHaveLength(3);
+  });
 });
+

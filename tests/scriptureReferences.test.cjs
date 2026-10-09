@@ -87,3 +87,33 @@ test('identifies non-reference free text as non-reference', async () => {
   assert.equal(nonRef.isReference, false);
   assert.equal(nonRef.requests.length, 0);
 });
+
+test('parses complex multi-clause query: revelation 4:1, 4, 9; Col 1:1, 2:2, 4-5; jere 50:1 - song of solomon 1:1, 4', async () => {
+  const { parseScriptureQuery } = await getParser();
+  const query = 'revelation 4:1, 4, 9; Col 1:1, 2:2, 4-5; jere 50:1 - song of solomon 1:1, 4';
+  const result = parseScriptureQuery(query);
+
+  assert.equal(result.isReference, true);
+  assert.deepEqual(result.groups.map(g => g.label), [
+    'Revelation 4:1',
+    'Revelation 4:4',
+    'Revelation 4:9',
+    'Colossians 1:1',
+    'Colossians 2:2',
+    'Colossians 2:4–5',
+    'Jeremiah 50:1 – Song of Solomon 1:1',
+    'Song of Solomon 1:4'
+  ]);
+  assert.deepEqual(result.requests.map(r => r.id), [
+    'REV.4.1',
+    'REV.4.4',
+    'REV.4.9',
+    'COL.1.1',
+    'COL.2.2',
+    'COL.2.4-COL.2.5',
+    'JER.50.1',
+    'SNG.1.1',
+    'SNG.1.4'
+  ]);
+});
+
