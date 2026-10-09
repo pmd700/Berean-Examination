@@ -60,6 +60,44 @@ class ScriptureSettings {
     return { configured: true };
   }
 
+  getKey() {
+    try {
+      const record = JSON.parse(fs.readFileSync(this.filePath, 'utf8'));
+      if (record.version !== 1 || typeof record.encryptedKey !== 'string' || !record.encryptedKey) {
+        throw new Error('Invalid credential record');
+      }
+      if (!this.safeStorage?.decryptString) {
+        throw new Error('Decryption is unavailable');
+      }
+      const buffer = Buffer.from(record.encryptedKey, 'base64');
+      const decrypted = this.safeStorage.decryptString(buffer);
+      if (typeof decrypted !== 'string' || !decrypted) {
+        throw new Error('Empty decrypted credential');
+      }
+      return decrypted;
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        const err = new Error('Scripture API key not configured');
+        err.code = 'ENOENT';
+        throw err;
+      }
+      throw new Error('BEX could not decrypt scripture setup. Paste your API key again to replace it.');
+    }
+  }
+
+  getFingerprint() {
+    try {
+      const record = JSON.parse(fs.readFileSync(this.filePath, 'utf8'));
+      if (typeof record.encryptedKey === 'string' && record.encryptedKey) {
+        const hash = require('node:crypto').createHash('sha256').update(record.encryptedKey).digest('hex');
+        return hash.slice(0, 16);
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
   clear() {
     fs.rmSync(this.filePath, { force: true });
     return { configured: false };

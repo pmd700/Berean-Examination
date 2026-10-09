@@ -1,4 +1,5 @@
 import React from 'react';
+import { useInRouterContext, useNavigate } from 'react-router-dom';
 import * as Dialog from '@radix-ui/react-dialog';
 import { ArrowRight, BookOpen, Check, KeyRound, Loader2, LockKeyhole, RotateCw, ShieldCheck, X } from 'lucide-react';
 import ExternalWebLink from '@/components/navigation/ExternalWebLink';
@@ -26,7 +27,17 @@ function ScriptureMist() {
   );
 }
 
+function RouterNavigator({ onReady }) {
+  const navigate = useNavigate();
+  React.useEffect(() => {
+    onReady(navigate);
+  }, [navigate, onReady]);
+  return null;
+}
+
 export default function ScriptureSearch() {
+  const inRouter = useInRouterContext();
+  const [navigateFn, setNavigateFn] = React.useState(null);
   const [configured, setConfigured] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
@@ -156,6 +167,7 @@ export default function ScriptureSearch() {
 
   return (
     <Dialog.Root open={settingsOpen} onOpenChange={setDialogOpen}>
+      {inRouter && <RouterNavigator onReady={setNavigateFn} />}
       <div ref={rootRef} className="scripture-search" data-testid="scripture-search" data-locked={!configured} aria-busy={loading}>
         {!configured ? (
           <>
@@ -170,7 +182,15 @@ export default function ScriptureSearch() {
           </>
         ) : (
           <form className="scripture-search__bar" aria-label="Scripture search" onSubmit={(event) => {
-            event.preventDefault(); setMessage('Your API key is saved. Scripture search is coming next.');
+            event.preventDefault();
+            if (event.nativeEvent?.isComposing) return;
+            const clean = query.trim();
+            if (!clean) return;
+            if (navigateFn) {
+              navigateFn(`/ScriptureReader?q=${encodeURIComponent(clean)}`);
+            } else {
+              setMessage('Your API key is saved. Scripture search is coming next.');
+            }
           }}>
             <BookOpen className="h-4 w-4 shrink-0" aria-hidden="true" />
             <input ref={searchRef} type="search" value={query} maxLength={200} onChange={(event) => { setQuery(event.target.value); setMessage(''); }} onKeyDown={(event) => {

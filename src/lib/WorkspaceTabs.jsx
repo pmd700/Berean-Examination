@@ -32,6 +32,7 @@ export const TAB_KINDS = Object.freeze({
   COURSES: 'courses',
   STATS: 'stats',
   AI_SECOND_BRAIN: 'ai-second-brain',
+  SCRIPTURE: 'scripture',
 });
 
 export const NEW_TAB_PATH = createPageUrl('LibraryHome');
@@ -92,6 +93,7 @@ const DEFAULT_TITLES = {
   [TAB_KINDS.COURSES]: 'Courses',
   [TAB_KINDS.STATS]: 'Stats',
   [TAB_KINDS.AI_SECOND_BRAIN]: 'AI Second Brain',
+  [TAB_KINDS.SCRIPTURE]: 'Scripture Reader',
 };
 
 let tabSequence = 0;
@@ -134,6 +136,7 @@ export function kindForPath(path) {
     || path.startsWith(createPageUrl('BrainInbox'))
   ) return TAB_KINDS.AI_SECOND_BRAIN;
   if (path.startsWith(createPageUrl('KnowledgeWeb'))) return TAB_KINDS.KNOWLEDGE_WEB;
+  if (path.startsWith(createPageUrl('ScriptureReader')) || path.startsWith('/ScriptureReader')) return TAB_KINDS.SCRIPTURE;
   return TAB_KINDS.STUDY;
 }
 

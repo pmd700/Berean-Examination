@@ -13,6 +13,9 @@ const {
   shell,
 } = require('electron');
 const { ScriptureSettings } = require('./scripture-settings.cjs');
+const { ScriptureApi } = require('./scripture-api.cjs');
+const { ScriptureCache } = require('./scripture-cache.cjs');
+const { ScriptureUsageLedger } = require('./scripture-usage.cjs');
 const { registerScriptureHandlers } = require('./scripture-ipc.cjs');
 const { registerAppRestartHandler } = require('./app-restart-ipc.cjs');
 const { installApplicationMenu } = require('./app-menu.cjs');
@@ -532,13 +535,24 @@ async function launch() {
       return parent ? dialog.showSaveDialog(parent, options) : dialog.showSaveDialog(options);
     },
   });
+  const scriptureSettings = new ScriptureSettings({
+    filePath: path.join(app.getPath('userData'), 'scripture-credentials.json'),
+    safeStorage,
+  });
+  const scriptureCache = new ScriptureCache();
+  const scriptureUsageLedger = new ScriptureUsageLedger({
+    storageDir: app.getPath('userData'),
+  });
+  const scriptureApi = new ScriptureApi({
+    settings: scriptureSettings,
+    cache: scriptureCache,
+    ledger: scriptureUsageLedger,
+  });
   registerScriptureHandlers({
     appUrl,
     ipcMain,
-    settings: new ScriptureSettings({
-      filePath: path.join(app.getPath('userData'), 'scripture-credentials.json'),
-      safeStorage,
-    }),
+    settings: scriptureSettings,
+    api: scriptureApi,
   });
   registerAppRestartHandler({ appUrl, ipcMain, app });
   registerContactHandlers({

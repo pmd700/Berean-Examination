@@ -1,9 +1,46 @@
 # New feature rollout: API.Bible Scripture Search
 
 Research date: October 7, 2026  
+Implementation date: October 8, 2026  
 Project: BEX — `/Users/davidmartinez/Desktop/BEX`  
 Provider: [API.Bible documentation](https://docs.api.bible/)  
-Status: Research and implementation plan only. No application code changed.
+Status: Phase A (API Contract Verification) and Phase B (Reading Foundation) completed. Next step: Phase C (Two-version comparison, outlines, and chapter navigation).
+
+## Current implementation progress (Updated October 8, 2026)
+
+- **Phase A (API Contract Verification) — COMPLETED**:
+  - Successfully decrypted the stored API key in the Electron desktop environment.
+  - Confirmed active API access to **251 total Bibles**, including **40 English editions** (e.g., Berean Standard Bible `BSB`, King James Version `KJV`, `NASB`, `NLT`, `ASV`, `WEB`, etc.).
+  - Verified CloudFront responses return HTTP 200 without rate-limit quota headers, confirming that request usage must be tracked locally via device ledger.
+  - Validated structured `content-type=json` schema, `fumsToken` format in `meta`, and confirmed `wj` (words of Jesus) markup in KJV (`MAT.5.3`).
+  - Tested and confirmed all 6 content requests for the sample query (`Jn1:1-3, mark 5:1,3-4, revelation 2-3, 4:4`).
+
+- **Phase B (Reading Foundation) — COMPLETED**:
+  - **Desktop Backend**:
+    - `desktop/scripture-settings.cjs`: Added `getKey()` and `getFingerprint()` methods.
+    - `desktop/scripture-cache.cjs`: Implemented bounded cache (24h catalog, 7d book maps, 14d passages/verses, max 499 verses/Bible with LRU eviction).
+    - `desktop/scripture-usage.cjs`: Implemented local device request ledger partitioned by key fingerprint.
+    - `desktop/scripture-api.cjs`: Created native fetch adapter for `https://rest.api.bible/v1`, AbortController cancellation per `requestId`, deduplication, error redaction, and usage recording.
+    - `desktop/scripture-ipc.cjs` & `desktop/preload.cjs`: Wired guarded IPC channels (`scripture:get-catalog`, `scripture:get-books`, `scripture:fetch-content`, `scripture:search-words`, `scripture:cancel-request`, `scripture:get-usage`).
+  - **Scripture Reference Parser**:
+    - `src/lib/scriptureReferences.js`: Implemented mixed-reference parser supporting complex ranges, chapter inheritance, single-chapter books (`Jude 5`), cross-chapter spans, and standard USFM mappings.
+  - **Renderer Client**:
+    - `src/lib/scriptureClient.js`: Implemented IPC caller with bounded concurrency (max 2 parallel requests) and progress callbacks.
+  - **Routing & Tabs**:
+    - `src/lib/WorkspaceTabs.jsx` & `src/components/tabs/TabWorkspace.jsx`: Added `TAB_KINDS.SCRIPTURE`, default title mapping, deep link mapping, and `/ScriptureReader` route.
+  - **Scripture Reader Interface**:
+    - `src/pages/ScriptureReader.jsx`: Built dedicated full-workspace reader with search bar, Bible version selector, Words of Jesus toggle, text size control (16–30px), usage badge, progress indicator, skeleton loading, and attribution footer.
+    - `src/components/scripture/ScriptureContentRenderer.jsx`: Built allowlisted structured JSON renderer for paragraphs, section titles, poetry (`q1`/`q2`), verse superscripts, words of Jesus (`wj`), and translated additions (`add`).
+    - `src/components/scripture/scriptureReader.css`: Scoped typography with Noto Serif styling and red-letter styles.
+    - `src/components/scripture/ScriptureSearch.jsx`: Connected search submission to `/ScriptureReader?q=...` route navigation.
+  - **Test Suite**:
+    - Verified all 24 unit tests (`node --test tests/scriptureSettings.test.cjs tests/scriptureApi.test.cjs tests/scriptureReferences.test.cjs tests/workspacePickerRetirement.test.js tests/workspaceNavigation.test.js`) and all 18 DOM tests (`vitest`).
+    - Production build (`npm run build`) succeeded with zero errors.
+
+- **Next step — Phase C (Precision & Convenience)**:
+  - 1. Add chapter outline & section navigation (`GET /bibles/{bibleId}/chapters/{chapterId}/sections`).
+  - 2. Implement two-version parallel comparison (`parallels` parameter or side-by-side columns).
+  - 3. Add Next / Previous chapter navigation buttons in the reader toolbar.
 
 ## The decision
 

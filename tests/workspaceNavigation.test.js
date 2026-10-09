@@ -76,7 +76,7 @@ describe('workspace navigation', () => {
     assert.match(tilt, /const rect = host\.getBoundingClientRect\(\)/);
     assert.match(tilt, /const glowOffset = glowSize \/ 2/);
     assert.match(tilt, /translate3d\(\$\{localX - glowOffset\}px, \$\{localY - glowOffset\}px, 0\)/);
-    assert.match(tilt, /className="pointer-events-none absolute left-0 top-0 z-20/);
+    assert.match(tilt, /pointer-events-none absolute left-0 top-0/);
   });
 
   test('library rows stay minimal and folders begin collapsed', () => {

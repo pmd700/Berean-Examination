@@ -1,0 +1,255 @@
+/* Scripture Reader scoped styles */
+
+.scripture-reader {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background-color: #0d1117;
+  color: #e6edf3;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Toolbar */
+.scripture-reader__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  background: rgba(22, 27, 34, 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  z-index: 20;
+}
+
+.scripture-reader__back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.65rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #c9d1d9;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.scripture-reader__back-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.scripture-reader__search-form {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  max-width: 500px;
+  background: rgba(13, 17, 23, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 0.35rem 0.75rem;
+  gap: 0.5rem;
+  transition: border-color 0.15s ease;
+}
+
+.scripture-reader__search-form:focus-within {
+  border-color: #58a6ff;
+  box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
+}
+
+.scripture-reader__search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #fff;
+  font-size: 0.875rem;
+}
+
+.scripture-reader__search-input::placeholder {
+  color: #8b949e;
+}
+
+/* Bible Selector */
+.scripture-reader__version-select {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: #e6edf3;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  max-width: 240px;
+}
+
+.scripture-reader__version-select:hover {
+  border-color: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Controls */
+.scripture-reader__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.scripture-reader__toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.6rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  color: #8b949e;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.scripture-reader__toggle-btn[data-active="true"] {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.scripture-reader__size-btn {
+  padding: 0.35rem 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  color: #c9d1d9;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.scripture-reader__size-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.scripture-reader__usage-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.5rem;
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 9999px;
+  color: #38bdf8;
+  font-size: 0.75rem;
+}
+
+/* Content Area */
+.scripture-reader__viewport {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 2.5rem 1.5rem 5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.scripture-reader__container {
+  width: 100%;
+  max-width: 68ch;
+}
+
+/* Noto Serif Reader Typography */
+.scripture-reader__text-body {
+  font-family: "Noto Serif", "Georgia", "Cambria", "Times New Roman", serif;
+  font-size: var(--scripture-font-size, 20px);
+  line-height: 1.7;
+  color: #f0f6fc;
+}
+
+.scripture-reader__heading {
+  font-family: "Noto Serif", "Georgia", "Cambria", "Times New Roman", serif;
+  font-size: 1.625rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.scripture-reader__section-title {
+  font-family: "Noto Serif", "Georgia", "Cambria", "Times New Roman", serif;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #a5d6ff;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.scripture-reader__para {
+  margin-bottom: 1rem;
+  text-indent: 0;
+}
+
+.scripture-reader__poetry-q1 {
+  margin-left: 1.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.scripture-reader__poetry-q2 {
+  margin-left: 3rem;
+  margin-bottom: 0.25rem;
+}
+
+.scripture-reader__verse-number {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 0.65em;
+  font-weight: 700;
+  color: #8b949e;
+  vertical-align: super;
+  padding-right: 0.3em;
+  user-select: none;
+}
+
+/* Words of Jesus (Red Letter) */
+.scripture-reader__text-body[data-red-letters="true"] .scripture-reader__wj {
+  color: #ff7b72; /* Accessible light/dark red for dark background */
+}
+
+/* Translated additions */
+.scripture-reader__add {
+  font-style: italic;
+  opacity: 0.92;
+}
+
+/* Skeletons */
+.scripture-reader__skeleton-line {
+  height: 1.2em;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 25%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.04) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-pulse 1.8s infinite ease-in-out;
+  border-radius: 4px;
+  margin-bottom: 0.65rem;
+}
+
+@keyframes skeleton-pulse {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Attribution footer */
+.scripture-reader__attribution {
+  margin-top: 3.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.8125rem;
+  color: #8b949e;
+  line-height: 1.5;
+}

@@ -23,6 +23,14 @@ function fixture(t, overrides = {}) {
       const ciphertext = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
       return Buffer.concat([nonce, cipher.getAuthTag(), ciphertext]);
     },
+    decryptString(buffer) {
+      const nonce = buffer.subarray(0, 12);
+      const tag = buffer.subarray(12, 28);
+      const ciphertext = buffer.subarray(28);
+      const decipher = crypto.createDecipheriv('aes-256-gcm', secret, nonce);
+      decipher.setAuthTag(tag);
+      return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+    },
     ...overrides,
   };
   const filePath = path.join(dir, 'credentials.json');
@@ -32,16 +40,23 @@ function fixture(t, overrides = {}) {
 test('setup starts locked, saves ciphertext only, survives restart, replaces and removes the key', (t) => {
   const { store, filePath, safeStorage } = fixture(t);
   assert.deepEqual(store.status(), { configured: false });
+  assert.throws(() => store.getKey(), /not configured/);
+  assert.equal(store.getFingerprint(), null);
   assert.deepEqual(store.save('  synthetic-test-key-one  '), { configured: true });
+  assert.equal(store.getKey(), 'synthetic-test-key-one');
+  assert.ok(typeof store.getFingerprint() === 'string' && store.getFingerprint().length === 16);
   const first = fs.readFileSync(filePath, 'utf8');
   assert.ok(!first.includes('synthetic-test-key-one'));
   assert.equal(fs.statSync(filePath).mode & 0o777, 0o600);
   const reopened = new ScriptureSettings({ filePath, safeStorage });
   assert.deepEqual(reopened.status(), { configured: true });
+  assert.equal(reopened.getKey(), 'synthetic-test-key-one');
   reopened.save('synthetic-test-key-two');
+  assert.equal(reopened.getKey(), 'synthetic-test-key-two');
   assert.notEqual(fs.readFileSync(filePath, 'utf8'), first);
   assert.deepEqual(reopened.clear(), { configured: false });
   assert.deepEqual(reopened.status(), { configured: false });
+  assert.throws(() => reopened.getKey(), /not configured/);
   reopened.clear(); // Idempotent removal.
 });
 
@@ -99,3 +114,42 @@ test('IPC accepts only the app main frame and never exposes the secret or underl
   assert.equal(result.ok, false);
   assert.ok(!JSON.stringify(result).includes('sensitive-input'));
 });
+
+test('IPC exposes scripture data operations when api is supplied', async () => {
+  const handlers = new Map();
+  const frame = { url: 'http://127.0.0.1:5199/LibraryHome' };
+  const event = { senderFrame: frame, sender: { mainFrame: frame } };
+  const mockApi = {
+    getCatalog: async () => [{ id: 'b1' }],
+    getBooks: async ({ bibleId }) => [{ id: `${bibleId}-GEN` }],
+    fetchContent: async ({ id }) => ({ id, text: 'hello' }),
+    searchWords: async ({ query }) => ({ query, total: 1 }),
+    cancelRequest: () => true,
+    getUsage: () => ({ totalRequests: 5 }),
+  };
+
+  registerScriptureHandlers({
+    appUrl: frame.url,
+    ipcMain: {
+      removeHandler: (channel) => handlers.delete(channel),
+      handle: (channel, handler) => handlers.set(channel, handler),
+    },
+    settings: { status: () => ({ configured: true }) },
+    api: mockApi,
+  });
+
+  assert.ok(handlers.has('scripture:get-catalog'));
+  assert.ok(handlers.has('scripture:fetch-content'));
+  assert.ok(handlers.has('scripture:cancel-request'));
+  assert.ok(handlers.has('scripture:get-usage'));
+
+  const catalogResult = await handlers.get('scripture:get-catalog')(event);
+  assert.deepEqual(catalogResult, { ok: true, result: [{ id: 'b1' }] });
+
+  const contentResult = await handlers.get('scripture:fetch-content')(event, { id: 'JHN.1.1' });
+  assert.deepEqual(contentResult, { ok: true, result: { id: 'JHN.1.1', text: 'hello' } });
+
+  const usageResult = await handlers.get('scripture:get-usage')(event);
+  assert.deepEqual(usageResult, { ok: true, result: { totalRequests: 5 } });
+});
+

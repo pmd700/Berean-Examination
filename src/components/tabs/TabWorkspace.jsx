@@ -5,6 +5,7 @@ import { normalizeWorkspacePath } from '@/lib/workspaceSession';
 import PageNotFound from '@/lib/PageNotFound';
 import { ActiveTabProvider, useWorkspaceTabs, kindForPath } from '@/lib/WorkspaceTabs';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import ScriptureReader from '@/pages/ScriptureReader';
 
 const { Pages, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -23,6 +24,7 @@ function TabRoutes({ path }) {
   return (
     <Routes location={normalizeWorkspacePath(path)}>
       <Route path="/" element={MainPage ? <MainPage /> : null} />
+      <Route path="/ScriptureReader" element={<ScriptureReader />} />
       {Object.entries(Pages).map(([routePath, Page]) => (
         <Route key={routePath} path={`/${routePath}`} element={<Page />} />
       ))}
