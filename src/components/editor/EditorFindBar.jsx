@@ -18,7 +18,7 @@ const OPTIONS = Object.freeze([
 ]);
 
 /**
- * Minimal Google-Docs-style find bar for a RichTextEditor.
+ * Minimal Google-Docs-style find bar for a TEXT_EDITOR_MACHINERY.
  *
  * Floats at the top-right of the editor it searches (portalled to <body> and
  * fixed to the viewport, so it stays put while the document scrolls). Typing

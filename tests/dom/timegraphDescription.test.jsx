@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { describe, it, expect, vi } from 'vitest';
 const captured = vi.hoisted(() => ({ editor: null }));
 vi.mock('@/api/desktopClient', () => ({ desktopClient: { entities: { Keyword: { list: async () => [] } } } }));
-vi.mock('@/components/editor/RichTextEditor', async importOriginal => {
+vi.mock('@/components/editor/TEXT_EDITOR_MACHINERY', async importOriginal => {
   const original = await importOriginal();
   return { default: props => <original.default {...props} onEditorReady={editor => { captured.editor = editor; }} /> };
 });
@@ -73,8 +73,25 @@ it('switches all three description sizes without remounting the editor or losing
   expect(screen.getByTestId('timegraph-description-editor').dataset.sizeMode).toBe('expanded');
   fireEvent.click(screen.getByRole('button', { name: 'Full screen' }));
   expect(screen.getByTestId('timegraph-description-editor').dataset.sizeMode).toBe('fullscreen');
+  expect(screen.getByTestId('timegraph-description-slot').contains(editor.view.dom)).toBe(false);
+  expect(document.body.contains(editor.view.dom)).toBe(true);
   expect(captured.editor).toBe(editor);
   expect(editor.getText()).toContain('Preserve this text');
   fireEvent.click(screen.getByRole('button', { name: 'Compact' }));
   expect(screen.getByTestId('timegraph-description-editor').dataset.sizeMode).toBe('compact');
+  expect(screen.getByTestId('timegraph-description-slot').contains(editor.view.dom)).toBe(true);
+});
+
+it('restores the compact slot on Escape and removes a full-screen editor when its panel closes', async () => {
+  const view = mount('<p>Keep this document</p>');
+  await waitFor(() => expect(captured.editor).toBeTruthy());
+  const editor = captured.editor;
+  fireEvent.click(screen.getByRole('button', { name: 'Full screen' }));
+  fireEvent.keyDown(screen.getByTestId('timegraph-description-editor'), { key: 'Escape' });
+  expect(screen.getByTestId('timegraph-description-slot').contains(editor.view.dom)).toBe(true);
+  expect(captured.editor).toBe(editor);
+  fireEvent.click(screen.getByRole('button', { name: 'Full screen' }));
+  view.unmount();
+  expect(screen.queryByTestId('timegraph-description-editor')).toBeNull();
+  expect(document.querySelector('[data-bex-global-editor] .ProseMirror')).toBeNull();
 });

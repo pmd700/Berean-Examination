@@ -17,13 +17,15 @@ export default function HighlightColorPicker({ onSelectColor, onRemoveHighlight,
       {PRESET_COLORS.map((preset) => (
         <button
           key={preset.color}
+          type="button"
+          aria-label={`Highlight ${preset.label.toLowerCase()}`}
+          onClick={() => onSelectColor(preset.color)}
           className="w-6 h-6 rounded-full border-2 border-white/30 hover:border-white/80 hover:scale-110 transition-all active:scale-90"
           style={{ backgroundColor: preset.color }}
           title={preset.label}
           onMouseDown={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            onSelectColor(preset.color);
           }}
         />
       ))}
@@ -33,15 +35,13 @@ export default function HighlightColorPicker({ onSelectColor, onRemoveHighlight,
         <button
           className="w-6 h-6 rounded-full border-2 border-dashed border-white/40 hover:border-white/80 transition-all flex items-center justify-center active:scale-90"
           style={{ backgroundColor: showCustom ? customColor : 'transparent' }}
+          type="button"
           title="Custom color"
+          aria-label="Custom highlight color"
+          onClick={() => showCustom ? onSelectColor(customColor) : setShowCustom(true)}
           onMouseDown={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            if (showCustom) {
-              onSelectColor(customColor);
-            } else {
-              setShowCustom(true);
-            }
           }}
         >
           {!showCustom && <Highlighter className="w-3 h-3 text-white/60" />}
@@ -58,12 +58,12 @@ export default function HighlightColorPicker({ onSelectColor, onRemoveHighlight,
               className="w-8 h-8 cursor-pointer rounded border-0 bg-transparent"
             />
             <button
+              type="button"
+              onClick={() => { onSelectColor(customColor); setShowCustom(false); }}
               className="block mx-auto mt-1 text-[10px] text-white/70 hover:text-white"
               onMouseDown={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                onSelectColor(customColor);
-                setShowCustom(false);
               }}
             >
               Apply
@@ -79,10 +79,12 @@ export default function HighlightColorPicker({ onSelectColor, onRemoveHighlight,
           <button
             className="w-6 h-6 rounded-full hover:bg-red-500/20 flex items-center justify-center transition-all active:scale-90"
             title="Remove highlight"
+            type="button"
+            aria-label="Remove highlight"
+            onClick={onRemoveHighlight}
             onMouseDown={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              onRemoveHighlight();
             }}
           >
             <X className="w-3.5 h-3.5 text-red-400" />

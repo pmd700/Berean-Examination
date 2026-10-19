@@ -66,7 +66,7 @@ describe('marquee selection chrome', () => {
 });
 
 describe('italics', () => {
-  const editor = read('src/components/editor/RichTextEditor.jsx');
+  const editor = read('src/components/editor/TEXT_EDITOR_MACHINERY.jsx');
 
   it('keeps italics visible even when a future app font has no italic face', () => {
     // The global font is intentionally easy to swap. If a future choice lacks
@@ -105,7 +105,7 @@ describe('italics', () => {
 });
 
 describe('Notion-style quotes', () => {
-  const editor = read('src/components/editor/RichTextEditor.jsx');
+  const editor = read('src/components/editor/TEXT_EDITOR_MACHINERY.jsx');
   const globalCss = read('src/index.css');
 
   it('uses a straight neutral rule and preserves the surrounding typography', () => {

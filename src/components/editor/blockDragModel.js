@@ -1,3 +1,8 @@
+import { Fragment } from '@tiptap/pm/model';
+import { Transform } from '@tiptap/pm/transform';
+
+const isList = (node) => ['bulletList', 'orderedList'].includes(node?.type?.name);
+
 export function getTopLevelBlocks(doc) {
   const blocks = [];
   doc.forEach((node, pos, index) => {
@@ -18,6 +23,8 @@ const defaultOpenContainer = (node) => (
  * same rule recurses through nested toggles. Positions still name the complete
  * document nodes, while markPos/markEnd name the DOM row that receives block
  * chrome (the summary for a toggle, the node itself for everything else).
+ * Lists contribute their individual entries rather than a row spanning the
+ * entire list. An entry keeps its attached quotation and continuation blocks.
  */
 export function getDraggableBlocks(doc, isOpenContainer = defaultOpenContainer) {
   const blocks = [];
@@ -26,6 +33,13 @@ export function getDraggableBlocks(doc, isOpenContainer = defaultOpenContainer) 
     container.forEach((node, offset, siblingIndex) => {
       const pos = contentStart + offset;
       const end = pos + node.nodeSize;
+      // A list is layout for several entries, not one enormous selectable row.
+      // Keep each item's attached quotation/sub-blocks with that entry, just as
+      // moving/copying the bullet should keep its complete text and formatting.
+      if (isList(node)) {
+        walk(node, pos + 1, depth + 1, pos);
+        return;
+      }
       const isToggle = node.type.name === 'details';
       const summary = isToggle ? node.firstChild : null;
       const markPos = summary ? pos + 1 : pos;
@@ -71,6 +85,31 @@ export function selectedDraggableBlocks(doc, selectedIndexes) {
     && other.pos <= candidate.pos
     && other.end >= candidate.end
   )));
+}
+
+/** Clipboard/move fragments need the list wrapper as well as the selected li. */
+export function nodesForDraggableBlocks(blocks) {
+  const nodes = [];
+  let run = null;
+  for (const block of blocks) {
+    if (block.node.type.name !== 'listItem') {
+      nodes.push(block.node);
+      run = null;
+      continue;
+    }
+    if (run?.containerPos === block.containerPos && run.lastIndex + 1 === block.siblingIndex) {
+      run.items.push(block.node);
+      run.lastIndex = block.siblingIndex;
+      nodes[nodes.length - 1] = block.container.type.create(run.attrs, run.items, block.container.marks);
+    } else {
+      const attrs = block.container.type.name === 'orderedList'
+        ? { ...block.container.attrs, start: block.container.attrs.start + block.siblingIndex }
+        : block.container.attrs;
+      run = { containerPos: block.containerPos, lastIndex: block.siblingIndex, attrs, items: [block.node] };
+      nodes.push(block.container.type.create(attrs, run.items, block.container.marks));
+    }
+  }
+  return nodes;
 }
 
 // This legacy helper identifies a single complete selected block. It remains
@@ -140,6 +179,10 @@ export function dropSlotsForDoc(doc, isOpenContainer) {
       lastEnd = pos + child.nodeSize;
       lastSize = child.nodeSize;
 
+      if (isList(child)) {
+        walk(child, pos + 1, depth + 1, pos);
+        return;
+      }
       if (!isOpenContainer(child)) return;
       const summary = child.firstChild;
       const body = child.lastChild;
@@ -252,12 +295,11 @@ export function moveTopLevelRangeToPos(tr, startIndex, endIndex, slot) {
 }
 
 /**
- * Move selected sibling rows to any document/detailsContent drop slot.
- *
- * A carry is one contiguous run from one container. That is always true for a
- * handle drag and for an ordinary vertical marquee inside a toggle; rejecting
- * mixed-parent runs prevents an outer toggle and one of its children from ever
- * being spliced twice by the same transaction.
+ * Move a contiguous selection to a compatible document, dropdown or list slot.
+ * Lists expose individual rows to the marquee, so a heading + prose + list
+ * naturally spans containers. selectedDraggableBlocks already removes children
+ * whose parent is selected; check for unselected intervening rows rather than
+ * rejecting every selection with more than one parent.
  */
 export function moveDraggableBlocksToPos(tr, selectedIndexes, slot) {
   const blocks = selectedDraggableBlocks(tr.doc, selectedIndexes);
@@ -265,33 +307,39 @@ export function moveDraggableBlocksToPos(tr, selectedIndexes, slot) {
     return { tr, changed: false, selectedPositions: [] };
   }
 
-  const containerPos = blocks[0].containerPos;
-  const sameContainer = blocks.every((block) => block.containerPos === containerPos);
-  const contiguous = blocks.every((block, index) => (
-    index === 0 || block.siblingIndex === blocks[index - 1].siblingIndex + 1
-  ));
-  if (!sameContainer || !contiguous) {
-    return { tr, changed: false, selectedPositions: [] };
-  }
-
   const from = blocks[0].pos;
   const to = blocks[blocks.length - 1].end;
+  const hasGap = getDraggableBlocks(tr.doc).some(row => row.pos >= from && row.end <= to
+    && !blocks.some(block => row.pos >= block.pos && row.end <= block.end));
+  if (hasGap) return { tr, changed: false, selectedPositions: [] };
   const targetPos = slot.pos;
   if (targetPos >= from && targetPos <= to) {
     return { tr, changed: false, selectedPositions: [] };
   }
 
-  const content = tr.doc.slice(from, to).content;
-  const insertPos = targetPos > to ? targetPos - (to - from) : targetPos;
+  // Work on a scratch transform so an incompatible target cannot partially
+  // delete the source. This also removes an emptied list instead of leaving a
+  // phantom bullet when its last entry is carried elsewhere.
+  const attempt = new Transform(tr.doc);
+  deleteDraggableBlocks(attempt, selectedIndexes);
+  const insertPos = attempt.mapping.map(targetPos);
+  const $target = attempt.doc.resolve(insertPos);
+  const content = Fragment.fromArray(isList($target.parent)
+    ? blocks.map(block => block.node)
+    : nodesForDraggableBlocks(blocks));
+  if (!$target.parent.canReplace($target.index(), $target.index(), content)) {
+    return { tr, changed: false, selectedPositions: [] };
+  }
   const selectedPositions = [];
   let offset = 0;
-  blocks.forEach((block) => {
-    selectedPositions.push(insertPos + offset);
-    offset += block.node.nodeSize;
+  content.forEach((node) => {
+    if (isList(node)) node.forEach((_item, itemOffset) => selectedPositions.push(insertPos + offset + 1 + itemOffset));
+    else selectedPositions.push(insertPos + offset);
+    offset += node.nodeSize;
   });
 
-  tr.delete(from, to);
-  tr.insert(insertPos, content);
+  attempt.insert(insertPos, content);
+  attempt.steps.forEach(step => tr.step(step));
   return { tr, changed: true, selectedPositions };
 }
 
@@ -493,6 +541,10 @@ export function deleteDraggableBlocks(tr, selectedIndexes) {
     const selectedSiblings = new Set(group.map((block) => block.siblingIndex));
 
     if (selectedSiblings.size === container.childCount) {
+      if (isList(container)) {
+        operations.push({ from: group[0].containerPos, to: group[0].containerPos + container.nodeSize, replacement: null });
+        continue;
+      }
       const emptyBlock = container.type.contentMatch.defaultType?.createAndFill();
       if (!emptyBlock) continue;
       operations.push({ from: containerStart, to: containerEnd, replacement: emptyBlock });
@@ -558,6 +610,7 @@ export function itemizableBlockIndexes(doc, anchorIndex, headIndex) {
 function listItemFor(schema, node) {
   const itemType = schema.nodes.listItem;
   if (!itemType) return null;
+  if (node.type === itemType) return node;
   const content = node.isTextblock
     ? schema.nodes.paragraph.create(null, node.content, node.marks)
     : node;
@@ -570,8 +623,9 @@ function listItemFor(schema, node) {
 function toggleFor(schema, node) {
   const { details, detailsSummary, detailsContent } = schema.nodes;
   if (!details || !detailsSummary || !detailsContent) return null;
-  const summary = detailsSummary.createAndFill(null, node.isTextblock ? node.content : null);
-  const body = detailsContent.createAndFill();
+  const item = node.type.name === 'listItem';
+  const summary = detailsSummary.createAndFill(null, item ? node.firstChild.content : node.isTextblock ? node.content : null);
+  const body = detailsContent.createAndFill(null, item && node.childCount > 1 ? node.content.cut(node.firstChild.nodeSize) : null);
   if (!summary || !body) return null;
   return details.createAndFill({ open: false }, [summary, body]);
 }
@@ -604,7 +658,25 @@ export function convertDraggableBlocksToItems(tr, selectedIndexes, style, schema
     replacement = [listType.create(null, items)];
   }
 
-  tr.replaceWith(blocks[0].pos, blocks[blocks.length - 1].end, replacement);
+  if (isList(blocks[0].container)) {
+    const { container, containerPos } = blocks[0];
+    const first = blocks[0].siblingIndex;
+    const last = blocks[blocks.length - 1].siblingIndex;
+    const siblings = [];
+    const part = (start, end) => {
+      if (start >= end) return;
+      const children = [];
+      for (let index = start; index < end; index += 1) children.push(container.child(index));
+      const attrs = container.type.name === 'orderedList' ? { ...container.attrs, start: container.attrs.start + start } : container.attrs;
+      siblings.push(container.type.create(attrs, children, container.marks));
+    };
+    part(0, first);
+    siblings.push(...replacement);
+    part(last + 1, container.childCount);
+    tr.replaceWith(containerPos, containerPos + container.nodeSize, siblings);
+  } else {
+    tr.replaceWith(blocks[0].pos, blocks[blocks.length - 1].end, replacement);
+  }
   return { tr, changed: true };
 }
 

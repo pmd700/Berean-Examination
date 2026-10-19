@@ -16,7 +16,7 @@ import { eventsBounds, requiredHeight } from '@/lib/timegraph/timegraphLayout';
  * embed — or from another note entirely — updates all of them, and deleting the
  * embed only removes the reference. The document keeps no copy that could drift.
  *
- * Because every rich-text surface in the app shares one RichTextEditor, adding
+ * Because every rich-text surface in the app shares one TEXT_EDITOR_MACHINERY, adding
  * this node reaches markdown notes, Knowledge Web cards, keywords and study notes
  * at once.
  */

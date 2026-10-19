@@ -1,12 +1,12 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
-import RichTextEditor from '@/components/editor/RichTextEditor';
+import TEXT_EDITOR_MACHINERY from '@/components/editor/TEXT_EDITOR_MACHINERY';
 
 let editor;
 function Fixture() {
   const [html, setHtml] = React.useState('<p>List Backspace fixture</p>');
-  return <MemoryRouter><RichTextEditor bare noteAnnotations content={html} onChange={setHtml}
+  return <MemoryRouter><TEXT_EDITOR_MACHINERY bare noteAnnotations content={html} onChange={setHtml}
     onEditorReady={instance => { editor = instance; }} /></MemoryRouter>;
 }
 createRoot(document.getElementById('root')).render(<Fixture />);

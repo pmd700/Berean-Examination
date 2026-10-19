@@ -1,0 +1,146 @@
+/* Only windows narrower than the former desktop minimum adapt. No rule in
+   this file affects the expanded desktop layout or changes stored content,
+   font sizes, editor zoom, or canvas coordinates. */
+@media (max-width: 1023px) {
+  :root .bex-library-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  :root .bex-study-page {
+    padding: 1rem;
+    min-width: 0;
+  }
+
+  :root .bex-study .verse-content-container,
+  :root .bex-study .bible-rich-para {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  :root .bex-note-toolbar,
+  :root .bex-web-header,
+  :root .bex-player-controls {
+    flex-wrap: wrap;
+    height: auto;
+  }
+
+  :root .bex-web-header {
+    min-height: 2.5rem;
+    padding-top: 0.375rem;
+    padding-bottom: 0.375rem;
+  }
+
+  :root .bex-web-header > :first-child {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  :root .bex-web-header > :last-child {
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+
+  :root .bex-web-search > :first-child {
+    max-width: 34vw;
+  }
+
+  :root .bex-web-search > :last-child:not(:first-child) {
+    max-width: calc(100vw - 2rem);
+  }
+
+  :root [data-testid="note-zoom-page"] {
+    /* These are interaction lanes, not decorative padding. A toggle arrow
+       can reach 40px outside its block, followed by a 28px drag handle and
+       its 6px gap. Keep both sides usable for marquee and pointer gestures. */
+    padding-left: 5rem;
+    padding-right: 5rem;
+  }
+
+  :root [data-testid="note-zoom-page"] .ProseMirror {
+    overflow-wrap: anywhere;
+  }
+
+  :root .bex-timegraph-body {
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  :root .bex-timegraph-body > :first-child {
+    min-height: 0;
+  }
+
+  :root .bex-timegraph-body > .bex-tg-panel {
+    width: 100%;
+    max-height: 45%;
+    border-left: 0;
+    border-top: 1px solid rgb(var(--line));
+  }
+
+  :root .bex-timegraph-body > .bex-tg-panel:has([data-size-mode="expanded"]) {
+    max-height: 75%;
+  }
+
+  :root .bex-card-inspector {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    max-width: 90%;
+  }
+
+  :root .bex-card-fullscreen {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  :root .bex-card-fullscreen > * {
+    flex-shrink: 0;
+    max-width: 100%;
+  }
+
+  :root .bex-dialog-content {
+    max-width: calc(100vw - 2rem);
+    max-height: calc(100dvh - var(--bex-tabbar-height, 0px) - 2rem);
+    overflow-y: auto;
+    overflow-wrap: anywhere;
+  }
+
+  :root .bex-card-fullscreen .kw-card-details-panel {
+    height: auto;
+    max-height: 45%;
+  }
+  :root .bex-drawing-editor {
+    top: var(--bex-tabbar-height);
+  }
+
+  :root .bex-drawing-header {
+    height: auto;
+    min-height: 3.5rem;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    padding-top: 0.375rem;
+    padding-bottom: 0.375rem;
+  }
+
+  :root .bex-drawing-header > * {
+    flex-wrap: wrap;
+  }
+  :root .bex-interlinear-fields {
+    display: grid;
+    grid-template-columns: minmax(0, max-content);
+    align-items: end;
+  }
+
+  :root .bex-interlinear-fields > * {
+    width: auto;
+    min-width: 0;
+  }
+
+  /* Decorative wisps can grow past their search bar during animation. Keep
+     them from creating horizontal overflow when the library stacks. */
+  :root .scripture-search__aura {
+    overflow: clip;
+    overflow-clip-margin: 1rem;
+  }
+}

@@ -24,6 +24,28 @@ function deferred() {
 }
 
 describe('automatic normal-close backup', () => {
+  it('drains pending renderer saves before backup and keeps the window open if preparing fails', async () => {
+    const calls = [], preparation = deferred();
+    let failure = true;
+    const handler = createNormalCloseHandler({
+      app: { quit: () => calls.push('quit') },
+      closeDatabase: () => calls.push('close-database'),
+      closeServices: () => calls.push('close-services'),
+      prepareForShutdown: async () => { calls.push('prepare'); await preparation.promise; if (failure) throw new Error('Save failed'); },
+      onPreparationFailed: () => calls.push('kept-open'),
+      createLocalBackup: async () => calls.push('backup'),
+      logger: { error() {} },
+    });
+    const closing = handler(quitEvent());
+    await Promise.resolve();
+    assert.deepEqual(calls, ['prepare']);
+    preparation.resolve(); await closing;
+    assert.deepEqual(calls, ['prepare', 'kept-open']);
+    failure = false;
+    await handler(quitEvent());
+    assert.deepEqual(calls, ['prepare', 'kept-open', 'prepare', 'backup', 'close-database', 'close-services', 'quit']);
+  });
+
   it('waits for one backup before closing SQLite and quitting', async () => {
     const backup = deferred();
     const calls = [];

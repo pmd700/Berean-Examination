@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import RichTextEditor from '../editor/RichTextEditor';
+import TEXT_EDITOR_MACHINERY from '../editor/TEXT_EDITOR_MACHINERY';
 import { bookIndexMatch } from './bookIndexModel';
 import { startEditorRangeSpotlight } from '../editor/spotlightJourney';
 import PageFoot from './PageFoot';
@@ -72,6 +72,7 @@ const BookSurface = React.forwardRef(function BookSurface({
   const sheetRef = React.useRef(null);
   const surfaceRef = React.useRef(null);
   const turnTimer = React.useRef(null);
+  const pendingDestination = React.useRef(null);
 
   const safeIndex = Math.max(0, Math.min(pageIndex, pages.length - 1));
   const offsets = React.useMemo(() => footnoteOffsets(pages), [pages]);
@@ -116,7 +117,8 @@ const BookSurface = React.forwardRef(function BookSurface({
 
   const goToPage = React.useCallback((nextIndex) => {
     const target = Math.max(0, Math.min(nextIndex, pages.length - 1));
-    if (target === safeIndex || turnTimer.current) return;
+    if (turnTimer.current) { pendingDestination.current = target; return; }
+    if (target === safeIndex) return;
 
     if (target > safeIndex) {
       // Forward: the sheet leaving is the one we were reading.
@@ -146,7 +148,8 @@ const BookSurface = React.forwardRef(function BookSurface({
    */
   const jumpToPage = React.useCallback((nextIndex) => {
     const target = Math.max(0, Math.min(nextIndex, pages.length - 1));
-    if (target === safeIndex || turnTimer.current) return;
+    if (turnTimer.current) { pendingDestination.current = target; return; }
+    if (target === safeIndex) return;
     if (target < safeIndex || target - safeIndex === 1) { goToPage(target); return; }
 
     const indices = sampledForwardPages(safeIndex, target);
@@ -167,6 +170,13 @@ const BookSurface = React.forwardRef(function BookSurface({
       scroll: false,
     });
   }, [goToPage, offsets, onPageIndexChange, pages, safeIndex, startTurn]);
+
+  React.useEffect(() => {
+    if (turn || pendingDestination.current == null) return;
+    const target = pendingDestination.current;
+    pendingDestination.current = null;
+    jumpToPage(target);
+  }, [turn, jumpToPage]);
 
   // If another result arrives mid-turn, finish this sheet and then take the
   // newest destination. Never lose the request or search an obsolete page.
@@ -246,13 +256,14 @@ const BookSurface = React.forwardRef(function BookSurface({
       data-testid="book-surface"
     >
       <div ref={liveRef}>
-        <RichTextEditor
+        <TEXT_EDITOR_MACHINERY
           key={editorKey}
           content={getPageBody(pages[safeIndex])}
           onChange={handlePageChange}
           onEditorReady={handleEditorReady}
           placeholder=""
           bare
+          marqueeScope="page"
           scrollPastEnd
           localFindShortcut
           noteAnnotations

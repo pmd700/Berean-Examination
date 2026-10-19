@@ -17,6 +17,7 @@ import {
   dropSlotAt,
   dropSlotsForDoc,
   moveDraggableBlocksToPos,
+  nodesForDraggableBlocks,
   selectedDraggableBlocks,
   usableDropSlots,
 } from './blockDragModel.js';
@@ -174,17 +175,17 @@ function blockAtY(view, clientY) {
   return blocks[blocks.length - 1];
 }
 
-/**
- * The page surface a marquee may be drawn on.
- *
- * This is the nearest scrolling ancestor of the editor — the pane the page is
- * laid out in — not the text column. That distinction is the whole reason the
- * gesture can be offered in the margin at all: in a note the wide empty space
- * beside the text belongs to this same pane, so dragging there is dragging on the
- * page; in a Knowledge Web card inspector the pane stops at the panel edge, so
- * the canvas beyond it is correctly out of bounds.
- */
-function pageSurface(view) {
+// Bounded editors own their box. Full-page Notes explicitly opt into their
+// document viewport, including both wide margins. Never infer this from a
+// scrolling ancestor: Scripture and other editors can share that ancestor.
+function selectionSurface(view) {
+  const editor = view.dom.closest('[data-bex-global-editor]') || view.dom;
+  return editor.dataset.bexMarqueeScope === 'page'
+    ? editor.closest('[data-bex-marquee-surface]') || editor
+    : editor;
+}
+
+function scrollSurfaceFor(view) {
   let node = view.dom.parentElement;
   while (node && node !== document.body) {
     const style = window.getComputedStyle(node);
@@ -297,6 +298,7 @@ class BlockDragPluginView {
     document.addEventListener('cut', this.onCopy, true);
     document.addEventListener('pointerdown', this.onDocumentPointerDown, true);
     document.addEventListener('scroll', this.onScroll, true);
+    window.addEventListener('resize', this.onScroll);
   }
 
   /**
@@ -580,13 +582,13 @@ class BlockDragPluginView {
     if (!blocks.length) return null;
     const serializer = DOMSerializer.fromSchema(this.view.state.schema);
     const wrapper = document.createElement('div');
-    const original = new Slice(Fragment.fromArray(blocks.map(block => block.node)), 0, 0);
+    const original = new Slice(Fragment.fromArray(nodesForDraggableBlocks(blocks)), 0, 0);
     const copied = expandPointerEcho(original, this.view.state.doc);
     wrapper.appendChild(serializer.serializeFragment(copied.content));
     return {
       html: wrapper.innerHTML,
-      // textBetween, not textContent: a list is a single draggable block, and
-      // textContent runs every item together into one line — "…your
+      // textBetween, not textContent: copied list entries share a list wrapper,
+      // and textContent runs every item together into one line — "…your
       // dwellingYou cannot bake or boil". Asking for the text *between* the
       // block's boundaries puts the separator back at each one, so an itemized
       // block pasted into a plain-text field arrives as a list of lines.
@@ -671,7 +673,7 @@ class BlockDragPluginView {
     // very selection the menu is about to format.
     if (event.target?.closest?.('[data-bex-block-format-menu]')) return;
 
-    // A press in the page margin lands outside the editor element entirely, so
+    // A press in the editor box's margin lands outside the text element, so
     // the listener on view.dom never sees it. That is why dragging from the empty
     // space beside the text did nothing: the gesture was only ever offered from
     // the editor's own padding. Presses inside view.dom are left to
@@ -684,8 +686,7 @@ class BlockDragPluginView {
   };
 
   /**
-   * Begin a marquee if this press landed in the page gutter — the empty space on
-   * either side of the text, anywhere within the page surface.
+   * Begin a marquee in the editor box's empty space beside the text.
    *
    * Returns whether it took the event.
    */
@@ -697,7 +698,7 @@ class BlockDragPluginView {
     // click away, which is exactly what stopped toggles from opening.
     if (event.target?.closest?.(GUTTER_CONTROL_SELECTOR)) return false;
 
-    const surface = pageSurface(this.view);
+    const surface = selectionSurface(this.view);
 
     // The press has to land on the page surface itself. Floating UI — a comment
     // card, a menu, a dialog — is portaled to document.body, so it sits visually
@@ -705,17 +706,18 @@ class BlockDragPluginView {
     // marquee claimed those presses and preventDefault'd them, which is exactly
     // what made the comment box impossible to type in: it never took focus.
     if (!surface.contains(event.target)) return false;
+    const targetEditor = event.target?.closest?.('[data-bex-global-editor]');
+    if (targetEditor && targetEditor !== this.view.dom.closest('[data-bex-global-editor]')) return false;
 
     // Any other editable surface inside the page owns its own press too.
     const editable = event.target?.closest?.('[contenteditable="true"], [contenteditable=""]');
     if (editable && editable !== this.view.dom) return false;
 
     const surfaceRect = surface.getBoundingClientRect();
+    if (event.clientX < surfaceRect.left || event.clientX > surfaceRect.right
+      || event.clientY < surfaceRect.top || event.clientY > surfaceRect.bottom) return false;
 
-    // The full-height left and right margins belong to the writing surface,
-    // even above the first block or below the last one. `blockAtY` deliberately
-    // resolves those presses to the nearest edge block, so the user can begin
-    // a marquee anywhere in either side panel and sweep toward the document.
+    // Resolve the box's padding above/below the writing to the nearest block.
 
     const block = blockAtY(this.view, event.clientY);
     if (!block) return false;
@@ -748,7 +750,8 @@ class BlockDragPluginView {
     const startX = event.clientX;
     const startY = event.clientY;
     const pointerId = event.pointerId;
-    const scrollSurface = pageSurface(view);
+    const scrollSurface = scrollSurfaceFor(view);
+    const selectionBox = selectionSurface(view);
     const initialScrollTop = scrollSurface.scrollTop;
     let dragging = false;
     let lastDrop = null;
@@ -762,14 +765,21 @@ class BlockDragPluginView {
 
     const visibleScrollBounds = () => {
       const rect = scrollSurface.getBoundingClientRect();
+      const box = selectionBox.getBoundingClientRect();
       return {
-        top: Math.max(0, rect.top),
-        bottom: Math.min(window.innerHeight, rect.bottom),
+        top: Math.max(0, rect.top, mode === 'select' ? box.top : rect.top),
+        bottom: Math.min(window.innerHeight, rect.bottom, mode === 'select' ? box.bottom : rect.bottom),
       };
     };
 
     const updateGesture = ({ clientX, clientY }) => {
       if (mode === 'select') {
+        const box = selectionBox.getBoundingClientRect();
+        const visible = visibleScrollBounds();
+        const clampX = x => Math.max(Math.max(0, box.left), Math.min(Math.min(window.innerWidth, box.right), x));
+        const clampY = y => Math.max(visible.top, Math.min(visible.bottom, y));
+        clientX = clampX(clientX);
+        clientY = clampY(clientY);
         // The first marquee point belongs to the document, not permanently to
         // one viewport pixel. Move it by the pane's scroll delta so blocks that
         // leave the screen remain selected while new blocks arrive below.
@@ -780,7 +790,7 @@ class BlockDragPluginView {
           right: clientX,
           bottom: clientY,
         };
-        const indexes = blocksIntersectingRect(blockGeometry(view), marquee, rowBounds);
+        const indexes = blocksIntersectingRect(blockGeometry(view), marquee, { ...rowBounds, rowLeft: box.left, rowRight: box.right });
         setPluginState(view, {
           type: 'selection',
           selected: indexes,
@@ -788,7 +798,7 @@ class BlockDragPluginView {
           previewing: true,
           source: SELECTION_SOURCE.MARQUEE,
         });
-        this.showMarquee(startX, adjustedStartY, clientX, clientY);
+        this.showMarquee(clampX(startX), clampY(adjustedStartY), clientX, clientY);
         return;
       }
 
@@ -1007,6 +1017,7 @@ class BlockDragPluginView {
     window.removeEventListener('keydown', this.onBlockEditorShortcut, true);
     document.removeEventListener('pointerdown', this.onDocumentPointerDown, true);
     document.removeEventListener('scroll', this.onScroll, true);
+    window.removeEventListener('resize', this.onScroll);
     this.handle.removeEventListener('pointerenter', this.onHandleEnter);
     this.handle.removeEventListener('pointerleave', this.onHandleLeave);
     this.handle.removeEventListener('pointerdown', this.onHandlePointerDown);

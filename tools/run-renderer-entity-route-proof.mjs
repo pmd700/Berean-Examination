@@ -391,12 +391,8 @@ try {
   assert.equal(studySource.includes('listAllChapterArt'), true);
   const knowledgeWebSource = fs.readFileSync(path.join(projectRoot, 'src/pages/KnowledgeWeb.jsx'), 'utf8');
   assert.equal(knowledgeWebSource.includes('entities.CardPlacement'), false);
-  const activeAiInsightsSource = fs.readFileSync(path.join(projectRoot, 'src/components/study/AIInsightsButton.jsx'), 'utf8');
-  assert.equal(activeAiInsightsSource.includes('functions.invoke'), false);
-  assert.equal(activeAiInsightsSource.includes('Requires Online Mode'), false);
-  assert.equal(activeAiInsightsSource.includes('ONLINE_MODE_REQUIRED_MESSAGE'), true);
-  const dormantAiInsightsSource = fs.readFileSync(path.join(projectRoot, 'src/ai-spine/AIInsightsOnline.jsx'), 'utf8');
-  assert.equal(dormantAiInsightsSource.includes("generateChapterInsights"), true);
+  assert.equal(fs.existsSync(path.join(projectRoot, 'src/components/study/AIInsightsButton.jsx')), false);
+  assert.equal(fs.existsSync(path.join(projectRoot, 'src/ai-spine/AIInsightsOnline.jsx')), false);
   const interlinearSource = fs.readFileSync(path.join(projectRoot, 'src/components/interlinear/useInterlinearChapter.jsx'), 'utf8');
   assert.equal(interlinearSource.includes('fetchMamChapter'), false);
   assert.equal(interlinearSource.includes('base44'), false);
@@ -413,7 +409,7 @@ try {
   process.stdout.write('PASS: visible Raw Source Inbox uses encrypted local CRUD while its AI Spine stays dormant\n');
   process.stdout.write('PASS: visible Brain Search finds local sources, cards, connections, and notes without a server or AI call\n');
   process.stdout.write('PASS: Brain Chat is sealed behind Online Mode while its AI Spine remains preserved\n');
-  process.stdout.write('PASS: visible Card Library, AI Insights, and MAM Interlinear make no dead cloud calls\n');
+  process.stdout.write('PASS: visible Card Library and MAM Interlinear make no dead cloud calls; chapter AI Insights removed\n');
 } finally {
   await server.close();
   delete globalThis.fetch;

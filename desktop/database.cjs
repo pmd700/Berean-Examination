@@ -13,9 +13,12 @@ const {
 const { LocalEntityStore } = require('./local-entity-store.cjs');
 const {
   deleteEncryptedMedia,
+  migrateLegacyImages,
   readEncryptedMedia,
   saveEncryptedImage,
 } = require('./local-media.cjs');
+const { deleteEncryptedAttachment, parseAttachmentUrl, readEncryptedAttachment, saveEncryptedAttachment } = require('./local-attachments.cjs');
+const { recoverInterruptedMediaRestore, restoreEncryptedMediaSnapshot } = require('./local-media-backup.cjs');
 const {
   createEncryptedLocalBackup,
   readDatabaseSummary,
@@ -444,6 +447,22 @@ const MIGRATIONS = Object.freeze([
       ON local_timegraphs(updated_at DESC);
     `,
   }),
+  Object.freeze({
+    version: 16,
+    name: 'permanent_scripture_canvas',
+    sql: `
+      CREATE TABLE local_study_canvas_objects (
+        id INTEGER PRIMARY KEY NOT NULL CHECK (id > 0),
+        encrypted_payload BLOB NOT NULL CHECK (length(encrypted_payload) > 29),
+        created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+      ) STRICT;
+      CREATE TABLE local_study_connections (
+        id INTEGER PRIMARY KEY NOT NULL CHECK (id > 0),
+        encrypted_payload BLOB NOT NULL CHECK (length(encrypted_payload) > 29),
+        created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+      ) STRICT;
+    `,
+  }),
 ]);
 
 let activeDatabase = null;
@@ -673,6 +692,7 @@ async function restoreLocalBackup(backupPath, { privacyProtector } = {}) {
   });
 
   closeDatabase();
+  let mediaTransaction = null;
   try {
     installLocalRestore({ backupPath: inspected.path, databasePath });
     const reopened = initializeDatabase(libraryPath, {
@@ -681,7 +701,12 @@ async function restoreLocalBackup(backupPath, { privacyProtector } = {}) {
     });
     const restoredSummary = getLocalDatabaseSummary();
     assertRestoredSummary(inspected, restoredSummary);
+    mediaTransaction = restoreEncryptedMediaSnapshot({ backupPath: inspected.path, libraryPath, deferCommit: true });
     completeLocalRestore(databasePath);
+    try { mediaTransaction.commit(); } catch (error) {
+      // The database is committed; startup can finish removing protected staging files.
+      console.error('[desktop] Media restore staging cleanup remains pending:', error?.code || 'cleanup failed');
+    }
     return {
       emergencyBackupFileName: emergencyBackup.fileName,
       fileName: inspected.fileName,
@@ -692,6 +717,7 @@ async function restoreLocalBackup(backupPath, { privacyProtector } = {}) {
   } catch (restoreError) {
     closeDatabase();
     try {
+      if (mediaTransaction) mediaTransaction.rollback();
       rollbackLocalRestore(databasePath);
       initializeDatabase(libraryPath, { privacyProtector });
     } catch (rollbackError) {
@@ -723,6 +749,10 @@ function getLocalEntity(entityType, entityId) {
 
 function listLocalEntities(entityType, query) {
   return requireEntityStore().list(entityType, query);
+}
+
+function readLocalEntitySnapshot(entityTypes) {
+  return requireEntityStore().readSnapshot(entityTypes);
 }
 
 function listCourseLibrary() {
@@ -795,7 +825,24 @@ function saveLocalImage(payload) {
   });
 }
 
-function readLocalMedia(mediaUrl) {
+function assertLocalFilesAvailable() {
+  requireActiveDatabase();
+  requirePrivacyVault().assertUnlocked();
+}
+
+function saveLocalFile(sourcePath) {
+  return saveEncryptedAttachment({ libraryPath: activeLibraryPath(), privacyVault: requirePrivacyVault(), sourcePath });
+}
+
+function rollbackLocalFile(mediaUrl) {
+  return deleteEncryptedAttachment({ libraryPath: activeLibraryPath(), mediaUrl });
+}
+
+function readLocalMedia(mediaUrl, options = {}) {
+  if (typeof mediaUrl === 'string' && mediaUrl.startsWith('bex-media://library/file-')) {
+    parseAttachmentUrl(mediaUrl);
+    return readEncryptedAttachment({ libraryPath: activeLibraryPath(), mediaUrl, privacyVault: requirePrivacyVault(), range: options.range, head: options.head });
+  }
   return readEncryptedMedia({
     libraryPath: activeLibraryPath(),
     mediaUrl,
@@ -853,7 +900,10 @@ function initializeDatabase(libraryPath, { privacyProtector, skipRestoreRecovery
   }
 
   closeDatabase();
-  if (!skipRestoreRecovery) recoverInterruptedRestore(nextDatabasePath);
+  if (!skipRestoreRecovery) {
+    recoverInterruptedMediaRestore(libraryPath);
+    recoverInterruptedRestore(nextDatabasePath);
+  }
   const database = new DatabaseSync(nextDatabasePath);
   let privacyVault = null;
 
@@ -876,6 +926,7 @@ function initializeDatabase(libraryPath, { privacyProtector, skipRestoreRecovery
     }
 
     if (process.platform !== 'win32') fs.chmodSync(nextDatabasePath, 0o600);
+    migrateLegacyImages(libraryPath);
     activeDatabase = database;
     activeDatabasePath = nextDatabasePath;
     activePrivacyVault = privacyResult.vault;
@@ -900,6 +951,7 @@ function initializeDatabase(libraryPath, { privacyProtector, skipRestoreRecovery
 module.exports = {
   activateInstallation,
   applyMigrations,
+  assertLocalFilesAvailable,
   changePrivacyPin,
   closeDatabase,
   createLocalBackup,
@@ -924,14 +976,17 @@ module.exports = {
   lockPrivacyVault,
   listCourseLibrary,
   listLocalEntities,
+  readLocalEntitySnapshot,
   readPrivateRecord,
   readLocalMedia,
   resolveCourseAsset,
   reorderLocalEntities,
   restoreKnowledgeWebGraph,
   restoreLocalBackup,
+  rollbackLocalFile,
   saveCourseProgress,
   saveLocalImage,
+  saveLocalFile,
   replacePrivacyRecoveryCode,
   savePrivateRecord,
   unlockPrivacyAutomatically,

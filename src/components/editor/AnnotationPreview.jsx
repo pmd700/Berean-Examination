@@ -43,7 +43,7 @@ export default function AnnotationPreview({ annotations, position }) {
                 </div>
               )}
               {ann.content && ann.content.trim() ? (
-                <div className="text-sm text-gray-800 dark:text-gray-200 break-words">
+                <div className="bex-scripture-note-preview text-gray-800 dark:text-gray-200 break-words">
                   <MarkdownRenderer content={ann.content} />
                 </div>
               ) : (

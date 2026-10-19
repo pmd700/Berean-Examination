@@ -3,6 +3,7 @@ import {
   downloadFile,
   sanitizeFileName,
 } from './bereanFileFormat';
+import { knowledgeWebReferenceResolver } from '../../lib/knowledgeWebReferences.js';
 
 const BEGIN_MARKER = 'BEREAN_KNOWLEDGE_WEB:BEGIN';
 const END_MARKER = 'BEREAN_KNOWLEDGE_WEB:END';
@@ -79,17 +80,19 @@ export function htmlToMarkdown(html) {
   return s;
 }
 
-function renderCard(card) {
+function renderCard(card, options = {}) {
   const out = [];
-  out.push(`### ${card.title || `Card ${card.id}`}`);
+  out.push(`${options.readableOnly ? '######' : '###'} ${card.title || `Card ${card.id}`}`);
+  if (options.readableOnly) out.push(`**Source ID:** web:${options.webId}/card:${card.id}`);
   const meta = [];
+  if (card.card_type) meta.push(`**Type:** ${card.card_type}`);
   if (card.tags) meta.push(`**Tags:** ${card.tags}`);
   if (card.scripture_refs) meta.push(`**Scripture:** ${card.scripture_refs}`);
   if (meta.length) {
     out.push(meta.join(' · '));
     out.push('');
   }
-  const body = htmlToMarkdown(card.description);
+  const body = (options.renderContent || htmlToMarkdown)(card.description, card);
   if (body) {
     out.push(body);
     out.push('');
@@ -107,26 +110,22 @@ function renderCard(card) {
   return out;
 }
 
-function buildHumanMarkdown({ web, cards, connections, canvasObjects }) {
+function buildHumanMarkdown({ web, cards, connections, canvasObjects, readableOnly, renderContent, exportedAt }) {
+  const options = { readableOnly, renderContent, webId: web?.id };
   const cardsArr = Array.isArray(cards) ? cards : [];
   const connectionsArr = Array.isArray(connections) ? connections : [];
   const objectsArr = Array.isArray(canvasObjects) ? canvasObjects : [];
 
-  const cardById = new Map(cardsArr.map((c) => [c.id, c]));
-  const cardLabel = (id) => {
-    const c = cardById.get(id);
-    return c ? c.title || `card-${id}` : `(unknown card ${id})`;
-  };
-  const isRealCard = (id) => cardById.has(id);
+  const endpoint = knowledgeWebReferenceResolver(cardsArr, objectsArr, web?.id);
 
   const lines = [];
-  lines.push(`# ${web?.title || 'Knowledge Web'}`);
+  lines.push(`${readableOnly ? '####' : '#'} ${web?.title || 'Knowledge Web'}`);
   lines.push('');
   if (web?.description) {
-    lines.push(web.description);
+    lines.push(renderContent ? renderContent(web.description, web) : web.description);
     lines.push('');
   }
-  lines.push(`> Exported from Berean Examination on ${new Date().toISOString()}`);
+  lines.push(`> Exported from Berean Examination on ${exportedAt || new Date().toISOString()}`);
   lines.push(`> ${cardsArr.length} cards · ${connectionsArr.length} connections`);
   lines.push('');
   lines.push('---');
@@ -146,23 +145,23 @@ function buildHumanMarkdown({ web, cards, connections, canvasObjects }) {
   const sectionedIds = new Set();
   if (sections.length > 0) {
     for (const sec of sections) {
-      const inside = cardsInSection(sec);
+      const inside = cardsInSection(sec).filter(card => !readableOnly || !sectionedIds.has(card.id));
       if (inside.length === 0) continue;
-      lines.push(`## ${sec.title || 'Section'}`);
+      lines.push(`${readableOnly ? '#####' : '##'} ${sec.title || 'Section'}`);
       lines.push('');
       for (const card of inside) {
         sectionedIds.add(card.id);
-        lines.push(...renderCard(card));
+        lines.push(...renderCard(card, options));
       }
     }
   }
 
   const orphanCards = cardsArr.filter((c) => !sectionedIds.has(c.id));
   if (orphanCards.length > 0) {
-    lines.push(sections.length > 0 ? '## Other Cards' : '## Cards');
+    lines.push(`${readableOnly ? '#####' : '##'} ${sections.length > 0 ? 'Other Cards' : 'Cards'}`);
     lines.push('');
     for (const card of orphanCards) {
-      lines.push(...renderCard(card));
+      lines.push(...renderCard(card, options));
     }
   }
 
@@ -190,22 +189,24 @@ function buildHumanMarkdown({ web, cards, connections, canvasObjects }) {
     // the graph from becoming spaghetti. They are NOT "unknown cards";
     // render them as a circle node with a distinct O<id> prefix so the
     // graph structure is preserved.
-    const nodeIdFor = (id) => (isRealCard(id) ? `C${id}` : `O${id}`);
-    const fullDeclFor = (id) =>
-      isRealCard(id)
-        ? `C${id}["${mermaidNodeText(cardLabel(id))}"]`
-        : `O${id}(("organization point ${id}"))`;
     // Each node is declared in full on first appearance, then referenced
     // by bare id on subsequent edges — matches the user's target output
     // and keeps the diagram compact when many edges share endpoints.
     const declared = new Set();
-    const renderEndpoint = (id) => {
-      if (declared.has(id)) return nodeIdFor(id);
-      declared.add(id);
-      return fullDeclFor(id);
+    const renderEndpoint = (id, kind) => {
+      const target = endpoint(id, kind);
+      if (declared.has(target.nodeId)) return target.nodeId;
+      declared.add(target.nodeId);
+      return target.kind === 'card'
+        ? `${target.nodeId}["${mermaidNodeText(target.label)}"]`
+        : `${target.nodeId}(("${mermaidNodeText(target.label)}"))`;
     };
 
-    lines.push('## Connections');
+    lines.push(`${readableOnly ? '#####' : '##'} Connections`);
+    lines.push('');
+    for (const conn of connectionsArr) {
+      lines.push(`- **${endpoint(conn.from_card_id, conn.from_kind).label}** ${conn.has_arrow ? '→' : '↔'} **${endpoint(conn.to_card_id, conn.to_kind).label}**${conn.label ? `: ${conn.label}` : ''}`);
+    }
     lines.push('');
     lines.push('```mermaid');
     lines.push('flowchart TD');
@@ -214,7 +215,7 @@ function buildHumanMarkdown({ web, cards, connections, canvasObjects }) {
       const lbl = mermaidEdgeLabel(conn.label);
       const edgeWithLabel = lbl ? `${edge}|${lbl}|` : edge;
       lines.push(
-        `  ${renderEndpoint(conn.from_card_id)} ${edgeWithLabel} ${renderEndpoint(conn.to_card_id)}`,
+        `  ${renderEndpoint(conn.from_card_id, conn.from_kind)} ${edgeWithLabel} ${renderEndpoint(conn.to_card_id, conn.to_kind)}`,
       );
     }
     lines.push('```');
@@ -228,8 +229,11 @@ function buildEmbeddedPayload({ web, cards, connections, canvasObjects }) {
   return buildBereanKnowledgeWebPayload({ web, cards, connections, canvasObjects });
 }
 
-export function buildKnowledgeWebMarkdown({ web, cards, connections, canvasObjects }) {
-  const human = buildHumanMarkdown({ web, cards, connections, canvasObjects });
+export function buildKnowledgeWebMarkdown({ web, cards, connections, canvasObjects, readableOnly = false, renderContent = undefined, exportedAt = undefined }) {
+  const human = buildHumanMarkdown({ web, cards, connections, canvasObjects, readableOnly, renderContent, exportedAt });
+  // The AI export reuses the readable board, without the opaque restore envelope.
+  // Ordinary individual exports keep their existing round-trip payload.
+  if (readableOnly) return human;
   const payload = buildEmbeddedPayload({ web, cards, connections, canvasObjects });
   const encoded = toBase64Utf8(JSON.stringify(payload));
   const footerLines = [

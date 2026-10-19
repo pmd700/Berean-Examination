@@ -24,9 +24,10 @@ const SCROLL_SETTLE_CEILING_MS = 1100;
 export default function PageFoot({
   editor,
   offset = 0,
-  isLastPage,
+  isLastPage = false,
   canAddPage = true,
-  onCutLine,
+  onCutLine = null,
+  showCutLine = true,
 }) {
   const [version, setVersion] = React.useState(0);
   const [sweepId, setSweepId] = React.useState(null);
@@ -64,7 +65,9 @@ export default function PageFoot({
       if (!entry) return;
 
       setSweepId(null);
-      entry.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const viewport = entry.closest('.bex-scripture-viewport');
+      if (viewport) viewport.dispatchEvent(new CustomEvent('scripture-workspace-center', { detail: { target: entry } }));
+      else entry.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
       const start = () => {
         if (settleTimer) { window.clearTimeout(settleTimer); settleTimer = null; }
@@ -106,6 +109,8 @@ export default function PageFoot({
       ? 'End of page — click to add the next one'
       : 'End of page — click to turn to the next one');
 
+  if (!showCutLine && !footnotes.length) return null;
+
   return (
     <div className="mt-10 select-none" data-testid="page-foot">
       {footnotes.length > 0 && (
@@ -124,7 +129,7 @@ export default function PageFoot({
       )}
 
       {/* The cut line: where this page stops. Pressing it turns the page. */}
-      <button
+      {showCutLine && <button
         type="button"
         onClick={onCutLine}
         disabled={cutLineDisabled}
@@ -145,7 +150,7 @@ export default function PageFoot({
             ) : 'Next page'}
           </span>
         )}
-      </button>
+      </button>}
     </div>
   );
 }

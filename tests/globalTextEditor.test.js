@@ -9,21 +9,20 @@ const surfaces = [
   // A note's writing surface is the page inside it — NoteEditorPanel owns the
   // title and the paging, BookSurface owns the page.
   ['Markdown Notes', '../src/components/notes/BookSurface.jsx'],
-  ['Study Notes', '../src/components/notes/ChapterNotesPanel.jsx'],
 ];
 
 describe('global long-form text editor architecture', () => {
   for (const [label, path] of surfaces) {
-    it(`${label} uses the one shared RichTextEditor`, () => {
+    it(`${label} uses the one shared TEXT_EDITOR_MACHINERY`, () => {
       const source = read(path);
-      assert.match(source, /import RichTextEditor from ['"]\.\.\/editor\/RichTextEditor['"]/);
-      assert.match(source, /<RichTextEditor\b/);
+      assert.match(source, /import TEXT_EDITOR_MACHINERY from ['"]\.\.\/editor\/TEXT_EDITOR_MACHINERY['"]/);
+      assert.match(source, /<TEXT_EDITOR_MACHINERY\b/);
       assert.doesNotMatch(source, /from ['"]@tiptap\//);
     });
   }
 
   it('the shared editor owns both itemized blocks and collapsible toggles', () => {
-    const source = read('../src/components/editor/RichTextEditor.jsx');
+    const source = read('../src/components/editor/TEXT_EDITOR_MACHINERY.jsx');
     assert.match(source, /BlockDrag/);
     assert.match(source, /CollapsibleToggle/);
     assert.match(source, /ToggleSummary/);

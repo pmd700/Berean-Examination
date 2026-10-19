@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Save, X } from 'lucide-react';
-import RichTextEditor from '../editor/RichTextEditor';
+import TEXT_EDITOR_MACHINERY from '../editor/TEXT_EDITOR_MACHINERY';
 
 export default function KeywordForm({ isOpen, onClose, keyword, onSave }) {
   const [title, setTitle] = useState('');
@@ -93,7 +93,7 @@ export default function KeywordForm({ isOpen, onClose, keyword, onSave }) {
             <Label className="text-gray-700 dark:text-gray-300">
               Explanation
             </Label>
-            <RichTextEditor
+            <TEXT_EDITOR_MACHINERY
               value={explanation}
               onChange={setExplanation}
               placeholder="Provide a detailed explanation of this keyword or concept..."

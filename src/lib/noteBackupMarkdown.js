@@ -150,7 +150,7 @@ function decodeLegacyPayload(payload) {
   });
 }
 
-/** Test/import seam for proving that a Mass Backup retains the exact note. */
+/** Test/import seam for proving that a library export retains the exact note. */
 export function extractNoteBackupPayload(markdown) {
   const text = String(markdown || '');
   const current = scanEncodedBlocks(text, RICH_NOTE_TOKEN, decodeCurrentPayload);

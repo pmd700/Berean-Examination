@@ -33,7 +33,7 @@ export default function SearchBar({ cards, onJumpToCard }) {
   };
 
   return (
-    <div className="relative">
+    <div className="bex-web-search relative">
       <div className={`flex items-center gap-1.5 h-7 px-2.5 rounded-lg border transition-colors ${
         focused
           ? 'bg-app border-brand w-56'

@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { X, Trash2, Image as ImageIcon, Clock, Tag, BookOpen, Plus, Crosshair, ExternalLink, PanelRightClose, PanelRightOpen, Copy, Check } from 'lucide-react';
 import { desktopClient } from '@/api/desktopClient';
-import RichTextEditor from '../editor/RichTextEditor';
+import TEXT_EDITOR_MACHINERY from '../editor/TEXT_EDITOR_MACHINERY';
 import { isSidebarToggleShortcut } from './sidebarShortcut';
 import { usePersistentPreference } from '@/lib/usePersistentPreference';
 import { normalizeCardTitle } from './cardTitle';
@@ -284,8 +284,8 @@ export default function CardEditor({
         isFullscreen
           // Starts below the workspace tab bar rather than at the top of the
           // window, so the bar doesn't sit over this editor's own header row.
-          ? 'fixed left-0 right-0 bottom-0 z-50 bg-gray-900 flex flex-row'
-          : `${widthClass} kw-card-inspector-enter bg-gray-900 border-l border-gray-800 flex flex-col h-full transition-[width] duration-200`
+          ? 'bex-card-fullscreen fixed left-0 right-0 bottom-0 z-50 bg-gray-900 flex flex-row'
+          : `bex-card-inspector ${widthClass} kw-card-inspector-enter bg-gray-900 border-l border-gray-800 flex flex-col h-full transition-[width] duration-200`
       }
       style={isFullscreen ? { top: 'var(--bex-tabbar-height, 0px)' } : undefined}
     >
@@ -358,7 +358,7 @@ export default function CardEditor({
               </div>
             </div>
             <div className="bex-card-text-editor flex-1 overflow-y-auto kw-card-editor-fullscreen">
-                <RichTextEditor
+                <TEXT_EDITOR_MACHINERY
                   content={description}
                   onChange={(value) => {
                     setDescription(value);
@@ -510,7 +510,7 @@ export default function CardEditor({
                   ? 'min-h-[10rem]'
                   : 'min-h-[16rem]'
             }`}>
-                <RichTextEditor
+                <TEXT_EDITOR_MACHINERY
                   content={description}
                   onChange={(value) => {
                     setDescription(value);

@@ -1,4 +1,5 @@
 import { noteDeepLink, webDeepLink, timegraphDeepLink } from '@/utils';
+import { OPEN_COMMENTARY_TAB_EVENT } from '@/lib/commentaryLink';
 
 export const LIBRARY_LINK_TYPES = Object.freeze([
   { kind: 'note', entity: 'MindNote', label: 'Note', fallback: 'Untitled note' },
@@ -16,6 +17,10 @@ export function libraryLinkHref({ kind, id }) {
   return build(id);
 }
 
+// A Bible Study commentary link: the passage query plus the annotation to bring
+// into view. Deliberately strict so only links BEX itself generates qualify.
+const STUDY_COMMENTARY_PATH = /^\/Study\?q=[^\s&#]+(?:&annotation_id=[A-Za-z0-9_-]{1,64})?(?:&version=(?:API%3[Aa])?[A-Za-z0-9_-]{1,50})?$/;
+
 /** Recognize only local BEX document routes, never similarly named websites. */
 export function libraryLinkPath(href, base = globalThis.location?.href) {
   if (typeof href !== 'string') return null;
@@ -29,6 +34,7 @@ export function libraryLinkPath(href, base = globalThis.location?.href) {
     } catch { return null; }
   }
   return /^\/(?:notes|knowledge-webs|timegraphs)\/(?:[a-z0-9-]*-)?[1-9]\d*(?:[?#][^\s]*)?$/.test(path)
+    || STUDY_COMMENTARY_PATH.test(path)
     ? path : null;
 }
 
@@ -38,6 +44,13 @@ export function followLibraryLink(event, navigate) {
   if (!path) return false;
   event.preventDefault();
   event.stopPropagation();
+  if (STUDY_COMMENTARY_PATH.test(path)) {
+    // Commentary opens beside the current work, never over it.
+    const detail = { path, title: anchor.textContent?.trim() || '', handled: false };
+    window.dispatchEvent(new CustomEvent(OPEN_COMMENTARY_TAB_EVENT, { detail }));
+    if (!detail.handled) navigate(path);
+    return true;
+  }
   navigate(path);
   return true;
 }

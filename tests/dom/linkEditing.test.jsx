@@ -1,7 +1,8 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { TextSelection } from '@tiptap/pm/state';
 
 vi.mock('@/api/desktopClient', () => ({
   desktopClient: {
@@ -11,15 +12,15 @@ vi.mock('@/api/desktopClient', () => ({
   },
 }));
 
-import RichTextEditor from '@/components/editor/RichTextEditor';
+import TEXT_EDITOR_MACHINERY from '@/components/editor/TEXT_EDITOR_MACHINERY';
 
 const CONTENT = '<p>Read <a href="https://example.com">this passage</a>.</p>';
 
-function mountEditor() {
+function mountEditor(content = CONTENT) {
   return render(
     <MemoryRouter>
-      <RichTextEditor
-        content={CONTENT}
+      <TEXT_EDITOR_MACHINERY
+        content={content}
         onChange={() => {}}
         bare
         nested
@@ -38,6 +39,24 @@ async function renderedLink(container) {
 describe('global editor link interactions', () => {
   beforeEach(() => {
     vi.spyOn(window, 'open').mockImplementation(() => null);
+  });
+
+  it('links pasted rich text between quoted link boundaries in the actual shared editor', async () => {
+    const { container } = mountEditor('<p>Before <a href="https://example.com/source">""</a> After.</p>');
+    await renderedLink(container);
+    const dom = container.querySelector('.ProseMirror');
+    const view = dom.editor.view;
+    act(() => view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 9))));
+    fireEvent.paste(dom, { clipboardData: { getData: type => type === 'text/html'
+      ? '<p><strong>Evidence for the quotation</strong></p>' : type === 'text/plain' ? 'Evidence for the quotation' : '' } });
+    await waitFor(() => {
+      const link = container.querySelector('a.external-link');
+      expect(link.textContent).toBe('"Evidence for the quotation"');
+      expect(link.querySelector('strong').textContent).toBe('Evidence for the quotation');
+      expect(link.getAttribute('href')).toBe('https://example.com/source');
+    });
+    act(() => dom.editor.commands.undo());
+    expect(dom.textContent).toBe('Before "" After.');
   });
 
   it('opens one browser window for one hyperlink click', async () => {

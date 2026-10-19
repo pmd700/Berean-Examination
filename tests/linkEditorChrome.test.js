@@ -5,7 +5,7 @@ import path from 'node:path';
 
 const root = path.resolve(import.meta.dirname, '..');
 const source = fs.readFileSync(
-  path.join(root, 'src/components/editor/RichTextEditor.jsx'),
+  path.join(root, 'src/components/editor/TEXT_EDITOR_MACHINERY.jsx'),
   'utf8',
 );
 

@@ -15,7 +15,7 @@ import {
  * click the real button and read the resulting DOM — the behaviour I previously
  * had to verify by hand in a browser harness every single time.
  *
- * A minimal editor rather than the full RichTextEditor: the unit under test is
+ * A minimal editor rather than the full TEXT_EDITOR_MACHINERY: the unit under test is
  * the toggle extension, and dragging in katex, images and the desktop bridge
  * would only add ways for this to fail for unrelated reasons.
  */

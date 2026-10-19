@@ -293,6 +293,22 @@
   overflow-y: auto;
 }
 
+.bex-tg-panel:has([data-size-mode="expanded"]) {
+  width: min(52rem, 65%);
+}
+
+/* The writing surface fills the chosen window, rather than leaving the new
+   space below a small editor. The inner pane handles long descriptions. */
+.bex-tg-description-writing > [data-bex-global-editor] {
+  height: 100%;
+}
+.bex-tg-description-writing .ProseMirror {
+  min-height: 100%;
+}
+.bex-tg-description-writing [data-bex-global-editor] > .overflow-y-auto > div:has(> .ProseMirror) {
+  height: 100%;
+}
+
 .bex-tg-label {
   display: block;
   font-size: 10px;

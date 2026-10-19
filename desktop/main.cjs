@@ -3,6 +3,7 @@
 const {
   app,
   BrowserWindow,
+  clipboard,
   dialog,
   ipcMain,
   Menu,
@@ -22,6 +23,7 @@ const { installApplicationMenu } = require('./app-menu.cjs');
 const { installContextMenu } = require('./context-menu.cjs');
 const { createMachineRequest } = require('./activation.cjs');
 const { registerActivationHandlers } = require('./activation-ipc.cjs');
+const { registerClipboardHandlers } = require('./clipboard-ipc.cjs');
 const { registerExportFileHandlers } = require('./export-file-ipc.cjs');
 const { registerContactHandlers } = require('./contact-ipc.cjs');
 const { registerExternalLinkHandlers, validateExternalUrl } = require('./external-link-ipc.cjs');
@@ -37,10 +39,10 @@ const { registerLibraryHandlers } = require('./library.cjs');
 const { readLocalBibleChapter } = require('./local-bible.cjs');
 const { registerLocalBibleHandlers } = require('./local-bible-ipc.cjs');
 const { registerLocalBackupHandlers } = require('./local-backup-ipc.cjs');
-const { MassBackupManager } = require('./mass-backup.cjs');
-const { registerMassBackupHandlers } = require('./mass-backup-ipc.cjs');
 const { registerLocalEntityHandlers } = require('./local-entity-ipc.cjs');
 const { registerLocalMediaHandlers } = require('./local-media-ipc.cjs');
+const { registerLocalAttachmentHandlers } = require('./local-attachments-ipc.cjs');
+const { AttachmentExternalCopies } = require('./local-attachments.cjs');
 const { readLocalMamChapter } = require('./local-mam.cjs');
 const { registerLocalMamHandlers } = require('./local-mam-ipc.cjs');
 const {
@@ -57,6 +59,7 @@ const {
 const { createSafeStorageProtector } = require('./privacy-vault.cjs');
 const {
   activateInstallation,
+  assertLocalFilesAvailable,
   changePrivacyPin,
   closeDatabase,
   createLocalBackup,
@@ -78,6 +81,7 @@ const {
   inspectLocalBackupForRestore,
   lockPrivacyVault,
   listLocalEntities,
+  readLocalEntitySnapshot,
   listCourseLibrary,
   readLocalMedia,
   resolveCourseAsset,
@@ -85,7 +89,9 @@ const {
   replacePrivacyRecoveryCode,
   restoreKnowledgeWebGraph,
   restoreLocalBackup,
+  rollbackLocalFile,
   saveLocalImage,
+  saveLocalFile,
   saveCourseProgress,
   unlockPrivacyAutomatically,
   unlockPrivacyWithPin,
@@ -117,6 +123,7 @@ const MIME_TYPES = {
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
   '.ttf': 'font/ttf',
+  '.wasm': 'application/wasm',
   '.webp': 'image/webp',
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',
@@ -128,6 +135,7 @@ let builtServer = null;
 let isQuitting = false;
 let privacyLifecycleRegistered = false;
 let mediaProtocolRegistered = false;
+let attachmentExternalCopies = null;
 
 registerLocalMediaScheme(protocol);
 registerCourseMediaScheme(protocol);
@@ -135,6 +143,7 @@ registerCourseMediaScheme(protocol);
 app.setName(APP_NAME);
 
 function publishPrivacyStatus(status) {
+  if (status?.locked) attachmentExternalCopies?.cleanup();
   if (!mainWindow || mainWindow.isDestroyed()) return;
   mainWindow.webContents.send(PRIVACY_STATUS_CHANGED_CHANNEL, publicStatus(status));
 }
@@ -166,7 +175,7 @@ function registerPrivacyLifecycle() {
 function registerMediaProtocol(appUrl) {
   if (mediaProtocolRegistered) return;
   mediaProtocolRegistered = true;
-  registerLocalMediaProtocol({ protocol, readLocalMedia });
+  registerLocalMediaProtocol({ protocol, readLocalMedia, trustedOrigin: new URL(appUrl).origin });
   registerCourseMediaProtocol({
     protocol,
     resolveCourseAsset,
@@ -334,10 +343,7 @@ async function createMainWindow(appUrl) {
 
   mainWindow = new BrowserWindow({
     title: APP_NAME,
-    width: 1440,
-    height: 900,
-    minWidth: 1024,
-    minHeight: 700,
+    ...require('./window-options.cjs'),
     backgroundColor: '#0B0D11',
     show: false,
     webPreferences: {
@@ -381,6 +387,12 @@ async function createMainWindow(appUrl) {
   });
 
   mainWindow.once('ready-to-show', () => mainWindow.show());
+  mainWindow.on('close', (event) => {
+    if (isQuitting) return;
+    // Keep the renderer alive until its pending view/editor saves have drained.
+    event.preventDefault();
+    app.quit();
+  });
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -394,6 +406,11 @@ async function launch() {
   });
 
   const useBuiltMode = app.isPackaged || process.argv.includes(BUILT_MODE_FLAG);
+  attachmentExternalCopies = new AttachmentExternalCopies({
+    tempRoot: path.join(app.getPath('userData'), 'bex-open-files'),
+    readLocalMedia,
+    assertUnlocked: assertLocalFilesAvailable,
+  });
   const appUrl = useBuiltMode ? await startBuiltServer() : await startDevelopmentServer();
   const localCourseCatalog = new LocalCourseCatalogConnection({
     configPath: path.join(app.getPath('userData'), 'local-course-catalog.json'),
@@ -401,22 +418,6 @@ async function launch() {
   });
   const activeCourseDownloads = new Map();
   const privacyProtector = createSafeStorageProtector(safeStorage);
-  const massBackupManager = new MassBackupManager({
-    configPath: path.join(app.getPath('userData'), 'mass-backup-config.json'),
-  });
-  const chooseMassBackupFolder = async (settings) => {
-    const result = await dialog.showOpenDialog(mainWindow, {
-      buttonLabel: 'Use for Mass Backups',
-      defaultPath: settings?.available && settings.destinationPath
-        ? settings.destinationPath
-        : app.getPath('documents'),
-      message: 'Choose the folder where BEX should save future Mass Backups.',
-      properties: ['openDirectory', 'createDirectory', 'dontAddToRecent'],
-      title: 'Choose Mass Backup Folder',
-    });
-    if (result.canceled || !result.filePaths[0]) return { canceled: true };
-    return { canceled: false, destinationPath: result.filePaths[0] };
-  };
   const chooseAndRestoreLocalBackup = async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
       buttonLabel: 'Choose Backup',
@@ -518,7 +519,12 @@ async function launch() {
   registerLibraryHandlers({
     appUrl,
     getMainWindow: () => mainWindow,
-    onLibraryReady: (libraryPath) => initializeDatabase(libraryPath, { privacyProtector }),
+    onLibraryReady: (libraryPath) => {
+      let currentLibrary = null;
+      try { currentLibrary = getActiveLibraryPath(); } catch { /* No library is open yet. */ }
+      if (currentLibrary !== libraryPath) attachmentExternalCopies.cleanup();
+      return initializeDatabase(libraryPath, { privacyProtector });
+    },
   });
   registerActivationHandlers({
     activateInstallation,
@@ -527,6 +533,7 @@ async function launch() {
     getActivationState,
     ipcMain,
   });
+  registerClipboardHandlers({ appUrl, ipcMain, clipboard });
   registerExportFileHandlers({
     appUrl,
     ipcMain,
@@ -597,13 +604,6 @@ async function launch() {
     createLocalBackup,
     ipcMain,
   });
-  registerMassBackupHandlers({
-    appUrl,
-    chooseFolder: chooseMassBackupFolder,
-    ipcMain,
-    manager: massBackupManager,
-    revealFolder: (folderPath) => shell.openPath(folderPath),
-  });
   registerLocalEntityHandlers({
     appUrl,
     createLocalEntity,
@@ -612,6 +612,7 @@ async function launch() {
     ipcMain,
     importKnowledgeWebGraph,
     listLocalEntities,
+    readLocalEntitySnapshot,
     reorderLocalEntities,
     restoreKnowledgeWebGraph,
     updateLocalEntity,
@@ -621,6 +622,24 @@ async function launch() {
     deleteLocalImage,
     ipcMain,
     saveLocalImage,
+  });
+  registerLocalAttachmentHandlers({
+    appUrl,
+    ipcMain,
+    assertUnlocked: assertLocalFilesAvailable,
+    chooseFiles: (event) => {
+      const parent = BrowserWindow.fromWebContents(event.sender);
+      const options = {
+        buttonLabel: 'Add Files',
+        defaultPath: app.getPath('documents'),
+        properties: ['openFile', 'multiSelections', 'dontAddToRecent'],
+        title: 'Add Files to Note',
+      };
+      return parent ? dialog.showOpenDialog(parent, options) : dialog.showOpenDialog(options);
+    },
+    saveLocalFile,
+    rollbackLocalFile,
+    openLocalFile: (mediaUrl) => attachmentExternalCopies.open(mediaUrl, (target) => shell.openPath(target)),
   });
   registerPrivacyHandlers({
     appUrl,
@@ -655,14 +674,27 @@ app.whenReady().then(async () => {
 
 const handleNormalClose = createNormalCloseHandler({
   app,
+  prepareForShutdown: async () => {
+    if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return;
+    let timeout;
+    try {
+      await Promise.race([
+        mainWindow.webContents.executeJavaScript('window.__bexFlushPendingEditorSaves?.()'),
+        new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error('Saving timed out.')), 15000); }),
+      ]);
+    } finally { clearTimeout(timeout); }
+  },
+  onPreparationFailed: () => dialog.showErrorBox('BEX is still saving', 'Your workspace has been kept open because a recent save could not finish. Resolve the save error or wait for saving to finish, then quit again.'),
   closeDatabase,
   closeServices: () => {
+    attachmentExternalCopies?.cleanup();
     if (devServerProcess && !devServerProcess.killed) devServerProcess.kill();
     if (builtServer) builtServer.close();
   },
   createLocalBackup,
   onShutdownStarted: () => {
     isQuitting = true;
+    attachmentExternalCopies?.cleanup();
   },
 });
 

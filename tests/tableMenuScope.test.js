@@ -13,7 +13,7 @@ import path from 'node:path';
  */
 
 const root = path.resolve(import.meta.dirname, '..');
-const editor = fs.readFileSync(path.join(root, 'src/components/editor/RichTextEditor.jsx'), 'utf8');
+const editor = fs.readFileSync(path.join(root, 'src/components/editor/TEXT_EDITOR_MACHINERY.jsx'), 'utf8');
 const menu = editor.slice(editor.indexOf('pluginKey="tableMenu"'));
 
 describe('the whole-table menu', () => {
@@ -96,7 +96,7 @@ describe('the grip extension', () => {
 });
 
 describe('the selected band', () => {
-  const css = fs.readFileSync(path.join(root, 'src/components/editor/RichTextEditor.jsx'), 'utf8');
+  const css = fs.readFileSync(path.join(root, 'src/components/editor/TEXT_EDITOR_MACHINERY.jsx'), 'utf8');
 
   it('highlights in purple, and does so on the table the editor actually renders', () => {
     // The rule used to be written for table.rt-table alone. The LIVE table

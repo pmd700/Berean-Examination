@@ -1,6 +1,6 @@
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
-import { CalendarRange, Image as ImageIcon, Link2, Quote } from 'lucide-react';
+import { CalendarRange, File, Image as ImageIcon, Link2, Quote } from 'lucide-react';
 
 export const slashCommandKey = new PluginKey('slashCommands');
 
@@ -35,11 +35,22 @@ export const SLASH_COMMANDS = [
     id: 'image',
     label: 'Image',
     hint: 'Upload a file or embed a link',
-    keywords: ['image', 'img', 'picture', 'photo', 'upload', 'embed', 'file'],
+    keywords: ['image', 'img', 'picture', 'photo', 'upload', 'embed'],
     Icon: ImageIcon,
     run: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).run();
       openSlashPanel(editor, 'image');
+    },
+  },
+  {
+    id: 'file',
+    label: 'File',
+    hint: 'Attach a PDF, audio, video, or other file',
+    keywords: ['file', 'attachment', 'pdf', 'document', 'audio', 'video'],
+    Icon: File,
+    run: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).run();
+      openSlashPanel(editor, 'file');
     },
   },
   {

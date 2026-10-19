@@ -2,7 +2,7 @@ import React from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Check, Pencil, Trash2, X } from 'lucide-react';
 import LogicRichHtml from '../logic/LogicRichHtml';
-import RichTextEditor from './RichTextEditor';
+import TEXT_EDITOR_MACHINERY from './TEXT_EDITOR_MACHINERY';
 import AnnotationPopover from './AnnotationPopover';
 import { focusComposer } from './FootnoteComposer';
 import { collectTooltips, getTooltipState } from './TooltipExtension';
@@ -123,7 +123,7 @@ export default function TooltipLayer({ editor }) {
               }}
               data-testid="input-tooltip-text"
             >
-              <RichTextEditor
+              <TEXT_EDITOR_MACHINERY
                 nested
                 bare
                 content={draftValue}

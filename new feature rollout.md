@@ -1,5 +1,79 @@
 # New feature rollout: API.Bible Scripture Search
 
+## Global to-do list
+
+### Scripture loading, recovery, and permanent writing — October 11, 2026
+
+- [x] Keep the existing `Study.jsx` reader, glass controls, font sizes, interlinear, copying, highlights, and annotations. Display completed passages progressively in reference order, with a placeholder and individual Retry for each unfinished request.
+- [x] Show actual completed-request counts, a slow-response message after 3 seconds, Cancel, and Retry unfinished. Cancelling retains completed passages; retry retrieves only failed/cancelled units. A failed study-data read can retry the completed response without another content request.
+- [x] Give every search and retry a separate identity. Replacement searches, edition changes, history reads, annotation reads, and unmounts cannot publish older results over the current view. Keep an open annotation draft attached to the passage originally selected.
+- [x] Coordinate a shared desktop queue with at most two active network requests. Identical requests share the fetch while retaining separate cancellable subscribers; cancelling or closing one window does not cancel another window's subscriber. Apply an 8-second attempt timeout through JSON-body reading and a 20-second renderer batch deadline.
+- [x] Store API study parents as permanent edition/reference identities and personal fields only. Keep fetched Scripture bodies in the bounded session cache and active reader view, never in study records or workspace-session storage. Reopening API history retrieves Scripture again while reusing the original parent and annotation locators.
+- [x] Migrate older `API:*` records when read, including after restore: remove fetched body fields from the existing encrypted row while preserving IDs, timestamps, notes, context, application, counts, links, and annotation records. Downloaded/imported chapters retain their local text. New writes enforce the same separation in the desktop store.
+- [x] Enforce a 499-verse cache budget per edition and 14-day expiry. Skip reusable caching when verse coverage cannot be counted reliably or the response exceeds the budget. Preserve response metadata on cache hits, expire active views at their retrieval deadline, and clear current API view bodies when Scripture setup changes.
+- [x] Verification: **589 DOM tests across 64 files**, **23 targeted Scripture/backend tests**, **16 existing Study persistence checks across two Electron launches**, production build, scoped lint, and diff whitespace checks pass. The new Electron recovery proof verifies partial display, retry, replacement cancellation, shared requests across two windows, saving a draft after navigating, encrypted reopen, and layouts at 1440, 683, and 480 pixels; captures reviewed.
+
+Verification uses disposable encrypted libraries and controlled API responses for delayed, failed, and late requests; it does not consume the user's API quota. The running desktop process must be restarted once to load the native queue and record-migration changes. Project-wide typecheck still reports existing errors; the new search-session and request-state components have no typecheck errors.
+
+Current entry points: `src/pages/Study.jsx`, `src/components/scripture/useScriptureSearchSession.js`, `src/lib/scriptureClient.js`, `src/lib/studyPersistence.js`, `desktop/scripture-api.cjs`, `desktop/scripture-cache.cjs`, and `desktop/api-study-record.cjs`. The October 8 implementation notes below describe the earlier reader; they are historical, not the current file map.
+
+### Intermittently invisible note title — October 10, 2026
+
+- [x] Reproduce the hidden-tab measurement bug: a zero `scrollHeight` was stored as the title's visible height, with no resize on tab activation.
+- [x] Measure visible titles before paint, resize on tab activation/width changes/font loading, and keep a one-line minimum height; preserve title text and note content.
+- [x] Verify 3 regressions covering hidden-tab activation, zero-height measurements, and wrapping/observer cleanup. Real Electron/Chromium confirms four hide/show cycles with “The Nazarenes 🏘️” intact and narrow-window wrapping without clipping; screenshot visually checked.
+- [x] Final checks: 552 DOM tests pass across 56 files; production build and scoped lint pass. Typecheck retains the same 659 pre-existing errors, with no new error signatures.
+
+### Note toolbar Export and live note views — October 10, 2026
+
+- [x] Place Export beside Copy at the top of the note; reuse the existing Markdown/restore format and native save dialog.
+- [x] Share the current-vault export builder between the note toolbar and library; finish pending saves before exporting the whole note/book.
+- [x] Serialize note autosaves and preserve failed edits for retry; block stale exports after a failed save or read.
+- [x] Propagate committed note changes to mounted library/sidebar lists and clean duplicate editors; preserve unsaved typing and reject stale list reads.
+- [x] Verify 9 toolbar/live-view regressions, including simultaneous duplicate saves and export timeout, plus existing book, index, library export, save-barrier, and same-path file-replacement checks.
+- [x] Final checks: 549 DOM tests pass across 56 files; production build and scoped lint pass. Typecheck retains the same 659 pre-existing errors, with no new error signatures.
+
+Stale-copy cause: the library and other open editors held independent note snapshots. Successful saves now notify those views, slow list reads cannot overwrite newer edits, and duplicate tabs reconcile after pending writes finish. Failed writes retain the unsaved field patches for retry. Toolbar and library exports share one builder that reads the current vault record.
+
+### Workspace refresh button — October 10, 2026
+
+- [x] Add an accessible refresh button beside the tab bar's “+”, with saving progress and repeat-click protection.
+- [x] Finish mounted editors' autosaves, wait for note/web/timeline saves and file imports, then reload the interface; preserve the saved tab session and preferences.
+- [x] Keep the workspace open on a failed or stalled save; allow retry after recovery.
+- [x] Verify 8 refresh tests covering long autosave timers, background editors, edits during saves, save failure/retry, timeout, and tab restoration; existing vault save barrier passes.
+- [x] Final checks: 540 DOM tests pass across 55 files; production build and scoped lint pass. Typecheck retains the same 659 pre-existing errors, with no new error signatures.
+
+Behavior: rereads the vault by reloading the interface without restarting the desktop process. Temporary interface state, including dialogs, selections, undo history, and manually submitted drafts, resets; finish manual forms before refreshing.
+
+### Note Markdown export refresh — October 10, 2026
+
+- [x] Reproduce the stale second export from the library's cached note snapshot.
+- [x] Wait for pending autosaves, then read the current vault note for individual Markdown and selected-items ZIP exports; export current title, readable text, and exact restore content.
+- [x] Block export after a failed save or failed current-note read; keep the old cached content out of the file.
+- [x] Verify 5 export regression tests, actual same-path file replacement, the existing save barrier, 532 passing DOM tests, production build, and scoped lint. Typecheck retains the same 659 pre-existing errors, with no new error signatures.
+
+Cause: the library could refresh before the editor's 600 ms autosave finished. Export reused that list snapshot instead of reading the latest saved note.
+
+### Notes `/file` attachments — October 10, 2026
+
+- [x] Confirm behavior: compact icon and filename; optional PDF thumbnail, audio player, or video first frame. PDF/audio/video open inside BEX; other formats open automatically in the default app.
+- [x] Review maintained viewer libraries, licenses, security, and Electron compatibility: React-PDF 10.5.0 (MIT), PDF.js 5.4.296 (Apache-2.0), bundled offline worker/resources, and Chromium media controls. New dependency advisory check: clear.
+- [x] Add encrypted, organized vault storage for attachments and existing imported images/screenshots; preserve older references and backups.
+- [x] Add `/file` to the slash menu, durable attachment blocks, and per-file icon/preview choice.
+- [x] Add in-app PDF, audio, and video viewers with a clean “Open in default app” action.
+- [x] Verify persistence, vault locking, file handling, backup/restore, and the actual Electron workflow.
+- [x] Record final checks and remaining limitations here.
+
+Final verification — October 10, 2026:
+
+- [x] Production build and feature-specific ESLint pass; no typecheck errors in the new attachment files.
+- [x] Full DOM suite: **527 passing tests** across 53 files, including preview remount during vault lock.
+- [x] Storage/security: **9 attachment tests** and **3 shutdown-backup tests** pass, including corruption rejection, rollback, and interrupted-restore recovery.
+- [x] Real Electron: **18 attachment checks** across two launches pass; slash import, PDF pages/zoom, audio/video playback, optional previews, screenshot rendering, source deletion, lock cleanup, encrypted persistence, and media recovery verified. Visual review completed.
+- [x] Existing native backup/restore proof: **13 checks pass**. Earlier image and chapter-art proofs also passed (5 each).
+
+Limits: 2 GB per attachment; playback depends on Chromium-supported codecs, with a default-app fallback. External edits do not update vault copies automatically. The native proof safely stubs the external application's launch while verifying its private decrypted handoff. Project-wide lint/typecheck still report **12 existing lint errors and 659 type errors outside this feature**. Library choices and behavior are documented in [attachment-viewer-libraries.md](docs/attachment-viewer-libraries.md).
+
 Research date: October 7, 2026  
 Implementation date: October 8, 2026  
 Project: BEX — `/Users/davidmartinez/Desktop/BEX`  

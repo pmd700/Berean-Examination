@@ -4,6 +4,7 @@ import { Details } from '@tiptap/extension-details';
 import { DetailsSummary } from '@tiptap/extension-details-summary';
 import { DetailsContent } from '@tiptap/extension-details-content';
 import { findInEditorKey, isFindRevealed } from './findInEditor';
+import { textOnlyToggleContext } from './toggleClipboard';
 
 // Reusable Notion-style collapsible "toggle" block for the TipTap editor.
 //
@@ -225,6 +226,9 @@ export const CollapsibleToggle = Details.extend({
     // A search-opened body is editable even though its saved open flag is false.
     return [new Plugin({
       key: new PluginKey('detailsSelection'),
+      props: {
+        transformCopied: (slice, view) => textOnlyToggleContext(slice, view.state.schema),
+      },
       appendTransaction: (transactions, oldState, newState) => {
         const { selection } = newState;
         if (!(selection instanceof TextSelection) || !selection.empty) return;

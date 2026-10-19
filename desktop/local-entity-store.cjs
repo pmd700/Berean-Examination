@@ -1,5 +1,8 @@
 'use strict';
 
+const { separateApiStudyRecord } = require('./api-study-record.cjs');
+const { validateStudyCanvasRecord } = require('./study-canvas-record.cjs');
+
 const { MAX_IMAGE_BYTES, parseMediaUrl } = require('./local-media.cjs');
 
 const MAX_ENTITY_BYTES = 2 * 1024 * 1024;
@@ -48,6 +51,8 @@ const ENTITY_CONFIG = Object.freeze({
     immutableFields: Object.freeze(['book', 'chapter_number', 'version']),
     table: 'local_annotations',
   }),
+  StudyCanvasObject: Object.freeze({ table: 'local_study_canvas_objects', maxBytes: MAX_VERSION_BYTES }),
+  StudyConnection: Object.freeze({ table: 'local_study_connections' }),
   BrainSource: Object.freeze({
     immutableFields: Object.freeze(['processed_at', 'processing_status', 'raw_text']),
     table: 'local_brain_sources',
@@ -309,7 +314,17 @@ class LocalEntityStore {
     `).all();
   }
 
-  validateConfiguredPayload(config, payload, { defaultOrdering = false, nowMs } = {}) {
+  validateConfiguredPayload(config, payload, { defaultOrdering = false, nowMs, existingId = null } = {}) {
+    if (config.table === 'local_study_canvas_objects' || config.table === 'local_study_connections') {
+      validateStudyCanvasRecord(config.table === 'local_study_connections' ? 'StudyConnection' : 'StudyCanvasObject', payload,
+        (type, id) => !!this.database.prepare(`SELECT id FROM ${requireEntityConfig(type).table} WHERE id = ?`).get(id));
+      if (config.table === 'local_study_connections' && defaultOrdering) {
+        const key = value => [JSON.stringify(value.from), JSON.stringify(value.to)].sort().join('|');
+        if (this.allRows(config).some(row => row.id !== existingId && key(this.decodeRow('StudyConnection', row)) === key(payload))) {
+          throw codedError('BEX_ENTITY_INVALID', 'Those study items are already connected.');
+        }
+      }
+    }
     if (config.orderField) {
       if (payload[config.orderField] === undefined && defaultOrdering) {
         payload[config.orderField] = -Math.trunc(nowMs);
@@ -554,6 +569,20 @@ class LocalEntityStore {
         throw invalid('The timegraph view is invalid.');
       }
       view = { centerYear, yearsPerPixel };
+      if (payload.view.scrollTop !== undefined) {
+        if (!Number.isFinite(payload.view.scrollTop) || payload.view.scrollTop < 0 || payload.view.scrollTop > 100000000) throw invalid('The timegraph scroll position is invalid.');
+        view.scrollTop = payload.view.scrollTop;
+      }
+      if (payload.view.filters !== undefined) {
+        const filters = payload.view.filters;
+        if (!isPlainObject(filters)) throw invalid('The timegraph filters are invalid.');
+        view.filters = { query: text(filters.query, 300, 'The timegraph filter query is invalid.'), hideUntagged: filters.hideUntagged === true };
+        for (const field of ['tags', 'hiddenTags', 'colors']) {
+          const values = filters[field] ?? [];
+          if (!Array.isArray(values) || values.length > 1000) throw invalid('The timegraph filters are invalid.');
+          view.filters[field] = values.map(value => text(value, 300, 'The timegraph filter value is invalid.'));
+        }
+      }
     }
 
     return { ...payload, title, description, events, view };
@@ -666,6 +695,7 @@ class LocalEntityStore {
   validateStudyEntity(entityType, payload, { creating = false, existingId = null } = {}) {
     const config = requireEntityConfig(entityType);
     if (entityType === 'StudyChapter') {
+      payload = separateApiStudyRecord(payload);
       this.validateStudyLocator(payload);
       const duplicate = this.allRows(config)
         .map((row) => this.decodeRow(entityType, row))
@@ -696,6 +726,30 @@ class LocalEntityStore {
       const start = payload.start_verse * 1000000 + payload.start_token_index;
       const end = payload.end_verse * 1000000 + payload.end_token_index;
       if (end < start) throw codedError('BEX_ENTITY_INVALID', 'The selected text range is invalid.');
+      if (entityType === 'Annotation' && payload.gutter_route != null) {
+        const route = payload.gutter_route;
+        if (!isPlainObject(route) || !Number.isFinite(route.x)
+          || !Number.isFinite(route.y)) {
+          throw codedError('BEX_ENTITY_INVALID', 'The annotation connector position is invalid.');
+        }
+        payload.gutter_route = { x: route.x, y: route.y };
+      }
+      if (entityType === 'Annotation' && payload.gutter_position != null) {
+        const position = payload.gutter_position;
+        if (!isPlainObject(position) || !Number.isFinite(position.x)
+          || !Number.isFinite(position.y)) {
+          throw codedError('BEX_ENTITY_INVALID', 'The annotation card position is invalid.');
+        }
+        payload.gutter_position = { x: position.x, y: position.y, ...(position.absolute === true ? { absolute: true } : {}) };
+      }
+      if (entityType === 'Annotation' && payload.gutter_size != null) {
+        const size = payload.gutter_size;
+        if (!isPlainObject(size) || !Number.isFinite(size.width) || size.width < 180
+          || !Number.isFinite(size.height) || size.height < 96) {
+          throw codedError('BEX_ENTITY_INVALID', 'The annotation card size is invalid.');
+        }
+        payload.gutter_size = { width: size.width, height: size.height };
+      }
       if (entityType === 'TextHighlight') {
         if (typeof payload.color !== 'string' || !payload.color.trim() || payload.color.length > 50) {
           throw codedError('BEX_ENTITY_INVALID', 'The highlight color is invalid.');
@@ -763,6 +817,7 @@ class LocalEntityStore {
       const annotation = this.decodeRow('Annotation', row);
       if (!matchesChapter(annotation)) continue;
       this.deleteDrawingsForAnnotation(annotation.id);
+      this.deleteStudyCanvasConnections('annotation', annotation.id);
       this.database.prepare(`DELETE FROM ${annotationConfig.table} WHERE id = ?`).run(annotation.id);
     }
     const highlightConfig = requireEntityConfig('TextHighlight');
@@ -770,6 +825,16 @@ class LocalEntityStore {
       const highlight = this.decodeRow('TextHighlight', row);
       if (matchesChapter(highlight)) {
         this.database.prepare(`DELETE FROM ${highlightConfig.table} WHERE id = ?`).run(highlight.id);
+      }
+    }
+  }
+
+  deleteStudyCanvasConnections(kind, id) {
+    const config = requireEntityConfig('StudyConnection');
+    for (const row of this.allRows(config)) {
+      const record = this.decodeRow('StudyConnection', row);
+      if ([record.from, record.to].some(endpoint => endpoint?.kind === kind && endpoint.id === id)) {
+        this.database.prepare('DELETE FROM local_study_connections WHERE id = ?').run(row.id);
       }
     }
   }
@@ -1302,12 +1367,24 @@ class LocalEntityStore {
     });
   }
 
-  decodeRow(entityType, row) {
+  decodeRow(entityType, row, { readOnly = false } = {}) {
     const config = requireEntityConfig(entityType);
-    const payload = this.privacyVault.decryptValue(
+    let payload = this.privacyVault.decryptValue(
       row.encrypted_payload,
       entityPurpose(entityType, Number(row.id)),
     );
+    if (entityType === 'StudyChapter') {
+      const separated = separateApiStudyRecord(payload);
+      if (JSON.stringify(separated) !== JSON.stringify(payload)) {
+        // Rewrite only the fetched body, in the existing encrypted row. Preserve
+        // its ID, writing, links, and timestamps; this is safe to repeat on restore.
+        if (!readOnly) {
+          const encrypted = this.privacyVault.encryptValue(separated, entityPurpose(entityType, Number(row.id)));
+          this.database.prepare(`UPDATE ${config.table} SET encrypted_payload = ? WHERE id = ?`).run(encrypted, row.id);
+        }
+        payload = separated;
+      }
+    }
     if (config.scopeField) {
       const storedScopeId = requireEntityId(row[config.scopeField]);
       if (
@@ -1406,6 +1483,42 @@ class LocalEntityStore {
     return this.decodeRow(entityType, row);
   }
 
+  /** One read transaction prevents exports from mixing states across windows.
+   * Return the same safe fields as list(), with no archive or filesystem work. */
+  readSnapshot(entityTypes) {
+    if (!Array.isArray(entityTypes) || !entityTypes.length || entityTypes.length > 32
+      || new Set(entityTypes).size !== entityTypes.length) {
+      throw codedError('BEX_ENTITY_INVALID', 'The requested library snapshot is invalid.');
+    }
+    const configs = entityTypes.map(type => this.assertReady(type));
+    const snapshot = {};
+    let byteLength = 0;
+    this.database.exec('BEGIN');
+    try {
+      for (const [index, type] of entityTypes.entries()) {
+        const config = configs[index], records = [];
+        const query = this.database.prepare(`SELECT ${this.selectColumns(config)} FROM ${config.table} WHERE id > ? ORDER BY id LIMIT 1000`);
+        let cursor = 0;
+        while (true) {
+          const rows = query.all(cursor);
+          if (records.length + rows.length > 50000) throw codedError('BEX_ENTITY_SNAPSHOT_TOO_LARGE', 'The complete library snapshot exceeds its record limit.');
+          for (const row of rows) {
+            const record = { ...this.decodeRow(type, row, { readOnly: true }) };
+            for (const field of config.listOmitFields || []) delete record[field];
+            byteLength += Buffer.byteLength(JSON.stringify(record), 'utf8');
+            if (byteLength > 128 * 1024 * 1024) throw codedError('BEX_ENTITY_SNAPSHOT_TOO_LARGE', 'The complete library snapshot exceeds 128 MB.');
+            records.push(record);
+          }
+          if (rows.length < 1000) break;
+          cursor = Number(rows.at(-1).id);
+        }
+        snapshot[type] = records;
+      }
+      this.database.exec('COMMIT');
+      return snapshot;
+    } catch (error) { this.database.exec('ROLLBACK'); throw error; }
+  }
+
   list(entityType, query = {}) {
     const config = this.assertReady(entityType);
     if (!isPlainObject(query)) {
@@ -1499,7 +1612,7 @@ class LocalEntityStore {
       }
       let payload = cleanPayload({ ...current, ...cleanedPatch }, config.maxBytes);
       const nowMs = this.now();
-      this.validateConfiguredPayload(config, payload, { defaultOrdering: true, nowMs });
+      this.validateConfiguredPayload(config, payload, { defaultOrdering: true, nowMs, existingId: normalizedId });
       if (entityType === 'Asset') payload = this.validateAsset(payload);
       if (entityType === 'BrainSource') payload = this.validateBrainSource(payload);
       if (entityType === 'ChapterArtCatalog') payload = this.validateChapterArtCatalog(payload);
@@ -1551,6 +1664,9 @@ class LocalEntityStore {
       if (entityType === 'MindNote') this.deleteMindLinksForEndpoint('note', normalizedId);
       if (entityType === 'BrainSource') this.detachBrainSourceFromCards(normalizedId, timestamp);
       if (entityType === 'Annotation') this.deleteDrawingsForAnnotation(normalizedId);
+      if (entityType === 'StudyCanvasObject' || entityType === 'Annotation') {
+        this.deleteStudyCanvasConnections(entityType === 'Annotation' ? 'annotation' : 'object', normalizedId);
+      }
       if (entityType === 'StudyChapter') {
         const row = this.database.prepare(`
           SELECT ${this.selectColumns(config)} FROM ${config.table} WHERE id = ?

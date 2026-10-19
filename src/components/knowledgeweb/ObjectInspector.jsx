@@ -63,7 +63,7 @@ export default function ObjectInspector({ obj, onUpdate, onDelete, onClose }) {
   const isLocked = !!obj.is_locked;
 
   return (
-    <div className="w-80 bg-gray-900 border-l border-gray-800 flex flex-col h-full">
+    <div className="bex-card-inspector w-80 bg-gray-900 border-l border-gray-800 flex flex-col h-full">
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
         <div className="flex items-center gap-2">
           <TypeIcon className="w-3.5 h-3.5 text-sky-400" />

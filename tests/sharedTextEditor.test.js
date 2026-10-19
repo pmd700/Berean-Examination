@@ -18,13 +18,11 @@ import path from 'node:path';
 
 const root = path.resolve(import.meta.dirname, '..');
 const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
-const editor = read('src/components/editor/RichTextEditor.jsx');
+const editor = read('src/components/editor/TEXT_EDITOR_MACHINERY.jsx');
 
 /** Every writing surface in the app, and what it is. */
 const SURFACES = Object.freeze({
   'the Study page': 'src/pages/Study.jsx',
-  'Study context and application': 'src/components/study/ContextApplicationModals.jsx',
-  'Study chapter notes': 'src/components/notes/ChapterNotesPanel.jsx',
   // The page inside a note, which is what a note is written on.
   'markdown notes': 'src/components/notes/BookSurface.jsx',
   'Knowledge Web card descriptions': 'src/components/knowledgeweb/CardEditor.jsx',
@@ -40,10 +38,10 @@ describe('one shared text editor', () => {
       const source = read(file);
       assert.match(
         source,
-        /import RichTextEditor from/,
+        /import TEXT_EDITOR_MACHINERY from/,
         `${file} does not import the shared editor`,
       );
-      assert.match(source, /<RichTextEditor/, `${file} does not render the shared editor`);
+      assert.match(source, /<TEXT_EDITOR_MACHINERY/, `${file} does not render the shared editor`);
     });
   }
 
@@ -65,7 +63,7 @@ describe('one shared text editor', () => {
         if (!/\.(jsx?|tsx?)$/.test(entry.name)) continue;
         const source = read(relative);
         if (!/useEditor\s*\(/.test(source)) continue;
-        if (relative.endsWith('src/components/editor/RichTextEditor.jsx')) continue;
+        if (relative.endsWith('src/components/editor/TEXT_EDITOR_MACHINERY.jsx')) continue;
         offenders.push(relative);
       }
     };
@@ -86,7 +84,7 @@ describe('local ⌘F routing', () => {
     it(`${label} explicitly claim the shared editor finder`, () => {
       assert.match(
         read(file),
-        /<RichTextEditor[\s\S]*?localFindShortcut[\s\S]*?\/>/,
+        /<TEXT_EDITOR_MACHINERY[\s\S]*?localFindShortcut[\s\S]*?\/>/,
         `${file} would fall through to global search while its editor is active`,
       );
     });
@@ -102,7 +100,7 @@ describe('local ⌘F routing', () => {
     const shortcut = read('src/lib/localFindShortcut.js');
     assert.match(shortcut, /new CustomEvent\(LOCAL_FIND_SHORTCUT_REQUEST[\s\S]*?cancelable: true/);
     assert.match(shortcut, /return !window\.dispatchEvent\(request\)/);
-    assert.match(globalSearch, /if \(requestLocalFindShortcut\(\)\)[\s\S]*?stopImmediatePropagation\(\)[\s\S]*?return;/);
+    assert.match(globalSearch, /if \(!event\.shiftKey && requestLocalFindShortcut\(\)\)[\s\S]*?stopImmediatePropagation\(\)[\s\S]*?return;/);
     assert.match(editor, /window\.addEventListener\(LOCAL_FIND_SHORTCUT_REQUEST, onLocalFindRequest\)/);
     assert.match(editor, /if \(!editor \|\| !localFindShortcut\) return undefined/);
   });
@@ -155,8 +153,8 @@ describe('the shared extension list', () => {
   it('only the comment card asks to be nested', () => {
     for (const [label, file] of Object.entries(SURFACES)) {
       const source = read(file);
-      const isNested = /<RichTextEditor[^>]*\n?\s*nested/s.test(
-        source.slice(source.indexOf('<RichTextEditor'), source.indexOf('<RichTextEditor') + 300),
+      const isNested = /<TEXT_EDITOR_MACHINERY[^>]*\n?\s*nested/s.test(
+        source.slice(source.indexOf('<TEXT_EDITOR_MACHINERY'), source.indexOf('<TEXT_EDITOR_MACHINERY') + 300),
       );
       if (file.endsWith('CommentSidebar.jsx')) {
         assert.equal(isNested, true, 'the comment card should be nested');
@@ -404,7 +402,7 @@ describe('marquee selection never steals another widget press', () => {
 });
 
 describe('whole-block format chooser', () => {
-  const editor = read('src/components/editor/RichTextEditor.jsx');
+  const editor = read('src/components/editor/TEXT_EDITOR_MACHINERY.jsx');
   const blockDrag = read('src/components/editor/BlockDragExtension.js');
 
   it('is owned by the shared editor used across BEX text surfaces', () => {

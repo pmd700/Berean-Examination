@@ -2,7 +2,7 @@ import React from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Search, X, FileText, Network, CalendarRange, Lock } from 'lucide-react';
 import { desktopClient } from '@/api/desktopClient';
-import { listAllEntityRecords } from '@/lib/massBackup';
+import { listAllEntityRecords } from '@/lib/allLocalEntityRecords';
 import { usePrivateWeb } from '@/lib/PrivateWebContext';
 import { decryptString } from '@/lib/webCrypto';
 import { LIBRARY_LINK_TYPES, libraryLinkHref } from '@/lib/libraryLinks';

@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
-import RichTextEditor from '@/components/editor/RichTextEditor';
+import TEXT_EDITOR_MACHINERY from '@/components/editor/TEXT_EDITOR_MACHINERY';
 import { collectPointers } from '@/components/editor/pointerModel';
 import { getPointerState } from '@/components/editor/PointerExtension';
 import { copyNotePage } from '@/components/notes/copyNotePage';
@@ -25,7 +25,7 @@ function select(text, last = false) {
 }
 function Fixture() {
   const [html, setHtml] = React.useState(content);
-  return <MemoryRouter><RichTextEditor bare noteAnnotations content={html} onChange={setHtml} onEditorReady={instance => { editor = instance; }} /></MemoryRouter>;
+  return <MemoryRouter><TEXT_EDITOR_MACHINERY bare noteAnnotations content={html} onChange={setHtml} onEditorReady={instance => { editor = instance; }} /></MemoryRouter>;
 }
 createRoot(document.getElementById('editor')).render(<Fixture />);
 window.pointerProof = {

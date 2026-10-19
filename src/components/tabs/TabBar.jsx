@@ -6,6 +6,7 @@ import {
 import { useWorkspaceTabs, NEW_TAB_PATH, TAB_KINDS, formatTabTitle } from '@/lib/WorkspaceTabs';
 import { requestTooltipShortcut } from '@/lib/tooltipShortcut';
 import TimelineGlyph from '@/components/timegraph/TimelineGlyph';
+import RefreshBexButton from './RefreshBexButton';
 
 const KIND_ICONS = {
   [TAB_KINDS.HOME]: LayoutGrid,
@@ -167,7 +168,7 @@ export default function TabBar() {
         })}
       </Reorder.Group>
 
-      <div className="relative flex items-center">
+      <div className="relative flex shrink-0 items-center gap-1">
         <button
           type="button"
           onClick={() => openTab(TAB_KINDS.HOME, { path: NEW_TAB_PATH, title: 'New tab' })}
@@ -178,6 +179,7 @@ export default function TabBar() {
         >
           <Plus className="w-4 h-4" />
         </button>
+        <RefreshBexButton />
       </div>
 
       <AnimatePresence>

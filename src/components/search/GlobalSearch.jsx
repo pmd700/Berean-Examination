@@ -12,7 +12,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { platformEntities } from '@/lib/platform/entities';
 import { searchLocalLibrary } from '@/lib/localGlobalSearch';
 import { buildSpotlightPath, sameSpotlightWorkspace } from '@/lib/spotlightNavigation';
-import { requestLocalFindShortcut } from '@/lib/localFindShortcut';
+import { requestLocalFindShortcut, requestPageFindShortcut } from '@/lib/localFindShortcut';
 import {
   TAB_KINDS,
   kindForPath,
@@ -353,12 +353,21 @@ export default function GlobalSearch() {
         !(event.metaKey || event.ctrlKey)
         || !isFind
         || event.altKey
-        || event.shiftKey
       ) return;
+      // Shift+Cmd/Ctrl+F belongs to footnotes while typing. Let the editor's
+      // existing keymap receive it rather than stealing it in window capture.
+      if (event.shiftKey && event.target.closest?.('input, textarea, [contenteditable="true"], [role="textbox"]')) return;
+      if (!event.shiftKey && requestPageFindShortcut()) {
+        setOpen(false);
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
+      if (event.shiftKey) requestPageFindShortcut({ close: true });
       // Ask the active long-form editor to claim Cmd/Ctrl+F before opening the
       // app-wide search. This explicit handoff is reliable even in portals and
       // full-screen editors where event.target may temporarily be the body.
-      if (requestLocalFindShortcut()) {
+      if (!event.shiftKey && requestLocalFindShortcut()) {
         event.preventDefault();
         event.stopImmediatePropagation();
         return;
@@ -403,7 +412,7 @@ export default function GlobalSearch() {
           {engine.loading ? (
             <span className="h-4 w-4 animate-spin rounded-full border-2 border-line-strong border-t-brand" />
           ) : (
-            <kbd className="rounded-md border border-line bg-elevated/70 px-2 py-1 text-[10px] text-ink-faint">⌘F</kbd>
+            <kbd className="rounded-md border border-line bg-elevated/70 px-2 py-1 text-[10px] text-ink-faint">⇧⌘F</kbd>
           )}
         </div>
 

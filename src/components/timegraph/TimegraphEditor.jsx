@@ -34,6 +34,7 @@ import { useIsActiveTab } from '@/lib/WorkspaceTabs';
 import { toast } from 'sonner';
 import TextSizeControl, { useTextSizePreference } from '@/components/scripture/TextSizeControl';
 import { startFieldSpotlight } from '@/lib/spotlightMotion';
+import useTimegraphViewPersistence from './useTimegraphViewPersistence';
 
 /**
  * The full Timegraph editor: toolbar, canvas, event panel.
@@ -85,6 +86,7 @@ export default function TimegraphEditor({
     if (!host || typeof ResizeObserver === 'undefined') return undefined;
 
     const measure = () => {
+      if (!host.clientWidth) return; // A background tab has no measurable viewport.
       const nextWidth = Math.max(320, Math.round(host.clientWidth));
       setWidth((current) => (current === nextWidth ? current : nextWidth));
       const nextHeight = Math.max(minHeight, Math.round(host.clientHeight));
@@ -126,17 +128,6 @@ export default function TimegraphEditor({
     [canvasViewport, canvasHeight],
   );
 
-  // When the stacks make the canvas taller than the pane, the axis would sit
-  // below the fold. Scroll so it lands in the middle of what is visible, leaving
-  // the outer lanes reachable by scrolling rather than clipped away.
-  React.useEffect(() => {
-    const host = hostRef.current;
-    if (!host) return;
-    const overflow = canvasHeight - host.clientHeight;
-    if (overflow <= 0) return;
-    host.scrollTop = overflow / 2;
-  }, [canvasHeight]);
-
   // A mounted editor can be pointed at another timeline without remounting.
   // Never let the previous timeline's undo chain leak into the next one.
   React.useEffect(() => {
@@ -160,6 +151,11 @@ export default function TimegraphEditor({
     const bounds = eventsBounds(timegraph.events);
     if (bounds) setViewport(viewportForRange(bounds.from, bounds.to, { width, height: minHeight }));
   }, [timegraphId, timegraph, width, minHeight]);
+
+  const { onScroll: rememberScroll, persist: persistView, ready: viewRestored } = useTimegraphViewPersistence({
+    id: timegraphId, timegraph, viewport: laneAwareViewport, filters, setFilters,
+    hostRef, canvasHeight, paneHeight, active: isActiveTab, update, flush,
+  });
 
   // Spotlight can address one event inside a large chronology. Reveal it even
   // if a toolbar filter hid it, center its year, open the real event editor and
@@ -271,7 +267,7 @@ export default function TimegraphEditor({
     // even before React has painted the first one.
     historyRef.current = next;
     setHistory(next);
-    update(next.present);
+    update(graph => ({ ...next.present, view: graph.view }));
   }, [timegraphId, update]);
 
   const handleFitAll = React.useCallback(() => {
@@ -287,17 +283,13 @@ export default function TimegraphEditor({
 
   const handleSave = React.useCallback(async () => {
     try {
-      // Remember where the user was looking, so reopening is continuous.
-      update((current) => ({
-        ...current,
-        view: { centerYear: laneAwareViewport.centerYear, yearsPerPixel: laneAwareViewport.yearsPerPixel },
-      }));
+      persistView();
       await flush();
       toast.success('Timegraph saved.');
     } catch (saveError) {
       toast.error(saveError?.message || 'BEX could not save the timegraph.');
     }
-  }, [update, flush, laneAwareViewport]);
+  }, [persistView, flush]);
 
   const handleImportFile = React.useCallback(async (file) => {
     if (!file) return;
@@ -423,6 +415,7 @@ export default function TimegraphEditor({
       ref={editorRef}
       className={`bex-timegraph-editor ${className}`}
       data-testid="timegraph-editor"
+      data-view-restored={viewRestored}
     >
       <div className="bex-timegraph-toolbar">
         <button type="button" className="bex-tg-button is-primary" onClick={handleNewEvent} title="New event (E)" data-testid="timegraph-new-event">
@@ -547,12 +540,12 @@ export default function TimegraphEditor({
         />
       )}
 
-      <div className="flex min-h-0 flex-1">
+      <div className="bex-timegraph-body flex min-h-0 flex-1">
         {/* Scrolls vertically, never horizontally: horizontal movement is the
             timeline's own panning, but a very dense graph genuinely needs more
             vertical room than the pane has, and clipping the outermost lane would
             hide events entirely. Zooming in reduces the stacking. */}
-        <div ref={hostRef} className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto">
+        <div ref={hostRef} onScroll={rememberScroll} data-testid="timegraph-scroll" className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto">
           <TimegraphCanvas
             timegraph={{ ...timegraph, events: visibleEvents }}
             viewport={laneAwareViewport}

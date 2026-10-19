@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { flushSync } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { desktopClient } from '@/api/desktopClient';
+import { applyNoteChange, readCurrentNoteList, subscribeToNoteChanges } from '@/lib/noteChanges';
 import {
   commitLocalKnowledgeWebImport,
   previewLocalKnowledgeWebImport,
@@ -167,7 +168,9 @@ export default function KnowledgeWeb() {
   // Individual Mind Notes live in the same sidebar as webs and open inline in
   // the main pane (a unified workspace — no separate notes page).
   const [notes, setNotes] = useState([]);
+  useEffect(() => subscribeToNoteChanges(change => setNotes(current => applyNoteChange(current, change))), []);
   const [activeNoteId, setActiveNoteId] = useState(null);
+  const [noteReadingPage, setNoteReadingPage] = useState(null);
   const [activeWebId, setActiveWebId] = useState(null);
   // Mirror of `activeWebId` so async flows (paste, in particular) can
   // detect whether the user switched webs mid-flight. Reading the
@@ -569,7 +572,7 @@ export default function KnowledgeWeb() {
       const [allWebs, allFolders, allNotes] = await Promise.all([
         desktopClient.entities.KnowledgeWeb.list('sort_order', 100),
         desktopClient.entities.WebFolder.list('sort_order').catch(() => []),
-        desktopClient.entities.MindNote.list('sort_order').catch(() => []),
+        readCurrentNoteList(() => desktopClient.entities.MindNote.list('sort_order')).catch(() => []),
       ]);
       if (cancelled) return;
       setWebs(allWebs);
@@ -736,7 +739,7 @@ export default function KnowledgeWeb() {
   // standalone Mind Note (same mechanism as webs — the local record id is the
   // source of truth, carried in the `/notes/<slug>-<id>` path).
   useEffect(() => {
-    if (!isActiveTab || !activeNoteId) return;
+    if (!isActiveTab || !activeNoteId || noteReadingPage?.noteId !== activeNoteId) return;
     const note = notes.find(n => n.id === activeNoteId);
     trackActivity({
       type: 'mind_note',
@@ -744,9 +747,9 @@ export default function KnowledgeWeb() {
       page: 'KnowledgeWeb',
       title: 'Continue on your note?',
       subtitle: note?.title || 'Mind Note',
-      deep_link: noteDeepLink(activeNoteId, note?.title),
+      deep_link: `${noteDeepLink(activeNoteId, note?.title)}?page=${noteReadingPage.index + 1}`,
     });
-  }, [isActiveTab, activeNoteId, notes]);
+  }, [isActiveTab, activeNoteId, notes, noteReadingPage]);
 
   // A Resume link may still identify one card, but never restores its old
   // camera coordinates. Opening a web always frames all visible work.
@@ -1298,11 +1301,20 @@ export default function KnowledgeWeb() {
     // writing to it would drag the visible tab somewhere the user never asked
     // to go.
     if (!isActiveTab) return;
-    let type = null, id = null, target;
+    let type = null, id = null, target, legacyNotePath = false;
     if (activeNoteId) {
+      if (noteReadingPage?.noteId !== activeNoteId) return;
       type = 'note'; id = activeNoteId;
       const n = notes.find(x => x.id === activeNoteId);
-      target = noteDeepLink(activeNoteId, n?.title);
+      const location = routeLocationRef.current;
+      const routeParams = new URLSearchParams(location.search);
+      legacyNotePath = location.pathname === '/KnowledgeWeb'
+        && parseIdFromParam(routeParams.get('note')) === activeNoteId
+        && (lastUrlSyncRef.current.type === undefined || lastUrlSyncRef.current.id === activeNoteId);
+      const params = new URLSearchParams(legacyNotePath || (location.pathname.startsWith('/notes/')
+        && parseIdFromParam(location.pathname.split('/').at(-1)) === activeNoteId) ? location.search : '');
+      params.set('page', String(noteReadingPage.index + 1));
+      target = `${legacyNotePath ? location.pathname : noteDeepLink(activeNoteId, n?.title)}?${params}`;
     } else if (activeWebId) {
       type = 'web'; id = activeWebId;
       const w = webs.find(x => x.id === activeWebId);
@@ -1316,7 +1328,7 @@ export default function KnowledgeWeb() {
     lastUrlSyncRef.current = { type, id };
     // Preserve any viewport query already on the URL (deep links from the
     // Resume card carry px/py/z) — only compare/replace the path.
-    if (window.location.pathname === target) return;
+    if ((type === 'note' ? `${routeLocationRef.current.pathname}${routeLocationRef.current.search}` : window.location.pathname) === target) return;
     // On the very first render, only normalise the URL if we're already on
     // a deep-link path (e.g. `/knowledge-webs/12` -> `/knowledge-webs/title-12`,
     // which stays on the same route component). Don't auto-upgrade the
@@ -1326,9 +1338,9 @@ export default function KnowledgeWeb() {
     // still update the URL.
     const onDeepLinkPath = window.location.pathname.startsWith('/knowledge-webs/')
       || window.location.pathname.startsWith('/notes/');
-    if (isFirst && !onDeepLinkPath) return;
+    if (isFirst && !onDeepLinkPath && !legacyNotePath) return;
     navigate(target, { replace: isFirst || !selectionChanged });
-  }, [loading, activeWebId, activeNoteId, webs, notes, navigate]);
+  }, [loading, activeWebId, activeNoteId, webs, notes, navigate, noteReadingPage]);
 
   // (2) URL -> selection. Catches param changes that happen *without* a
   // remount: browser back/forward between two deep links, or a Resume
@@ -4186,7 +4198,7 @@ export default function KnowledgeWeb() {
       <div className="flex-1 flex flex-col min-w-0 relative">
         {topBarHasTools && (
         <div
-          className={`h-10 flex items-center px-3 gap-2 z-20 flex-shrink-0 ${
+          className={`bex-web-header h-10 flex items-center px-3 gap-2 z-20 flex-shrink-0 ${
             activeNoteId ? '' : 'bg-gray-850 border-b border-gray-800'
           }`}
           style={activeNoteId ? undefined : { backgroundColor: '#1a1f2e' }}
@@ -4548,6 +4560,10 @@ export default function KnowledgeWeb() {
                 notes={notes}
                 onNoteSaved={handleNoteSaved}
                 onNoteDeleted={handleNoteDeleted}
+                onPageChange={setNoteReadingPage}
+                requestedPage={parseIdFromParam(routeParams.slugId || new URLSearchParams(routeLocation.search).get('note')) === activeNoteId
+                  && /^[1-9]\d*$/.test(new URLSearchParams(routeLocation.search).get('page') || '')
+                  ? Number(new URLSearchParams(routeLocation.search).get('page')) - 1 : null}
                 spotlightQuery={activeSpotlight?.query || ''}
                 spotlightField={activeSpotlight?.field || ''}
                 spotlightToken={activeSpotlight?.token || ''}

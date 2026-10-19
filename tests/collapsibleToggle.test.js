@@ -19,7 +19,7 @@ const source = fs.readFileSync(
   'utf8',
 );
 const editorCss = fs.readFileSync(
-  path.join(root, 'src/components/editor/RichTextEditor.jsx'),
+  path.join(root, 'src/components/editor/TEXT_EDITOR_MACHINERY.jsx'),
   'utf8',
 );
 

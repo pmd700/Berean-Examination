@@ -1,9 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { registerPendingEditorSave } from '@/lib/pendingEditorSaves';
 
 export function useAutoSave({
   content,
   onSave,
   delay = 5000,
+  maxWait = null,
   enabled = true,
   initialContent = ''
 }) {
@@ -11,10 +13,51 @@ export function useAutoSave({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const timeoutRef = useRef(null);
+  const dirtySinceRef = useRef(null);
   const initialContentRef = useRef(initialContent);
   const lastSavedContentRef = useRef(initialContent);
   const isSavingRef = useRef(false);
   const isInitializedRef = useRef(false);
+  const inFlightRef = useRef(null);
+  const currentRef = useRef({ content, onSave, enabled });
+  currentRef.current = { content, onSave, enabled };
+
+  const flushSave = useCallback(() => {
+    if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
+    // Concurrent refresh/timer calls share the entire drain, including any edit
+    // made while a previous value is being written.
+    if (inFlightRef.current) return inFlightRef.current;
+    dirtySinceRef.current = null;
+    const operation = Promise.resolve().then(async () => {
+      let saved = false;
+      while (currentRef.current.enabled && isInitializedRef.current
+        && currentRef.current.content !== lastSavedContentRef.current) {
+        const { content: value, onSave: save } = currentRef.current;
+        setSaveStatus('saving');
+        isSavingRef.current = true;
+        try {
+          await save(value);
+          saved = true;
+          lastSavedContentRef.current = value;
+          const stillDirty = currentRef.current.content !== value;
+          setHasUnsavedChanges(stillDirty);
+          setSaveStatus(stillDirty ? 'unsaved' : 'saved');
+        } catch (error) {
+          setSaveStatus('unsaved');
+          setHasUnsavedChanges(true);
+          throw error;
+        }
+      }
+      return saved;
+    }).finally(() => {
+      inFlightRef.current = null;
+      isSavingRef.current = false;
+    });
+    inFlightRef.current = operation;
+    return operation;
+  }, []);
+
+  useEffect(() => registerPendingEditorSave(flushSave), [flushSave]);
 
   // Initialize with the initial content on first render
   useEffect(() => {
@@ -26,7 +69,10 @@ export function useAutoSave({
   }, [initialContent]);
 
   useEffect(() => {
-    if (!enabled || !isInitializedRef.current) return;
+    if (!enabled || !isInitializedRef.current) {
+      dirtySinceRef.current = null;
+      return;
+    }
 
     // Single source of truth: compare current content to last saved content
     const hasChanges = content !== lastSavedContentRef.current;
@@ -34,6 +80,7 @@ export function useAutoSave({
     
     // If content matches last saved, show neutral or saved
     if (!hasChanges) {
+      dirtySinceRef.current = null;
       // Only show "saved" if we were dirty before
       setSaveStatus(isDirty ? 'saved' : null);
       return;
@@ -55,33 +102,24 @@ export function useAutoSave({
     }
 
     // Set new timeout for auto-save
-    timeoutRef.current = setTimeout(async () => {
-      if (content === lastSavedContentRef.current) return;
-
-      try {
-        setSaveStatus('saving');
-        isSavingRef.current = true;
-        await onSave(content);
-        lastSavedContentRef.current = content;
-        setSaveStatus('saved');
-        setHasUnsavedChanges(false);
-      } catch (error) {
-        console.error('Auto-save failed:', error);
-        setSaveStatus('unsaved');
-        setHasUnsavedChanges(true);
-      } finally {
-        isSavingRef.current = false;
-      }
-    }, delay);
+    // A bounded wait also saves during continuous typing, instead of postponing
+    // indefinitely whenever another keystroke resets the idle timer.
+    if (dirtySinceRef.current === null) dirtySinceRef.current = Date.now();
+    const wait = maxWait == null ? delay : Math.min(delay, Math.max(0, maxWait - (Date.now() - dirtySinceRef.current)));
+    timeoutRef.current = setTimeout(() => {
+      flushSave().catch(error => console.error('Auto-save failed:', error));
+    }, wait);
 
     return () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [content, onSave, delay, enabled, isDirty]);
+  }, [content, delay, maxWait, enabled, isDirty, flushSave]);
 
   const resetSaveState = (newContent = content) => {
+    if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
+    dirtySinceRef.current = null;
     initialContentRef.current = newContent;
     lastSavedContentRef.current = newContent;
     setHasUnsavedChanges(false);
@@ -90,5 +128,5 @@ export function useAutoSave({
     isInitializedRef.current = true;
   };
 
-  return { saveStatus, hasUnsavedChanges, isDirty, resetSaveState };
+  return { saveStatus, hasUnsavedChanges, isDirty, resetSaveState, flushSave };
 }

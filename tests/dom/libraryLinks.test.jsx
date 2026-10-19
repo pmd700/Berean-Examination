@@ -11,10 +11,11 @@ vi.mock('@/api/desktopClient', () => ({ desktopClient: { entities: {
   Timegraph: { listPage: api.timelines },
 } } }));
 vi.mock('@/lib/PrivateWebContext', () => ({ usePrivateWeb: () => ({ getKey: api.getKey }) }));
-import RichTextEditor from '@/components/editor/RichTextEditor';
+import TEXT_EDITOR_MACHINERY from '@/components/editor/TEXT_EDITOR_MACHINERY';
 import MarkdownRenderer from '@/components/editor/MarkdownRenderer';
 import { getSlashState, filterSlashCommands } from '@/components/editor/slashCommands';
 import { libraryLinkHref, libraryLinkPath } from '@/lib/libraryLinks';
+import { copyNoteLink } from '@/lib/noteLink';
 
 let editor;
 function Location() {
@@ -22,7 +23,7 @@ function Location() {
   return <output data-testid="route">{location.pathname}{location.search}{location.hash}</output>;
 }
 function mount(content = '<p>Before /link after</p>') {
-  return render(<MemoryRouter><Location /><RichTextEditor bare content={content} onChange={() => {}} onEditorReady={value => { editor = value; }} /></MemoryRouter>);
+  return render(<MemoryRouter><Location /><TEXT_EDITOR_MACHINERY bare content={content} onChange={() => {}} onEditorReady={value => { editor = value; }} /></MemoryRouter>);
 }
 async function openPicker() {
   await waitFor(() => expect(editor).toBeTruthy());
@@ -47,6 +48,31 @@ beforeEach(() => {
 });
 
 describe('library link slash command', () => {
+  it('pastes a copied note reference as a hyperlink and retains its exact page after saving', async () => {
+    const payload = {};
+    document.execCommand = vi.fn(() => {
+      const event = new Event('copy', { cancelable: true });
+      event.clipboardData = { setData: (type, text) => { payload[type] = text; } };
+      window.dispatchEvent(event); return true;
+    });
+    try {
+      expect(copyNoteLink({ id: 71, title: 'Updated View' }, 9, 'Sales')).toBe(true);
+      const view = mount('<p>Reference: </p>');
+      await waitFor(() => expect(editor).toBeTruthy());
+      act(() => editor.commands.focus('end'));
+      fireEvent.paste(editor.view.dom, { clipboardData: { getData: type => payload[type] || '', items: [], files: [] } });
+      const anchor = view.container.querySelector('.ProseMirror a');
+      expect(anchor?.textContent).toBe('Updated View — Sales');
+      expect(anchor?.getAttribute('href')).toBe('/notes/updated-view-71?page=10');
+      fireEvent.click(anchor);
+      expect(screen.getByTestId('route').textContent).toBe('/notes/updated-view-71?page=10');
+      expect(window.open).not.toHaveBeenCalled();
+      const saved = editor.getHTML(); view.unmount();
+      const reopened = mount(saved);
+      await waitFor(() => expect(reopened.container.querySelector('.ProseMirror a')?.getAttribute('href')).toBe('/notes/updated-view-71?page=10'));
+    } finally { delete document.execCommand; }
+  });
+
   it('shows Link in the slash popup and opens its search on a menu click', async () => {
     mount('<p>/</p>');
     await waitFor(() => expect(editor).toBeTruthy());

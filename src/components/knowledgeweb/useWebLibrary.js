@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { desktopClient } from '@/api/desktopClient';
+import { applyNoteChange, readCurrentNoteList, subscribeToNoteChanges } from '@/lib/noteChanges';
 import { usePrivateWeb } from '@/lib/PrivateWebContext';
 import { encryptString } from '@/lib/webCrypto';
 import { normalizeLibraryFolderCategory } from '@/lib/libraryFolderCategory';
@@ -37,6 +38,7 @@ export default function useWebLibrary({
   const [webs, setWebs] = useState([]);
   const [folders, setFolders] = useState([]);
   const [notes, setNotes] = useState([]);
+  useEffect(() => subscribeToNoteChanges(change => setNotes(current => applyNoteChange(current, change))), []);
   const [loaded, setLoaded] = useState(false);
 
   // Bumped on a failed reorder so the sidebar throws away its optimistic
@@ -58,7 +60,7 @@ export default function useWebLibrary({
       const [allWebs, allFolders, allNotes] = await Promise.all([
         desktopClient.entities.KnowledgeWeb.list('sort_order', 100).catch(() => []),
         desktopClient.entities.WebFolder.list('sort_order').catch(() => []),
-        desktopClient.entities.MindNote.list('sort_order').catch(() => []),
+        readCurrentNoteList(() => desktopClient.entities.MindNote.list('sort_order')).catch(() => []),
       ]);
       setWebs(Array.isArray(allWebs) ? allWebs : []);
       setFolders(Array.isArray(allFolders) ? allFolders : []);

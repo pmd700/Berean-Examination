@@ -73,7 +73,7 @@ const SOURCES = {
   'numbered list': '<ol><li><p>Beelzebul controversy</p></li></ol>',
 };
 
-/** The block menu's conversions, as RichTextEditor chains them. */
+/** The block menu's conversions, as TEXT_EDITOR_MACHINERY chains them. */
 function convert(format) {
   const current = editor.state.doc.firstChild.type.name;
   let chain = editor.chain().focus();

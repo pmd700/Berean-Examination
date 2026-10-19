@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
+const { copyEncryptedMediaSnapshot } = require('./local-media-backup.cjs');
 
 const BACKUP_FOLDER_NAME = 'Backups';
 const BACKUP_FILE_SUFFIX = '.bex-backup.db';
@@ -137,7 +138,19 @@ async function createEncryptedLocalBackup({
     );
   }
 
-  fs.renameSync(partialPath, finalPath);
+  const mediaPartialPath = `${partialPath}.media`;
+  const mediaFinalPath = `${finalPath}.media`;
+  let mediaSummary;
+  try {
+    mediaSummary = copyEncryptedMediaSnapshot({ libraryPath, destination: mediaPartialPath });
+    fs.renameSync(mediaPartialPath, mediaFinalPath);
+    fs.renameSync(partialPath, finalPath);
+  } catch (error) {
+    fs.rmSync(mediaPartialPath, { force: true, recursive: true });
+    fs.rmSync(mediaFinalPath, { force: true, recursive: true });
+    fs.rmSync(partialPath, { force: true });
+    throw error;
+  }
   if (process.platform !== 'win32') fs.chmodSync(finalPath, 0o600);
   const fileStats = fs.statSync(finalPath);
   return {
@@ -145,6 +158,7 @@ async function createEncryptedLocalBackup({
     createdAt: now.toISOString(),
     fileName,
     path: finalPath,
+    mediaFileCount: mediaSummary.fileCount,
     ...backupSummary,
   };
 }

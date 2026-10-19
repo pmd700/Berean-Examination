@@ -8,7 +8,7 @@ const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
 
 describe('comment sidebar scroll ownership', () => {
   it('wires an in-flow spacer into both editor overflow modes', () => {
-    const editor = read('src/components/editor/RichTextEditor.jsx');
+    const editor = read('src/components/editor/TEXT_EDITOR_MACHINERY.jsx');
     assert.match(editor, /tailSpacerRef=\{commentTailSpacerRef\}/);
     assert.equal(
       (editor.match(/data-comment-tail-spacer/g) || []).length,
@@ -25,7 +25,7 @@ describe('comment sidebar scroll ownership', () => {
 
   it('keeps one viewport of natural reading runway unless comments need more', () => {
     const sidebar = read('src/components/editor/CommentSidebar.jsx');
-    const editor = read('src/components/editor/RichTextEditor.jsx');
+    const editor = read('src/components/editor/TEXT_EDITOR_MACHINERY.jsx');
     assert.match(sidebar, /scrollViewportHeight\(spacer\)/);
     assert.match(sidebar, /spacer\.dataset\.scrollPastEnd === 'true'/);
     assert.match(sidebar, /Math\.max\(0, Math\.ceil\(naturalHeight\), Math\.ceil\(commentHeight\)\)/);

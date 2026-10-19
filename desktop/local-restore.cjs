@@ -3,6 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
+const { validateEncryptedMediaSnapshot } = require('./local-media-backup.cjs');
 const {
   BACKUP_FILE_SUFFIX,
   readDatabaseSummary,
@@ -118,6 +119,7 @@ function assertBackupPath(libraryPath, backupPath) {
 
 function inspectLocalRestoreBackup({ backupPath, libraryPath, maxSchemaVersion } = {}) {
   const validated = assertBackupPath(libraryPath, backupPath);
+  const mediaSnapshot = validateEncryptedMediaSnapshot(validated.path);
   let database;
   let summary;
   try {
@@ -150,6 +152,7 @@ function inspectLocalRestoreBackup({ backupPath, libraryPath, maxSchemaVersion }
     fileName: path.basename(validated.path),
     modifiedAt: validated.stats.mtime.toISOString(),
     path: validated.path,
+    mediaFileCount: mediaSnapshot.files.length,
     ...summary,
   };
 }

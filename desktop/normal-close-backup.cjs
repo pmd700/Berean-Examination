@@ -54,8 +54,19 @@ function createNormalCloseHandler(options = {}) {
     if (shutdownPromise) return shutdownPromise;
 
     shutdownState = 'backing-up';
-    onShutdownStarted();
     shutdownPromise = (async () => {
+      if (typeof options.prepareForShutdown === 'function') {
+        try {
+          await Promise.resolve().then(() => options.prepareForShutdown());
+        } catch (error) {
+          shutdownState = 'idle';
+          shutdownPromise = null;
+          logFailure('Could not finish saving; BEX has been kept open', error);
+          options.onPreparationFailed?.(error);
+          return;
+        }
+      }
+      onShutdownStarted();
       try {
         await createLocalBackup();
       } catch (error) {

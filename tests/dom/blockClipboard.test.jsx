@@ -11,7 +11,7 @@ vi.mock('@/api/desktopClient', () => ({
   },
 }));
 
-import RichTextEditor from '@/components/editor/RichTextEditor';
+import TEXT_EDITOR_MACHINERY from '@/components/editor/TEXT_EDITOR_MACHINERY';
 import { blockDragPluginKey } from '@/components/editor/BlockDragExtension';
 
 /**
@@ -33,7 +33,7 @@ function mountEditor() {
   const api = {};
   render(
     <MemoryRouter>
-      <RichTextEditor
+      <TEXT_EDITOR_MACHINERY
         content={CONTENT}
         onChange={() => {}}
         onEditorReady={(editor) => { api.editor = editor; }}
@@ -85,7 +85,7 @@ describe('copying selected blocks', () => {
     const api = mountEditor();
     await waitFor(() => expect(api.editor).toBeTruthy());
     makeVisible(api.editor);
-    selectBlocks(api.editor, [0]);
+    selectBlocks(api.editor, [0, 1]);
 
     const { written, prevented } = fireClipboardEvent('copy');
 
@@ -99,12 +99,12 @@ describe('copying selected blocks', () => {
     const api = mountEditor();
     await waitFor(() => expect(api.editor).toBeTruthy());
     makeVisible(api.editor);
-    selectBlocks(api.editor, [0]);
+    selectBlocks(api.editor, [0, 1]);
 
     const { written } = fireClipboardEvent('copy');
 
-    // A list is one draggable block, so its text used to arrive as
-    // "…to burnYou cannot bake or boil" — every item welded to the next.
+    // Each list entry is independently selectable. Copying both still keeps
+    // their list wrapper and separates their text instead of welding it.
     expect(written['text/plain']).toBe('You cannot cause fire to burn\nYou cannot bake or boil');
   });
 
@@ -122,7 +122,7 @@ describe('copying selected blocks', () => {
     const api = mountEditor();
     await waitFor(() => expect(api.editor).toBeTruthy());
     makeVisible(api.editor);
-    selectBlocks(api.editor, [0]);
+    selectBlocks(api.editor, [0, 1]);
 
     const { written, prevented } = fireClipboardEvent('cut');
 

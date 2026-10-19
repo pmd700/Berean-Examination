@@ -50,7 +50,7 @@ const EXPORT_NOTICES = Object.freeze({
   ].join('\n'),
   BSB: [
     'Scripture text: Berean Standard Bible (BSB).',
-    'The Berean Bible text was dedicated to the public domain on April 30, 2023. Attribution is appreciated but not required.',
+    'The Berean Bible text was dedicated to the public domain on April 30, 2023.',
     'https://berean.bible/terms.htm',
   ].join('\n'),
   LSV: [
@@ -110,6 +110,12 @@ const EXPORT_NOTICES = Object.freeze({
   ESV: [
     'Scripture quotations are from the ESV® Bible (The Holy Bible, English Standard Version®), © 2001 by Crossway, a publishing ministry of Good News Publishers. ESV Text Edition: 2025. Used by permission. All rights reserved.',
   ].join('\n'),
+  NASB1995: [
+    'Scripture text: New American Standard Bible® 1995 (NASB1995).',
+    'Copyright © 1960, 1962, 1963, 1968, 1971, 1972, 1973, 1975, 1977, 1995 by The Lockman Foundation. All rights reserved.',
+    'https://www.lockman.org/',
+    'https://api.bible/',
+  ].join('\n'),
 });
 
 export function normalizeStudyTranslation(value) {
@@ -156,5 +162,12 @@ export function assertStudyMaterialExportAllowed(materials) {
 
 export function getStudyExportRightsNotice(material) {
   const translation = normalizeStudyTranslation(materialTranslation(material));
+  if (['NASB1995', 'NASB', 'NBLA'].includes(translation) && typeof material?.api_copyright === 'string' && material.api_copyright.trim()) {
+    // Treat metadata as plain text, never executable API-supplied markup.
+    const copyright = material.api_copyright.replace(/<[^>]*>/g, '').trim();
+    const edition = translation === 'NASB1995' ? ' 1995' : '';
+    const name = translation === 'NBLA' ? 'Nueva Biblia de las Américas' : `New American Standard Bible®${edition}`;
+    return `Scripture text: ${name} (${translation}).\n${copyright}\nhttps://www.lockman.org/\nhttps://api.bible/`;
+  }
   return EXPORT_NOTICES[translation] || '';
 }

@@ -1,6 +1,9 @@
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import InterlinearReveal from '../interlinear/InterlinearReveal';
 import React from 'react';
 import { ExternalLink } from 'lucide-react';
 import SegmentRenderer from './SegmentRenderer';
+import { studyVerseKey } from '@/lib/studyCanvas';
 
 /**
  * Chapter-level paragraph-flow renderer for segment-based (rich) translations.
@@ -23,6 +26,7 @@ export default function RichChapterView({
   helpers,
   renderInterlinear,
 }) {
+  const reduceMotion = useReducedMotion();
   const elements = [];
   let para = [];
   let paraKey = 0;
@@ -30,9 +34,9 @@ export default function RichChapterView({
   const flushPara = () => {
     if (para.length === 0) return;
     elements.push(
-      <p key={`para-${paraKey++}`} className={`bible-rich-para ${paragraphClass}`}>
+      <motion.p layout="position" transition={{ layout: { duration: reduceMotion ? 0 : 0.55 } }} key={`para-${paraKey++}`} className={`bible-rich-para ${paragraphClass}`}>
         {para}
-      </p>
+      </motion.p>
     );
     para = [];
   };
@@ -41,7 +45,7 @@ export default function RichChapterView({
     if (v.heading) {
       flushPara();
       elements.push(
-        <h3 key={`head-${idx}`} className={`${headerClass} font-semibold text-ink-muted dark:text-ink-muted mb-4 mt-2`}>
+        <h3 key={`head-${idx}`} className={`${headerClass} font-semibold text-ink-muted dark:text-ink-muted ${verses[idx + 1]?.heading ? 'mb-2' : 'mb-3'} mt-2`}>
           {v.heading}
         </h3>
       );
@@ -52,7 +56,7 @@ export default function RichChapterView({
     const href = buildVerseHref ? buildVerseHref(v.verse) : null;
 
     para.push(
-      <span key={`verse-${v.verse}`} className="bible-rich-verse" data-verse-id={v.verse}>
+      <span key={`verse-${v.verse}`} className="bible-rich-verse" data-verse-id={v.verse} data-scripture-verse data-study-verse-key={studyVerseKey(book, chapter, v.verse)}>
         {href ? (
           <a
             href={href}
@@ -61,12 +65,13 @@ export default function RichChapterView({
             className="bible-verse-num group"
             aria-label={`Verse ${v.verse}, open Bible Hub commentary`}
             data-testid={`link-verse-${v.verse}`}
+            data-verse-number
           >
             {v.verse}
             <ExternalLink strokeWidth={1.5} className="bible-verse-num-icon" />
           </a>
         ) : (
-          <sup className="bible-verse-num" data-testid={`text-verse-${v.verse}`}>{v.verse}</sup>
+          <sup className="bible-verse-num" data-testid={`text-verse-${v.verse}`} data-verse-number>{v.verse}</sup>
         )}
         <SegmentRenderer
           verse={v.verse}
@@ -85,14 +90,16 @@ export default function RichChapterView({
     if (interlinear) {
       flushPara();
       elements.push(
-        <div key={`il-${v.verse}`} className="mb-4">
+        <InterlinearReveal key={`il-${v.verse}`} testId="animated-interlinear-verse">
+          <div className="mb-4">
           {interlinear}
-        </div>
+          </div>
+        </InterlinearReveal>
       );
     }
   });
 
   flushPara();
 
-  return <>{elements}</>;
+  return <AnimatePresence initial={false}>{elements}</AnimatePresence>;
 }

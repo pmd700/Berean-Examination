@@ -6,6 +6,7 @@ const LOCAL_ENTITY_CHANNELS = Object.freeze({
   get: 'local-entity:get',
   importGraph: 'local-entity:import-knowledge-web-graph',
   list: 'local-entity:list',
+  snapshot: 'local-entity:snapshot',
   reorder: 'local-entity:reorder',
   restoreGraph: 'local-entity:restore-knowledge-web-graph',
   update: 'local-entity:update',
@@ -16,6 +17,7 @@ const PUBLIC_ERROR_MESSAGES = Object.freeze({
   BEX_ENTITY_INVALID: 'That local record is not valid.',
   BEX_ENTITY_NOT_FOUND: 'That local record no longer exists.',
   BEX_ENTITY_TOO_LARGE: 'That local record is too large to save safely.',
+  BEX_ENTITY_SNAPSHOT_TOO_LARGE: 'The complete library is too large to export safely. Nothing was truncated or written.',
   BEX_ENTITY_UNSUPPORTED: 'That type of local record is not available yet.',
   BEX_PRIVACY_LOCKED: 'Unlock the Berean Library before using private records.',
   BEX_PRIVACY_NOT_OPEN: 'The encrypted Berean Library vault is unavailable.',
@@ -62,6 +64,7 @@ function registerLocalEntityHandlers(options) {
     ipcMain,
     importKnowledgeWebGraph,
     listLocalEntities,
+    readLocalEntitySnapshot,
     reorderLocalEntities,
     restoreKnowledgeWebGraph,
     updateLocalEntity,
@@ -87,6 +90,14 @@ function registerLocalEntityHandlers(options) {
 
   const trustedOrigin = new URL(appUrl).origin;
   for (const channel of Object.values(LOCAL_ENTITY_CHANNELS)) ipcMain.removeHandler(channel);
+
+  ipcMain.handle(LOCAL_ENTITY_CHANNELS.snapshot, async (event, entityTypes) => {
+    try {
+      assertTrustedSender(event, trustedOrigin);
+      if (typeof readLocalEntitySnapshot !== 'function') throw new Error('Snapshot unavailable');
+      return { ok: true, snapshot: await readLocalEntitySnapshot(entityTypes) };
+    } catch (error) { return errorResponse(error, 'BEX could not read a complete library snapshot.'); }
+  });
 
   ipcMain.handle(LOCAL_ENTITY_CHANNELS.list, async (event, entityType, query) => {
     try {

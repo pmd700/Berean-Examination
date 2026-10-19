@@ -210,14 +210,24 @@ export function normalizeTimegraph(input) {
   };
 }
 
-function normalizeSavedView(view) {
+export function normalizeSavedView(view) {
   if (!view || typeof view !== 'object') return null;
   const centerYear = Number(view.centerYear);
   const yearsPerPixel = Number(view.yearsPerPixel);
   if (!Number.isFinite(centerYear) || !Number.isFinite(yearsPerPixel) || yearsPerPixel <= 0) {
     return null;
   }
-  return { centerYear, yearsPerPixel };
+  return {
+    centerYear, yearsPerPixel,
+    ...(Number.isFinite(view.scrollTop) && view.scrollTop >= 0 ? { scrollTop: view.scrollTop } : {}),
+    ...(view.filters && typeof view.filters === 'object' ? { filters: {
+      query: clampText(view.filters.query, 300),
+      tags: Array.isArray(view.filters.tags) ? view.filters.tags.filter(value => typeof value === 'string').slice(0, 1000) : [],
+      hiddenTags: Array.isArray(view.filters.hiddenTags) ? view.filters.hiddenTags.filter(value => typeof value === 'string').slice(0, 1000) : [],
+      colors: Array.isArray(view.filters.colors) ? view.filters.colors.filter(value => typeof value === 'string').slice(0, 1000) : [],
+      hideUntagged: view.filters.hideUntagged === true,
+    } } : {}),
+  };
 }
 
 /** Chronological order, with a stable tiebreak so redraws don't shuffle. */

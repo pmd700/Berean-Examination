@@ -97,7 +97,7 @@ describe('each workspace tab owns its document identity', () => {
     mount(tabs, 'note-3');
     await waitFor(() => expect(screen.getAllByTestId('loaded-note')).toHaveLength(3));
 
-    expect(session().tabs.map((tab) => tab.title)).toEqual(data.notes.map((note) => note.title));
+    await waitFor(() => expect(session().tabs.map((tab) => tab.title)).toEqual(data.notes.map((note) => note.title)));
     for (const note of data.notes) {
       expect(within(screen.getByTestId(`workspace-tab-note-${note.id}`)).getByTitle(note.title)).toBeTruthy();
       expect(within(screen.getByTestId(`workspace-pane-note-${note.id}`)).getByTestId('loaded-note').textContent)

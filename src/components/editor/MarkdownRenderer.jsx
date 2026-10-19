@@ -2,13 +2,15 @@ import React from 'react';
 import { applyTypographyToMarkdown, applyTypographyToHtml } from '@/lib/typography';
 import AdvancedMarkdown from '@/components/markdown/AdvancedMarkdown';
 import LogicRichHtml from '@/components/logic/LogicRichHtml';
+import { extractFootnotes, numberFootnotesInHtml } from '@/components/notes/bookModel';
 
 export default function MarkdownRenderer({ content, sourcesById, forceMarkdown = false }) {
   // If content is HTML (contains tags like <p>, <img>), render as HTML.
   // `forceMarkdown` guarantees the rich research-report pipeline (used for
   // AI-generated answers that may contain stray HTML-like characters).
   if (!forceMarkdown && content && /<(?:p|img|h[1-4]|details|div)\b/i.test(content)) {
-    const transformedHtml = applyTypographyToHtml(content);
+    const footnotes = extractFootnotes(content);
+    const transformedHtml = applyTypographyToHtml(numberFootnotesInHtml(content));
     return (
       <React.Fragment>
         <style>{`
@@ -67,6 +69,9 @@ export default function MarkdownRenderer({ content, sourcesById, forceMarkdown =
         `}</style>
         <div className="prose prose-sm dark:prose-invert max-w-none [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-2 markdown-render">
           <LogicRichHtml content={transformedHtml} />
+          {footnotes.length > 0 && <ol className="mt-4 border-t border-line pt-3" aria-label="Footnotes">
+            {footnotes.map(note => <li key={note.id} value={note.number}><LogicRichHtml content={note.text || '<p></p>'} /></li>)}
+          </ol>}
         </div>
       </React.Fragment>
     );

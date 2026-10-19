@@ -33,14 +33,56 @@ function requireMediaFolder(libraryPath) {
   const mediaFolder = path.join(libraryRoot, 'Media');
   let stats;
   try {
-    stats = fs.statSync(mediaFolder);
+    stats = fs.lstatSync(mediaFolder);
   } catch {
     throw codedError('BEX_MEDIA_LIBRARY_UNAVAILABLE', 'The Berean Library Media folder is unavailable.');
   }
-  if (!stats.isDirectory()) {
+  if (!stats.isDirectory() || stats.isSymbolicLink()
+    || path.dirname(fs.realpathSync(mediaFolder)) !== fs.realpathSync(libraryRoot)) {
     throw codedError('BEX_MEDIA_LIBRARY_UNAVAILABLE', 'The Berean Library Media folder is unavailable.');
   }
   return mediaFolder;
+}
+
+const MEDIA_CATEGORIES = Object.freeze(['Documents', 'Audio', 'Video', 'Images', 'Files']);
+
+function requireMediaCategory(libraryPath, category) {
+  if (!MEDIA_CATEGORIES.includes(category)) throw codedError('BEX_MEDIA_INVALID', 'Invalid media category.');
+  const mediaFolder = requireMediaFolder(libraryPath);
+  const categoryPath = path.join(mediaFolder, category);
+  if (!fs.existsSync(categoryPath)) fs.mkdirSync(categoryPath, { mode: 0o700 });
+  const stats = fs.lstatSync(categoryPath);
+  if (!stats.isDirectory() || stats.isSymbolicLink()
+    || path.dirname(fs.realpathSync(categoryPath)) !== fs.realpathSync(mediaFolder)) {
+    throw codedError('BEX_MEDIA_LIBRARY_UNAVAILABLE', 'The Berean Library Media folder is unavailable.');
+  }
+  return categoryPath;
+}
+
+function migrateLegacyImages(libraryPath) {
+  const mediaFolder = requireMediaFolder(libraryPath);
+  const images = fs.readdirSync(mediaFolder).filter((name) => FILE_NAME_PATTERN.test(name));
+  if (!images.length) return;
+  const imagesFolder = requireMediaCategory(libraryPath, 'Images');
+  for (const name of images) {
+    const source = path.join(mediaFolder, name);
+    const stats = fs.lstatSync(source);
+    if (!stats.isFile() || stats.isSymbolicLink()) continue;
+    const destination = path.join(imagesFolder, name);
+    if (!fs.existsSync(destination)) fs.renameSync(source, destination);
+  }
+}
+
+function imagePath(libraryPath, fileName) {
+  const mediaFolder = requireMediaFolder(libraryPath);
+  const organized = path.join(mediaFolder, 'Images', fileName);
+  const target = fs.existsSync(organized) ? organized : path.join(mediaFolder, fileName);
+  const stats = fs.lstatSync(target);
+  if (!stats.isFile() || stats.isSymbolicLink()
+    || !fs.realpathSync(target).startsWith(fs.realpathSync(mediaFolder) + path.sep)) {
+    throw codedError('BEX_MEDIA_INVALID', 'The encrypted media file is invalid.');
+  }
+  return target;
 }
 
 function toBuffer(value) {
@@ -84,6 +126,7 @@ function parseMediaUrl(mediaUrl) {
     || parsed.hostname !== MEDIA_HOST
     || parsed.search
     || parsed.hash
+    || parsed.username || parsed.password || parsed.port
     || !FILE_NAME_PATTERN.test(fileName)
     || path.basename(fileName) !== fileName
   ) {
@@ -112,7 +155,7 @@ function saveEncryptedImage({ libraryPath, privacyVault, payload }) {
     ) {
       throw codedError('BEX_MEDIA_INVALID', 'The image contents do not match its file type.');
     }
-    const mediaFolder = requireMediaFolder(libraryPath);
+    const mediaFolder = requireMediaCategory(libraryPath, 'Images');
     const fileName = `image-${crypto.randomUUID()}.${format.extension}`;
     const destination = path.join(mediaFolder, fileName);
     const encrypted = privacyVault.encryptBinary(bytes, mediaPurpose(fileName));
@@ -133,8 +176,7 @@ function readEncryptedMedia({ libraryPath, mediaUrl, privacyVault }) {
     throw codedError('BEX_PRIVACY_NOT_OPEN', 'The encrypted Berean Library vault is unavailable.');
   }
   const fileName = parseMediaUrl(mediaUrl);
-  const mediaFolder = requireMediaFolder(libraryPath);
-  const encrypted = fs.readFileSync(path.join(mediaFolder, fileName));
+  const encrypted = fs.readFileSync(imagePath(libraryPath, fileName));
   if (encrypted.length > MAX_IMAGE_BYTES + 64) {
     throw codedError('BEX_MEDIA_INVALID', 'The encrypted media file is invalid.');
   }
@@ -153,10 +195,11 @@ function deleteEncryptedMedia({ libraryPath, mediaUrl, privacyVault }) {
   }
   privacyVault.assertUnlocked();
   const fileName = parseMediaUrl(mediaUrl);
-  const mediaFolder = requireMediaFolder(libraryPath);
-  const targetPath = path.join(mediaFolder, fileName);
   try {
+    const targetPath = imagePath(libraryPath, fileName);
     fs.unlinkSync(targetPath);
+    const folder = path.dirname(targetPath);
+    if (path.basename(folder) === 'Images' && fs.readdirSync(folder).length === 0) fs.rmdirSync(folder);
   } catch (error) {
     if (error?.code === 'ENOENT') {
       throw codedError('BEX_MEDIA_NOT_FOUND', 'The encrypted image file no longer exists.');
@@ -168,8 +211,13 @@ function deleteEncryptedMedia({ libraryPath, mediaUrl, privacyVault }) {
 
 module.exports = {
   MAX_IMAGE_BYTES,
+  MEDIA_CATEGORIES,
+  detectImageFormat,
   deleteEncryptedMedia,
+  migrateLegacyImages,
   parseMediaUrl,
   readEncryptedMedia,
+  requireMediaCategory,
+  requireMediaFolder,
   saveEncryptedImage,
 };

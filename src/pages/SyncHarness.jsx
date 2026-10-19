@@ -1,7 +1,7 @@
 // TEMPORARY verification harness — delete after checking the content-sync guard.
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import RichTextEditor from '@/components/editor/RichTextEditor';
+import TEXT_EDITOR_MACHINERY from '@/components/editor/TEXT_EDITOR_MACHINERY';
 
 export default function SyncHarness() {
   const [content, setContent] = React.useState('<p>original sentence</p>');
@@ -10,7 +10,7 @@ export default function SyncHarness() {
     <MemoryRouter>
       <div className="h-screen overflow-y-auto p-10" style={{ background: 'rgb(var(--app))' }}>
         <div className="max-w-[820px] mx-auto">
-          <RichTextEditor
+          <TEXT_EDITOR_MACHINERY
             content={content}
             onChange={setContent}
             onEditorReady={(editor) => { window.__editor = editor; }}

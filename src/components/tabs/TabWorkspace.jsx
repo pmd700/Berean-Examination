@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { pagesConfig } from '@/pages.config';
 import { normalizeWorkspacePath } from '@/lib/workspaceSession';
@@ -42,15 +43,21 @@ function TabRoutes({ path }) {
 
 // Remounting on every keystroke would defeat the point of keeping tabs alive,
 // so a tab's subtree only re-renders when its own path or active flag changes.
-const TabPane = React.memo(function TabPane({ tab, isActive }) {
+const TabPane = React.memo(function TabPane({ tab, isActive, entering = false, exiting = false, finishOpeningTab }) {
   return (
-    <div
+    <motion.div
       // Each pane is its own scroll container, so a tall page scrolls inside
       // the shell rather than pushing the document past it.
-      className={isActive ? 'bex-tab-pane flex-1 min-h-0 min-w-0 flex flex-col overflow-y-auto' : 'hidden'}
+      className={isActive || exiting ? `bex-tab-pane absolute inset-0 min-h-0 min-w-0 flex flex-col overflow-y-auto ${exiting ? 'pointer-events-none' : ''}` : 'hidden'}
+      initial={entering ? { x: '100%' } : false}
+      animate={{ x: exiting ? '-100%' : '0%' }}
+      transition={{ duration: entering || exiting ? 0.48 : 0, ease: [0.22, 0.8, 0.2, 1] }}
+      onAnimationComplete={() => { if (entering) finishOpeningTab?.(tab.id); }}
       aria-hidden={isActive ? undefined : 'true'}
+      inert={isActive ? undefined : ''}
       data-testid={`workspace-pane-${tab.id}`}
       data-pane-active={isActive ? 'true' : 'false'}
+      data-tab-slide={entering ? 'entering' : exiting ? 'exiting' : undefined}
     >
       <ActiveTabProvider isActive={isActive} tabId={tab.id}>
         {/* One boundary per pane. Without it a single throwing component
@@ -61,12 +68,16 @@ const TabPane = React.memo(function TabPane({ tab, isActive }) {
           <TabRoutes path={tab.path} />
         </ErrorBoundary>
       </ActiveTabProvider>
-    </div>
+    </motion.div>
   );
 });
 
 export default function TabWorkspace() {
-  const { tabs, activeId, activeTab, updateTab } = useWorkspaceTabs();
+  const { tabs, activeId, activeTab, updateTab, openingTab, finishOpeningTab } = useWorkspaceTabs();
+  const reducedMotion = useReducedMotion();
+  React.useEffect(() => {
+    if (reducedMotion && openingTab) finishOpeningTab(openingTab.toId);
+  }, [reducedMotion, openingTab, finishOpeningTab]);
   const location = useLocation();
   const navigate = useNavigate();
   const browserPath = `${location.pathname}${location.search}`;
@@ -119,10 +130,13 @@ export default function TabWorkspace() {
   }, [browserPath, activeTab, updateTab, navigate]);
 
   return (
-    <>
+    <div className="relative flex-1 min-h-0 min-w-0 overflow-hidden" data-testid="workspace-stage">
       {tabs.map((tab) => (
-        <TabPane key={tab.id} tab={tab} isActive={tab.id === activeId} />
+        <TabPane key={tab.id} tab={tab} isActive={tab.id === activeId}
+          entering={!reducedMotion && openingTab?.toId === tab.id && tab.id === activeId}
+          exiting={!reducedMotion && openingTab?.fromId === tab.id && openingTab?.toId === activeId}
+          finishOpeningTab={finishOpeningTab} />
       ))}
-    </>
+    </div>
   );
 }

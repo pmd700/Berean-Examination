@@ -1,11 +1,16 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
 import { desktopClient } from '@/api/desktopClient';
-import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, LayoutGrid, ListTree, NotebookPen, Trash2, Save, Check, Copy } from 'lucide-react';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { ChevronLeft, ChevronRight, LayoutGrid, ListTree, NotebookPen, Trash2, Save, Check, Copy, Download, Link2 } from 'lucide-react';
+import { buildCurrentNoteExport, waitForNoteExportSaves } from '@/lib/exportNote';
+import { saveExportFile } from '@/lib/saveExportFile';
+import { subscribeToNoteChanges } from '@/lib/noteChanges';
+import { registerPendingEditorSave } from '@/lib/pendingEditorSaves';
 import BookSurface from '../notes/BookSurface';
 import useNoteZoom from '../notes/useNoteZoom';
 import { copyNotePage } from '../notes/copyNotePage';
 import { announceCopy, announceCopyFailed } from '@/lib/copyFeedback';
+import { copyNoteLink } from '@/lib/noteLink';
 import BookOverview from '../notes/BookOverview';
 import BookIndex from '../notes/BookIndex';
 import { remapIndexEntries } from '../notes/bookIndexModel';
@@ -35,18 +40,20 @@ import { useIsActiveTab } from '@/lib/WorkspaceTabs';
 /**
  * Inline single-note editor embedded in the Knowledge Web page main pane.
  * Self-contained: it seeds its editable state from the `notes` list, autosaves
- * with a debounce. Parent stays in sync through the save/delete callbacks.
+ * with a debounce. Committed edits notify mounted lists and duplicate editors.
  */
 export default function NoteEditorPanel({
   noteId,
   notes = [],
-  onNoteSaved,
+  onNoteSaved = null,
   onNoteDeleted,
   spotlightQuery = '',
   spotlightField = '',
   spotlightToken = '',
   spotlightPage = null,
   onSpotlightComplete,
+  requestedPage = null,
+  onPageChange = null,
 }) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -54,6 +61,9 @@ export default function NoteEditorPanel({
   const [isTurning, setIsTurning] = useState(false);
   const [saveStatus, setSaveStatus] = useState('idle'); // idle | saving | saved
   const [pageIndex, setPageIndex] = useState(0);
+  const rememberedPage = useRef(null);
+  const onPageChangeRef = useRef(onPageChange);
+  onPageChangeRef.current = onPageChange;
   const [showPages, setShowPages] = useState(false);
   const [showBookIndex, setShowBookIndex] = useState(false);
   const [indexNavigation, setIndexNavigation] = useState(null);
@@ -61,7 +71,15 @@ export default function NoteEditorPanel({
   const [textSize, setTextSize] = useTextSizePreference();
 
   const saveTimer = useRef(null);
-  const pendingSave = useRef(null); // { id, updates }
+  const pendingSave = useRef(new Map()); // note id → unsaved field patches
+  const inFlightSave = useRef(null);
+  const activeSave = useRef(null);
+  const latestSaveRecord = useRef(null);
+  const deferredChange = useRef(null);
+  const onNoteSavedRef = useRef(onNoteSaved);
+  onNoteSavedRef.current = onNoteSaved;
+  const exportingRef = useRef(false);
+  const [exporting, setExporting] = useState(false);
   const lastLoadedId = useRef(null);
   const titleRef = useRef(null);
   const bodyEditorRef = useRef(null);
@@ -109,22 +127,72 @@ export default function NoteEditorPanel({
 
   useNoteZoom(documentScrollRef, documentPageRef, noteId, Boolean(note));
 
-  // Persist whatever edit is pending right now (cancels the debounce timer).
-  const flushSave = useCallback(async () => {
-    if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
-    const pending = pendingSave.current;
-    if (!pending) return;
-    pendingSave.current = null;
-    try {
-      const saved = await desktopClient.entities.MindNote.update(pending.id, pending.updates);
-      onNoteSaved?.({ id: pending.id, ...saved });
-      setSaveStatus('saved');
-      setTimeout(() => setSaveStatus(s => (s === 'saved' ? 'idle' : s)), 1500);
-    } catch {
-      setSaveStatus('idle');
-      toast.error('Could not save note.');
+  const adoptCommittedFields = useCallback((record, fields) => {
+    if (fields.includes('title')) setTitle(record.title || '');
+    if (fields.includes('content')) setContent(record.content || '');
+    if (fields.includes('book_index_entries')) {
+      setIndexEntries(Array.isArray(record.book_index_entries) ? record.book_index_entries : []);
     }
-  }, [onNoteSaved]);
+  }, []);
+
+  // Persist whatever edit is pending right now (cancels the debounce timer).
+  const flushSave = useCallback(() => {
+    if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
+    if (inFlightSave.current) return inFlightSave.current;
+    const operation = Promise.resolve().then(async () => {
+      let didSave = false;
+      while (pendingSave.current.size) {
+        const [id, updates] = pendingSave.current.entries().next().value;
+        pendingSave.current.delete(id);
+        activeSave.current = { id, updates };
+        try {
+          const saved = await desktopClient.entities.MindNote.update(id, updates);
+          didSave = true;
+          const latest = latestSaveRecord.current?.id === id ? latestSaveRecord.current.record : saved;
+          onNoteSavedRef.current?.({ id, ...latest });
+        } catch (error) {
+          // Retain failed fields for a real retry; never silently discard them.
+          pendingSave.current.set(id, { ...updates, ...pendingSave.current.get(id) });
+          setSaveStatus('unsaved');
+          toast.error('Could not save note. Your edits are kept open for retry.');
+          throw error;
+        } finally { activeSave.current = null; latestSaveRecord.current = null; }
+      }
+      // Two duplicate tabs can commit in the same turn while both protect
+      // their drafts. Once this draft is saved, adopt the last committed fields
+      // observed during it so neither tab stays on an older version.
+      const deferred = deferredChange.current;
+      if (deferred?.id === lastLoadedId.current) {
+        adoptCommittedFields(deferred.record, [...deferred.fields]);
+      }
+      deferredChange.current = null;
+      if (didSave) {
+        setSaveStatus('saved');
+        setTimeout(() => setSaveStatus(s => (s === 'saved' ? 'idle' : s)), 1500);
+      }
+      return didSave;
+    }).finally(() => { inFlightSave.current = null; });
+    inFlightSave.current = operation;
+    return operation;
+  }, [adoptCommittedFields]);
+
+  useEffect(() => registerPendingEditorSave(flushSave), [flushSave]);
+  useEffect(() => subscribeToNoteChanges(({ operation, id, record, fields = [] }) => {
+    // Keep callbacks current even if the user changed notes during this write.
+    if (operation === 'update' && record && activeSave.current?.id === id) {
+      latestSaveRecord.current = { id, record };
+    }
+    if (id !== lastLoadedId.current || operation !== 'update' || !record) return;
+    // A clean duplicate tab adopts committed fields. Protect its own pending
+    // and in-flight edits until those are saved, rather than clobbering typing.
+    const dirty = { ...(activeSave.current?.id === id ? activeSave.current.updates : {}), ...pendingSave.current.get(id) };
+    const blocked = fields.filter(field => Object.hasOwn(dirty, field));
+    const previous = deferredChange.current?.id === id ? deferredChange.current : null;
+    if (previous || blocked.length) {
+      deferredChange.current = { id, record, fields: new Set([...(previous?.fields || []), ...blocked]) };
+    }
+    adoptCommittedFields(record, fields.filter(field => !Object.hasOwn(dirty, field)));
+  }), [adoptCommittedFields]);
 
   // Seed editable state when the selected note changes (not on every notes
   // mutation — guarded by lastLoadedId so autosave round-trips don't clobber
@@ -132,47 +200,35 @@ export default function NoteEditorPanel({
   useEffect(() => {
     if (noteId == null) { lastLoadedId.current = null; return; }
     if (lastLoadedId.current === noteId) return;
-    flushSave();
+    void flushSave().catch(() => {});
     const n = notes.find(x => x.id === noteId);
     if (!n) return;
     lastLoadedId.current = noteId;
+    deferredChange.current = null;
     setTitle(n.title || '');
     setContent(n.content || '');
     setIndexNavigation(null);
     setIndexEntries(Array.isArray(n.book_index_entries) ? n.book_index_entries : []);
     setLoadedNoteId(noteId);
     setSaveStatus('idle');
-    // A different note opens at its first page, not wherever the last one was.
-    setPageIndex(0);
+    const count = splitBookPages(n.content || '').length;
+    const savedIndex = Number.isInteger(n.last_page_index) && n.last_page_index >= 0 ? n.last_page_index : 0;
+    rememberedPage.current = { id: noteId, index: Math.min(savedIndex, count - 1) };
+    setPageIndex(Math.min(Number.isInteger(requestedPage) && requestedPage >= 0 ? requestedPage : savedIndex, count - 1));
     setShowPages(false);
     setShowBookIndex(false);
-  }, [noteId, notes, flushSave]);
+  }, [noteId, notes, flushSave, requestedPage]);
 
   // Flush any pending save on unmount.
-  useEffect(() => () => { flushSave(); }, [flushSave]);
-
-  // Auto-grow the borderless title so it wraps like a document heading
-  // instead of scrolling horizontally the way a single-line input would.
-  useEffect(() => {
-    const el = titleRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
-  // The shared text-size preference changes the title's font through a CSS
-  // variable. Re-measure on that change too: a title that fit on one line at
-  // level three can wrap at level five, and the textarea hides overflow.
-  }, [pageIndex, content, title, textSize]);
+  useEffect(() => () => { void flushSave().catch(() => {}); }, [flushSave]);
 
   const scheduleSave = useCallback((updates) => {
     const id = noteId;
     if (!id) return;
     setSaveStatus('saving');
-    pendingSave.current = {
-      id,
-      updates: { ...(pendingSave.current?.id === id ? pendingSave.current.updates : {}), ...updates },
-    };
+    pendingSave.current.set(id, { ...pendingSave.current.get(id), ...updates });
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => { flushSave(); }, 600);
+    saveTimer.current = setTimeout(() => { void flushSave().catch(() => {}); }, 600);
   }, [noteId, flushSave]);
 
   const handleIndexEntriesChange = useCallback((entries) => {
@@ -194,11 +250,50 @@ export default function NoteEditorPanel({
     return next;
   }, [content, title]);
   const safePageIndex = Math.max(0, Math.min(pageIndex, pages.length - 1));
+  const pageCountRef = useRef(pages.length);
+  pageCountRef.current = pages.length;
+  // A resume/deep link can target another page of the already mounted book.
+  useEffect(() => {
+    if (loadedNoteId !== noteId || !Number.isInteger(requestedPage) || requestedPage < 0) return;
+    setPageIndex(Math.min(requestedPage, pageCountRef.current - 1));
+  }, [requestedPage, noteId, loadedNoteId]);
+  useEffect(() => {
+    if (!isActiveTab || loadedNoteId !== noteId || rememberedPage.current?.id !== noteId) return;
+    onPageChangeRef.current?.({ noteId, index: safePageIndex });
+    if (rememberedPage.current.index === safePageIndex) return;
+    rememberedPage.current.index = safePageIndex;
+    // Position shares the note's existing serialized save queue, so refreshing
+    // flushes it together with any writing instead of resetting to page one.
+    scheduleSave({ last_page_index: safePageIndex });
+  }, [isActiveTab, loadedNoteId, noteId, safePageIndex, scheduleSave]);
   const isBookNote = pages.length > 1;
   const isLastBookPage = safePageIndex === pages.length - 1;
   const canAddBookPage = pages.length < MAX_PAGES;
   const pageTitle = getPageTitle(pages[safePageIndex]);
   const isPageUntitled = !pageTitle.trim() || pageTitle.trim() === 'Untitled Note';
+
+  // Background tabs use display:none, so scrollHeight there is zero. Measure
+  // after activation, before paint, and never persist a zero-height heading.
+  useLayoutEffect(() => {
+    const el = titleRef.current;
+    if (!el || !isActiveTab) return;
+    let alive = true;
+    const measure = () => {
+      if (!alive) return;
+      el.style.height = 'auto';
+      if (el.scrollHeight > 0) el.style.height = `${el.scrollHeight}px`;
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    document.fonts?.addEventListener('loadingdone', measure);
+    document.fonts?.ready.then(measure);
+    return () => {
+      alive = false;
+      observer.disconnect();
+      document.fonts?.removeEventListener('loadingdone', measure);
+    };
+  }, [isActiveTab, noteId, loadedNoteId, pageTitle, textSize]);
 
   // Search the whole book, but mount only the destination's editor. This also
   // handles older search links that did not carry a page number.
@@ -352,7 +447,7 @@ export default function NoteEditorPanel({
   }, [canAddBookPage, handlePagesChange, isLastBookPage, pages, safePageIndex]);
 
   const handleWheelPageSelect = useCallback((index) => {
-    if (!Number.isInteger(index) || index < 0 || index >= pages.length || index === safePageIndex) return;
+    if (!Number.isInteger(index) || index < 0 || index >= pages.length) return;
     const navigator = bookSurfaceRef.current;
     if (navigator?.goToPage) {
       navigator.goToPage(index, { multi: Math.abs(index - safePageIndex) > 1 });
@@ -370,6 +465,24 @@ export default function NoteEditorPanel({
       toast.error('Could not export those pages.');
     }
   }, [pages, title]);
+
+  const handleExportNote = async () => {
+    if (exportingRef.current || !note || loadedNoteId !== noteId) return;
+    const targetId = noteId;
+    exportingRef.current = true;
+    setExporting(true);
+    try {
+      await waitForNoteExportSaves();
+      const artifact = await buildCurrentNoteExport(targetId);
+      const result = await saveExportFile(new Blob([artifact.content], { type: artifact.type }), artifact.fileName);
+      if (result.status === 'saved') toast.success('Note exported');
+    } catch (error) {
+      toast.error(error?.message || 'Could not export the current note.');
+    } finally {
+      exportingRef.current = false;
+      setExporting(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!note) return;
@@ -402,6 +515,15 @@ export default function NoteEditorPanel({
     }
   };
 
+  const handleCopyLink = () => {
+    if (isTurning || loadedNoteId !== noteId) return;
+    try {
+      const copied = copyNoteLink({ id: noteId, title }, safePageIndex, isPageUntitled ? '' : pageTitle);
+      if (copied) announceCopy('Note link copied');
+      else announceCopyFailed('Could not copy note link');
+    } catch { announceCopyFailed('Could not copy note link'); }
+  };
+
   if (!note) {
     return (
       <div className="flex-1 flex items-center justify-center text-gray-500 bg-[#0f111a]">
@@ -419,7 +541,7 @@ export default function NoteEditorPanel({
       data-bex-local-find-shortcut="true"
     >
       {/* Quiet top bar — save status, page controls, delete */}
-      <div className="flex items-center justify-between gap-2 px-4 py-2.5">
+      <div className="bex-note-toolbar flex items-center justify-between gap-2 px-4 py-2.5">
         <Button
           variant="ghost"
           size="sm"
@@ -433,6 +555,31 @@ export default function NoteEditorPanel({
           <Copy className="h-4 w-4" />
           Copy
         </Button>
+        <button
+          type="button"
+          onClick={handleExportNote}
+          disabled={exporting || loadedNoteId !== noteId}
+          aria-busy={exporting}
+          aria-label="Export note"
+          title="Export the current note as Markdown"
+          className={`${buttonVariants({ variant: 'ghost', size: 'sm' })} h-8 gap-1.5 px-2 text-gray-400 hover:text-white`}
+          data-testid="button-export-note"
+        >
+          <Download className="h-4 w-4" />
+          {exporting ? 'Exporting…' : 'Export'}
+        </button>
+        <button
+          type="button"
+          onClick={handleCopyLink}
+          disabled={isTurning || loadedNoteId !== noteId}
+          aria-label="Copy link to note"
+          title="Copy a hyperlink to this note and current page"
+          className={`${buttonVariants({ variant: 'ghost', size: 'sm' })} h-8 gap-1.5 px-2 text-gray-400 hover:text-white`}
+          data-testid="button-copy-note-link"
+        >
+          <Link2 className="h-4 w-4" aria-hidden="true" />
+          Link
+        </button>
         <SaveBadge status={saveStatus} />
 
         {/* Paging appears only once a note has actually become a book. A
@@ -531,7 +678,7 @@ export default function NoteEditorPanel({
       </div>
 
       {/* Document canvas — centered, borderless, lots of breathing room */}
-      <div ref={documentScrollRef} className="flex-1 min-h-0 overflow-auto" style={{ touchAction: 'pan-x pan-y' }} data-testid="note-zoom-viewport">
+      <div ref={documentScrollRef} className="flex-1 min-h-0 overflow-auto" style={{ touchAction: 'pan-x pan-y' }} data-testid="note-zoom-viewport" data-bex-marquee-surface>
         <div ref={documentPageRef} className="mx-auto px-6 sm:px-10 py-12 sm:py-16" data-testid="note-zoom-page">
           {/* Title — reads like page text, not an input. An untitled note
               shows its name as ghost text rather than as real content, so the
@@ -544,7 +691,7 @@ export default function NoteEditorPanel({
             placeholder={safePageIndex === 0 ? 'Untitled Note' : 'Untitled Page'}
             rows={1}
             className="bex-spotlight-field w-full resize-none overflow-hidden bg-transparent border-0 p-0 text-4xl font-bold leading-tight tracking-tight text-white placeholder:text-gray-600/70 focus:outline-none focus:ring-0"
-            style={{ fontSize: 'var(--bex-note-title-size, 36px)' }}
+            style={{ fontSize: 'var(--bex-note-title-size, 36px)', minHeight: '1.25em' }}
             data-testid="input-note-title"
           />
 
@@ -562,6 +709,7 @@ export default function NoteEditorPanel({
               there: pressing it is what turns the note into a book. */}
           <div className="mt-6 kw-note-body" data-testid="textarea-note-content">
             <BookSurface
+              key={noteId}
               ref={bookSurfaceRef}
               noteId={noteId}
               pages={pages}
@@ -599,6 +747,7 @@ export default function NoteEditorPanel({
 }
 
 function SaveBadge({ status }) {
+  if (status === 'unsaved') return <span className="text-xs text-amber-400">Unsaved changes</span>;
   if (status === 'saving') {
     return (
       <span className="inline-flex items-center gap-1.5 text-xs text-gray-400">

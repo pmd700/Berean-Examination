@@ -6,7 +6,7 @@ import path from 'node:path';
 /**
  * Structural checks on how the Timegraph reaches the four places it has to work.
  *
- * Every rich-text surface in BEX shares one RichTextEditor, so the embed is
+ * Every rich-text surface in BEX shares one TEXT_EDITOR_MACHINERY, so the embed is
  * registered there exactly once instead of four times. That is the right design,
  * but it makes the integration invisible in each individual surface — nothing in
  * KeywordForm.jsx mentions Timegraph at all. These tests pin the chain that makes
@@ -22,24 +22,23 @@ const SURFACES = Object.freeze({
   'markdown notes': 'src/components/notes/BookSurface.jsx',
   'knowledge web cards': 'src/components/knowledgeweb/CardEditor.jsx',
   'keywords': 'src/components/keywords/KeywordForm.jsx',
-  'study notes': 'src/components/notes/ChapterNotesPanel.jsx',
 });
 
 describe('timegraph integration points', () => {
   for (const [label, file] of Object.entries(SURFACES)) {
-    test(`${label} render the shared RichTextEditor`, () => {
+    test(`${label} render the shared TEXT_EDITOR_MACHINERY`, () => {
       const source = read(file);
       assert.match(
         source,
-        /import\s+RichTextEditor\s+from/,
-        `${file} no longer imports RichTextEditor, so it would lose the Timegraph embed`,
+        /import\s+TEXT_EDITOR_MACHINERY\s+from/,
+        `${file} no longer imports TEXT_EDITOR_MACHINERY, so it would lose the Timegraph embed`,
       );
-      assert.match(source, /<RichTextEditor/, `${file} does not render RichTextEditor`);
+      assert.match(source, /<TEXT_EDITOR_MACHINERY/, `${file} does not render TEXT_EDITOR_MACHINERY`);
     });
   }
 
   test('the shared editor registers the Timegraph node', () => {
-    const source = read('src/components/editor/RichTextEditor.jsx');
+    const source = read('src/components/editor/TEXT_EDITOR_MACHINERY.jsx');
     assert.match(source, /import\s*\{\s*TimegraphEmbed\s*\}\s*from\s*'\.\/TimegraphEmbedExtension'/);
     // Present in the extensions array, not merely imported. The array's close is
     // matched at its own indentation: the first `],` after `extensions:` is the
@@ -58,7 +57,7 @@ describe('timegraph integration points', () => {
   });
 
   test('the shared editor mounts the insert picker', () => {
-    const source = read('src/components/editor/RichTextEditor.jsx');
+    const source = read('src/components/editor/TEXT_EDITOR_MACHINERY.jsx');
     assert.match(source, /<TimegraphInsertHost editor=\{editor\} \/>/);
   });
 

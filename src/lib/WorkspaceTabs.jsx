@@ -253,6 +253,10 @@ export function useCurrentWorkspaceTab() {
 
 export function WorkspaceTabsProvider({ initialPath, children }) {
   const [session, setSession] = React.useState(() => initialSession(initialPath));
+  const sessionRef = React.useRef(session);
+  sessionRef.current = session;
+  // Transient presentation state is never written into the restored session.
+  const [openingTab, setOpeningTab] = React.useState(null);
 
   // Did this launch restore a real session of its own? Read during the first
   // render, because the persist effect below writes localStorage immediately and
@@ -314,6 +318,7 @@ export function WorkspaceTabsProvider({ initialPath, children }) {
 
   const openTab = React.useCallback((kind, overrides) => {
     const tab = makeTab(kind, overrides);
+    setOpeningTab({ fromId: sessionRef.current.activeId, toId: tab.id });
     setSession((current) => ({
       tabs: [...current.tabs, tab],
       activeId: tab.id,
@@ -325,13 +330,15 @@ export function WorkspaceTabsProvider({ initialPath, children }) {
   // deliberately keeps the source path/title/metadata but receives a fresh
   // tab identity, then sits directly beside the original.
   const duplicateTab = React.useCallback((id) => {
+    const source = sessionRef.current.tabs.find(tab => tab.id === id);
+    if (!source) return;
+    const { id: sourceId, ...sourceWithoutId } = source;
+    void sourceId;
+    const duplicate = makeTab(source.kind, sourceWithoutId);
+    setOpeningTab({ fromId: sessionRef.current.activeId, toId: duplicate.id });
     setSession((current) => {
       const index = current.tabs.findIndex((tab) => tab.id === id);
       if (index === -1) return current;
-      const source = current.tabs[index];
-      const { id: sourceId, ...sourceWithoutId } = source;
-      void sourceId;
-      const duplicate = makeTab(source.kind, sourceWithoutId);
       const tabs = [...current.tabs];
       tabs.splice(index + 1, 0, duplicate);
       return { tabs, activeId: duplicate.id };
@@ -339,6 +346,7 @@ export function WorkspaceTabsProvider({ initialPath, children }) {
   }, []);
 
   const closeTab = React.useCallback((id) => {
+    setOpeningTab(null);
     setSession((current) => {
       // There is always at least one workspace open.
       if (current.tabs.length <= 1) return current;
@@ -353,7 +361,12 @@ export function WorkspaceTabsProvider({ initialPath, children }) {
   }, []);
 
   const selectTab = React.useCallback((id) => {
+    setOpeningTab(null);
     setSession((current) => (current.activeId === id ? current : { ...current, activeId: id }));
+  }, []);
+
+  const finishOpeningTab = React.useCallback(id => {
+    setOpeningTab(current => current?.toId === id ? null : current);
   }, []);
 
   const reorderTabs = React.useCallback((orderedIds) => {
@@ -392,7 +405,9 @@ export function WorkspaceTabsProvider({ initialPath, children }) {
     selectTab,
     reorderTabs,
     updateTab,
-  }), [session, activeTab, openTab, duplicateTab, closeTab, selectTab, reorderTabs, updateTab]);
+    openingTab,
+    finishOpeningTab,
+  }), [session, activeTab, openTab, duplicateTab, closeTab, selectTab, reorderTabs, updateTab, openingTab, finishOpeningTab]);
 
   return <WorkspaceTabsContext.Provider value={value}>{children}</WorkspaceTabsContext.Provider>;
 }

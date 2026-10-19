@@ -16,7 +16,6 @@ import {
   Folder,
   FolderPlus,
   GraduationCap,
-  HardDriveDownload,
   Loader2,
   LockKeyhole,
   Network,
@@ -28,7 +27,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { desktopClient } from '@/api/desktopClient';
-import MassBackupDialog from '@/components/library/MassBackupDialog';
+import AiExportButton from '@/components/library/AiExportButton';
+import UserSettings from '@/components/settings/UserSettings';
 import useWebLibrary from '@/components/knowledgeweb/useWebLibrary';
 import CreatePrivateWebModal from '@/components/knowledgeweb/CreatePrivateWebModal';
 import { confirmDialog } from '@/components/ui/confirm-dialog';
@@ -69,18 +69,7 @@ import {
   buildBereanKnowledgeWebPayload,
   sanitizeFileName,
 } from '@/components/knowledgeweb/bereanFileFormat';
-import { buildNoteBackupMarkdown } from '@/lib/noteBackupMarkdown';
-import { usePrivateWeb } from '@/lib/PrivateWebContext';
-import { decryptIncomingWithKey, decryptString } from '@/lib/webCrypto';
-import { buildMassBackupArchives, listAllEntityRecords } from '@/lib/massBackup';
-import { waitForLocalEntityWritesToSettle } from '@/lib/localEntities';
-import {
-  chooseMassBackupFolder,
-  getMassBackupSettings,
-  revealMassBackupFolder,
-  setMassBackupReplacePrevious,
-  writeMassBackupArchives,
-} from '@/lib/massBackupDesktop';
+import { buildCurrentNoteExport, waitForNoteExportSaves } from '@/lib/exportNote';
 
 const CATEGORIES = Object.freeze({
   web: {
@@ -757,7 +746,6 @@ export default function LibraryHome() {
   const isActiveTab = useIsActiveTab();
   const { tabs, updateTab, selectTab, closeTab } = useWorkspaceTabs();
   const library = useWebLibrary();
-  const privateWeb = usePrivateWeb();
   const [timelines, setTimelines] = React.useState([]);
   const [loadingSecondary, setLoadingSecondary] = React.useState(true);
   const [creating, setCreating] = React.useState(null);
@@ -769,26 +757,10 @@ export default function LibraryHome() {
   const [selectedItems, setSelectedItems] = React.useState(() => new Set());
   const [massBusy, setMassBusy] = React.useState(false);
   const [exportNotice, setExportNotice] = React.useState(null);
-  const [massBackupOpen, setMassBackupOpen] = React.useState(false);
-  const [massBackupInventory, setMassBackupInventory] = React.useState(null);
-  const [massBackupSettings, setMassBackupSettings] = React.useState({
-    folderPath: '',
-    replacePrevious: false,
-  });
-  const [massBackupStage, setMassBackupStage] = React.useState('loading');
-  const [massBackupProgress, setMassBackupProgress] = React.useState(null);
-  const [massBackupResult, setMassBackupResult] = React.useState(null);
-  const [massBackupError, setMassBackupError] = React.useState('');
-  const [massBackupRetryMode, setMassBackupRetryMode] = React.useState('load');
-  const [choosingMassBackupFolder, setChoosingMassBackupFolder] = React.useState(false);
-  const [savingMassBackupSettings, setSavingMassBackupSettings] = React.useState(false);
   const [collapsed, setCollapsed] = React.useState(() => new Set());
   const [itemOrder, setItemOrder] = React.useState(readSavedItemOrder);
   const initializedFolderKeys = React.useRef(new Set());
   const exportNoticeTimer = React.useRef(null);
-  const massBackupLoadRequest = React.useRef(0);
-  const massBackupSettingsBusyRef = React.useRef(false);
-  const choosingMassBackupFolderRef = React.useRef(false);
 
   useTabTitle('New tab');
 
@@ -911,371 +883,6 @@ export default function LibraryHome() {
     return () => window.removeEventListener('keydown', handleCreateShortcut);
   }, [creating, folderRequest, isActiveTab, library.showCreatePrivateModal]);
 
-  const loadMassBackupInventory = React.useCallback(async () => {
-    const [webs, notes, allTimelines] = await Promise.all([
-      listAllEntityRecords(desktopClient.entities.KnowledgeWeb, { sort: '-updated_date' }),
-      listAllEntityRecords(desktopClient.entities.MindNote, { sort: '-updated_date' }),
-      listAllEntityRecords(desktopClient.entities.Timegraph, { sort: '-updated_date' }),
-    ]);
-    return { webs, notes, timelines: allTimelines };
-  }, []);
-
-  const buildMassBackupArtifact = React.useCallback(async (kind, item) => {
-    if (kind === 'knowledge') {
-      const [rawCards, rawConnections, rawCanvasObjects] = await Promise.all([
-        listAllEntityRecords(desktopClient.entities.WebCard, {
-          filter: { web_id: item.id },
-          sort: 'id',
-        }),
-        listAllEntityRecords(desktopClient.entities.WebConnection, {
-          filter: { web_id: item.id },
-          sort: 'id',
-        }),
-        listAllEntityRecords(desktopClient.entities.CanvasObject, {
-          filter: { web_id: item.id },
-          sort: 'id',
-        }),
-      ]);
-
-      let exportWeb = item;
-      let cards = rawCards;
-      let connections = rawConnections;
-      let canvasObjects = rawCanvasObjects;
-
-      if (item.is_private) {
-        const key = privateWeb.getKey(item.id);
-        if (!key) {
-          throw new Error('This private Knowledge Web is locked. Unlock it before running Mass Backup.');
-        }
-
-        const decryptRows = async (entityName, rows) => Promise.all(rows.map(async (row) => {
-          const decrypted = await decryptIncomingWithKey(entityName, row, key);
-          if (row?.enc_payload && decrypted === row) {
-            throw new Error('BEX could not decrypt one of this private web\'s records.');
-          }
-          return decrypted;
-        }));
-
-        [cards, connections, canvasObjects] = await Promise.all([
-          decryptRows('WebCard', rawCards),
-          decryptRows('WebConnection', rawConnections),
-          decryptRows('CanvasObject', rawCanvasObjects),
-        ]);
-
-        let title = item.title;
-        if (item.enc_name) title = await decryptString(key, item.enc_name);
-        if (!title || title === '🔒') {
-          throw new Error('BEX could not read this private Knowledge Web\'s name.');
-        }
-        exportWeb = { ...item, title };
-      }
-
-      const payload = buildBereanKnowledgeWebPayload({
-        web: exportWeb,
-        cards,
-        connections,
-        canvasObjects,
-      });
-      return {
-        content: JSON.stringify(payload, null, 2),
-        id: item.id,
-        title: exportWeb.title || 'Knowledge Web',
-      };
-    }
-
-    if (kind === 'notes') {
-      const title = item.title || 'Untitled Note';
-      return {
-        content: buildNoteBackupMarkdown({ title, content: item.content }),
-        id: item.id,
-        title,
-      };
-    }
-
-    if (kind === 'timelines') {
-      return {
-        content: toJson(item),
-        id: item.id,
-        title: item.title || 'Untitled timeline',
-      };
-    }
-
-    // Mass Backup deliberately has no Bible-study/chapter serializer.
-    throw new Error('Mass Backup received an unsupported library category.');
-  }, [privateWeb]);
-
-  const openMassBackupDialog = React.useCallback(async () => {
-    const requestId = massBackupLoadRequest.current + 1;
-    massBackupLoadRequest.current = requestId;
-    setMassBackupOpen(true);
-    setMassBackupStage('loading');
-    setMassBackupProgress(null);
-    setMassBackupResult(null);
-    setMassBackupError('');
-    setMassBackupRetryMode('load');
-    // Never let a failed rescan fall back to counts from an older dialog run.
-    setMassBackupInventory(null);
-    const [settingsResult, inventoryResult] = await Promise.allSettled([
-        getMassBackupSettings(),
-        loadMassBackupInventory(),
-    ]);
-    if (massBackupLoadRequest.current !== requestId) return;
-
-    if (settingsResult.status === 'fulfilled') {
-      setMassBackupSettings(settingsResult.value);
-    } else {
-      setMassBackupSettings({
-        available: false,
-        folderPath: '',
-        replacePrevious: false,
-      });
-    }
-    if (inventoryResult.status === 'fulfilled') {
-      setMassBackupInventory(inventoryResult.value);
-    }
-
-    if (settingsResult.status === 'fulfilled' && inventoryResult.status === 'fulfilled') {
-      setMassBackupStage('ready');
-      return;
-    }
-
-    const error = settingsResult.status === 'rejected'
-      ? settingsResult.reason
-      : inventoryResult.reason;
-    setMassBackupError(error?.message || 'BEX could not prepare Mass Backup.');
-    setMassBackupStage('error');
-  }, [loadMassBackupInventory]);
-
-  const chooseMassBackupDestination = React.useCallback(async () => {
-    if (choosingMassBackupFolderRef.current || massBackupSettingsBusyRef.current) return;
-    choosingMassBackupFolderRef.current = true;
-    setChoosingMassBackupFolder(true);
-    try {
-      const settings = await chooseMassBackupFolder();
-      if (settings) {
-        setMassBackupSettings(settings);
-        if (massBackupStage === 'error' && massBackupInventory) {
-          setMassBackupError('');
-          setMassBackupResult(null);
-          setMassBackupStage('ready');
-        }
-      }
-    } catch (error) {
-      toast.error(error?.message || 'BEX could not choose that backup folder.');
-    } finally {
-      choosingMassBackupFolderRef.current = false;
-      setChoosingMassBackupFolder(false);
-    }
-  }, [massBackupInventory, massBackupStage]);
-
-  const updateMassBackupReplacement = React.useCallback(async (enabled) => {
-    if (massBackupSettingsBusyRef.current || choosingMassBackupFolderRef.current) return;
-    massBackupSettingsBusyRef.current = true;
-    setSavingMassBackupSettings(true);
-    const previous = massBackupSettings;
-    setMassBackupSettings((current) => ({ ...current, replacePrevious: Boolean(enabled) }));
-    try {
-      const settings = await setMassBackupReplacePrevious(Boolean(enabled));
-      setMassBackupSettings(settings);
-    } catch (error) {
-      setMassBackupSettings(previous);
-      toast.error(error?.message || 'BEX could not save that Mass Backup setting.');
-    } finally {
-      massBackupSettingsBusyRef.current = false;
-      setSavingMassBackupSettings(false);
-    }
-  }, [massBackupSettings]);
-
-  const runMassBackup = React.useCallback(async () => {
-    if (
-      massBackupStage === 'building'
-      || massBackupStage === 'saving'
-      || massBackupSettingsBusyRef.current
-      || choosingMassBackupFolderRef.current
-    ) return;
-    setMassBackupStage('building');
-    setMassBackupProgress({
-      kind: 'preparing',
-      label: 'Finishing recent edits',
-    });
-    setMassBackupResult(null);
-    setMassBackupError('');
-
-    try {
-      // Every workspace tab stays mounted, including background editors. The
-      // entity gateway waits through their debounce windows, in-flight writes
-      // and retries, and refuses a green backup if a recent save failed.
-      await waitForLocalEntityWritesToSettle();
-      const inventory = await loadMassBackupInventory();
-      setMassBackupInventory(inventory);
-
-      const totalItems = inventory.webs.length + inventory.notes.length + inventory.timelines.length;
-      if (totalItems === 0) {
-        setMassBackupProgress(null);
-        setMassBackupStage('ready');
-        return;
-      }
-
-      const lockedPrivateWebs = inventory.webs.filter((web) => (
-        web.is_private && !privateWeb.getKey(web.id)
-      ));
-      if (lockedPrivateWebs.length > 0) {
-        throw new Error(
-          `Unlock ${lockedPrivateWebs.length} private Knowledge ${lockedPrivateWebs.length === 1 ? 'Web' : 'Webs'} before Mass Backup. Nothing was written.`,
-        );
-      }
-
-      const built = await buildMassBackupArchives({
-        ...inventory,
-        buildArtifact: buildMassBackupArtifact,
-        onProgress: (update) => {
-          const tracksItems = update.phase === 'preparing' || update.phase === 'building';
-          const total = tracksItems ? Number(update.totalItems || update.total || 0) : undefined;
-          const current = tracksItems
-            ? Number(update.totalCompleted ?? update.current ?? 0)
-            : undefined;
-          const labels = {
-            preparing: 'Preparing every item',
-            building: 'Packaging every item',
-            zipping: 'Building ZIP archives',
-            complete: 'ZIP archives ready',
-          };
-          setMassBackupProgress({
-            kind: update.phase,
-            current,
-            total,
-            percent: Number.isFinite(total) && total > 0
-              ? Math.round((current / total) * 100)
-              : undefined,
-            label: labels[update.phase] || 'Creating Mass Backup',
-          });
-        },
-      });
-
-      if (built.failures.length > 0 && built.archives.length === 0) {
-        setMassBackupResult({ files: [], removed: [], failures: built.failures });
-        throw new Error('Fix the item listed below, then try Mass Backup again. Nothing was written.');
-      }
-      if (built.archives.length === 0) {
-        throw new Error('BEX found no backup archives to save. Nothing was written.');
-      }
-
-      setMassBackupStage('saving');
-      setMassBackupProgress({
-        kind: 'saving',
-        label: 'Saving to your backup folder',
-      });
-      const saved = await writeMassBackupArchives(built.archives);
-      const itemCounts = new Map(built.archives.map((archive) => [archive.kind, archive.itemCount]));
-      const files = (saved?.archives || []).map((archive) => ({
-        ...archive,
-        itemCount: itemCounts.get(archive.category) || 0,
-      }));
-      const warnings = [
-        ...built.failures,
-        ...(saved?.cleanupFailed || []).map((fileName) => ({
-          message: `The new backup was saved, but BEX could not remove the older archive “${fileName}”.`,
-        })),
-        ...(saved?.cleanupIncomplete ? [{
-          message: 'The new backup was saved, but BEX could not finish checking older backups for replacement.',
-        }] : []),
-      ];
-
-      setMassBackupResult({
-        files,
-        removed: saved?.deletedPrevious || [],
-        failures: warnings,
-      });
-      setMassBackupSettings((current) => ({
-        ...current,
-        folderPath: saved?.destinationPath || current.folderPath,
-        replacePrevious: saved?.replacePrevious === true,
-      }));
-      setMassBackupProgress(null);
-      setMassBackupStage(warnings.length > 0 ? 'partial' : 'success');
-
-      if (warnings.length === 0 && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-        void import('canvas-confetti').then(({ default: confetti }) => {
-          confetti({
-            angle: 60,
-            colors: ['#a78bfa', '#6ee7b7', '#67e8f9'],
-            origin: { x: 0.22, y: 0.68 },
-            particleCount: 42,
-            spread: 52,
-          });
-          confetti({
-            angle: 120,
-            colors: ['#a78bfa', '#6ee7b7', '#fcd34d'],
-            origin: { x: 0.78, y: 0.68 },
-            particleCount: 42,
-            spread: 52,
-          });
-        }).catch(() => {});
-      }
-    } catch (error) {
-      const folderUnavailable = (
-        error?.code === 'BEX_MASS_BACKUP_FOLDER_UNAVAILABLE'
-        || error?.code === 'BEX_MASS_BACKUP_NOT_CONFIGURED'
-      );
-      if (folderUnavailable) {
-        // The folder may have been moved or disconnected after the dialog
-        // loaded. Do not leave a stale green destination or an enabled Start
-        // button behind after the desktop process rejects it.
-        setMassBackupSettings((current) => ({
-          ...current,
-          available: false,
-          folderPath: '',
-        }));
-      }
-      setMassBackupProgress(null);
-      setMassBackupRetryMode(folderUnavailable ? 'load' : 'run');
-      setMassBackupError(error?.message || 'BEX could not create the Mass Backup.');
-      setMassBackupStage('error');
-    }
-  }, [
-    buildMassBackupArtifact,
-    loadMassBackupInventory,
-    massBackupStage,
-    privateWeb,
-  ]);
-
-  const openMassBackupFailure = React.useCallback((failure) => {
-    if (failure?.kind !== 'knowledge' || failure?.itemId == null) return;
-    const web = massBackupInventory?.webs?.find((item) => String(item.id) === String(failure.itemId));
-    if (!web) {
-      toast.error('BEX could not find that Knowledge Web. Close Mass Backup and refresh the library.');
-      return;
-    }
-    setMassBackupOpen(false);
-    openItem('web', web, failure.itemTitle || web.title);
-  }, [massBackupInventory, openItem]);
-
-  const revealMassBackupDestination = React.useCallback(async () => {
-    try {
-      await revealMassBackupFolder();
-    } catch (error) {
-      if (
-        error?.code === 'BEX_MASS_BACKUP_FOLDER_UNAVAILABLE'
-        || error?.code === 'BEX_MASS_BACKUP_NOT_CONFIGURED'
-      ) {
-        setMassBackupSettings((current) => ({
-          ...current,
-          available: false,
-          folderPath: '',
-        }));
-        setMassBackupResult((current) => ({
-          ...(current || {}),
-          failures: [
-            ...(current?.failures || []),
-            { message: 'The saved backup folder is no longer available. Choose it again before the next backup.' },
-          ],
-        }));
-        setMassBackupStage('partial');
-      }
-      toast.error(error?.message || 'BEX could not reveal the Mass Backup folder.');
-    }
-  }, []);
-
   const buildItemExport = async (category, item) => {
     if (category === 'web') {
       if (item.is_private) throw new Error('Unlock private Knowledge Webs before exporting them.');
@@ -1292,11 +899,9 @@ export default function LibraryHome() {
       };
     }
     if (category === 'note') {
-      return {
-        fileName: `${sanitizeFileName(item.title || 'note')}.md`,
-        content: buildNoteBackupMarkdown({ title: item.title, content: item.content }),
-        type: 'text/markdown;charset=utf-8',
-      };
+      // The library row is a cached list snapshot. Its content can predate an
+      // autosave in another mounted tab, even after that save has completed.
+      return buildCurrentNoteExport(item.id);
     }
     if (category === 'timeline') {
       return {
@@ -1416,6 +1021,9 @@ export default function LibraryHome() {
     if (!records.length) return;
     setMassBusy(true);
     try {
+      // Let editor debounces start and finish before reading records for either
+      // a single-file export or a selected-items ZIP. Failed saves block export.
+      await waitForNoteExportSaves();
       if (records.length === 1) {
         const artifact = await exportItem(records[0].category, records[0].item);
         if (artifact.status !== 'saved') return;
@@ -1561,18 +1169,9 @@ export default function LibraryHome() {
           <LibrarySpotlightSearch />
           <ScriptureSearch />
         </div>
-        <button
-          type="button"
-          onClick={() => void openMassBackupDialog()}
-          className="group inline-flex h-8 shrink-0 items-center gap-2 rounded-lg border border-emerald-300/10 bg-emerald-400/[0.04] px-2.5 text-[10.5px] font-semibold text-emerald-100/75 transition hover:border-emerald-300/20 hover:bg-emerald-400/[0.08] hover:text-emerald-100"
-          title="Back up every Knowledge Web, note, and timeline"
-          data-testid="library-mass-backup-button"
-        >
-          <HardDriveDownload className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5" />
-          <span className="hidden sm:inline">Mass Backup</span>
-          <span className="sm:hidden">Backup</span>
-        </button>
+        <AiExportButton />
         <nav className="flex items-center gap-1" aria-label="Other BEX workspaces">
+          <UserSettings active={isActiveTab} />
           <button onClick={() => openUtility(TAB_KINDS.COURSES, createPageUrl('Courses'), 'Courses')} className="grid h-8 w-8 place-items-center rounded-lg text-slate-600 hover:bg-white/5 hover:text-emerald-300" title="Courses"><GraduationCap className="h-4 w-4" /></button>
           <button onClick={() => openUtility(TAB_KINDS.STATS, createPageUrl('Stats'), 'Stats')} className="grid h-8 w-8 place-items-center rounded-lg text-slate-600 hover:bg-white/5 hover:text-sky-300" title="Stats" aria-label="Open Stats"><BarChart3 className="h-4 w-4" /></button>
           <button onClick={() => openUtility(TAB_KINDS.AI_SECOND_BRAIN, createPageUrl('BrainChat'), 'AI Second Brain')} className="grid h-8 w-8 place-items-center rounded-lg text-slate-600 hover:bg-white/5 hover:text-violet-300" title="AI Second Brain"><Brain className="h-4 w-4" /></button>
@@ -1581,7 +1180,7 @@ export default function LibraryHome() {
       </header>
 
       <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 sm:px-5 sm:py-5">
-        <div className="mx-auto grid max-w-[1780px] grid-cols-1 items-start gap-4 md:grid-cols-3">
+        <div className="bex-library-columns mx-auto grid max-w-[1780px] grid-cols-1 items-start gap-4 md:grid-cols-3">
           {Object.keys(CATEGORIES).map((category) => (
             <CategoryColumn
               key={category}
@@ -1671,36 +1270,6 @@ export default function LibraryHome() {
           />
         )}
       </AnimatePresence>
-
-      <MassBackupDialog
-        open={massBackupOpen}
-        inventory={{
-          knowledge: massBackupInventory?.webs?.length || 0,
-          notes: massBackupInventory?.notes?.length || 0,
-          timelines: massBackupInventory?.timelines?.length || 0,
-        }}
-        settings={massBackupSettings}
-        stage={massBackupStage}
-        progress={massBackupProgress}
-        result={massBackupResult}
-        error={massBackupError}
-        choosingFolder={choosingMassBackupFolder}
-        settingsBusy={savingMassBackupSettings}
-        onClose={() => {
-          if (massBackupStage !== 'building' && massBackupStage !== 'saving') {
-            setMassBackupOpen(false);
-          }
-        }}
-        onChooseFolder={() => void chooseMassBackupDestination()}
-        onReplacePreviousChange={(enabled) => void updateMassBackupReplacement(enabled)}
-        onStart={() => void runMassBackup()}
-        onRetry={() => {
-          if (massBackupRetryMode === 'run') void runMassBackup();
-          else void openMassBackupDialog();
-        }}
-        onRevealFolder={() => void revealMassBackupDestination()}
-        onResolveFailure={openMassBackupFailure}
-      />
 
       <CreatePrivateWebModal
         open={library.showCreatePrivateModal}

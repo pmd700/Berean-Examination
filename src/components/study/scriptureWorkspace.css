@@ -1,0 +1,18 @@
+/* A spatial canvas belongs to the tab viewport, not to the untransformed
+   passage's height. Otherwise panning down clips content at that old height
+   and leaves the footer/background covering the lower half of the window. */
+.bex-study.bex-study-spatial { flex: 1; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.bex-study-spatial > .bex-study-footer { flex: none; width: 100%; padding: 8px 16px; }
+.bex-scripture-workspace { position: relative; flex: 1; min-height: 0; min-width: 0; }
+/* Only this surface moves; tall passages and large notes cannot grow or shrink
+   its clipping rectangle or push the app shell beyond the screen. */
+.bex-scripture-viewport { position: absolute; inset: 0; overflow: clip; width: 100%; height: 100%; touch-action: pan-y; overscroll-behavior-x: none; overflow-anchor: none; }
+.bex-scripture-viewport:focus-visible { outline: 1px solid #b197ef80; outline-offset: -1px; }
+.bex-scripture-surface { --annotation-card-width: min(1040px, calc(100vw - 48px)); width: 100%; box-sizing: border-box; transform-origin: 0 0; }
+.bex-scripture-surface .bex-study-main-gutter { max-width: 1280px; padding-left: 16px; }
+.bex-scripture-surface .bex-annotation-layout-active { padding-left: 0; }
+.bex-scripture-surface .bex-annotation-rail { left: calc(-1 * var(--annotation-card-width) - 44px); width: var(--annotation-card-width); }
+.bex-scripture-surface .bex-gutter-card-content { font-size: var(--bex-scripture-note-text-size, 13px); }
+.bex-workspace-center { position: absolute; transform: translate(-50%, -50%); display: grid; place-items: center; width: 40px; height: 40px; z-index: 10; border-radius: 10px; color: #b86af0; background: transparent; }
+.bex-workspace-center:hover { background: #b197ef15; color: #cf92ff; }
+.bex-workspace-center:focus-visible { outline: 2px solid #b197ef; outline-offset: 2px; }

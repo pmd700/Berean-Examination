@@ -28,6 +28,9 @@ export default function PageWheelPicker({ pages, pageIndex, onSelect }) {
   const wheelDistanceRef = React.useRef(0);
   const targetIndexRef = React.useRef(pageIndex);
   const committedIndexRef = React.useRef(pageIndex);
+  const onSelectRef = React.useRef(onSelect);
+  onSelectRef.current = onSelect;
+  const programmaticTarget = React.useRef(null);
 
   const clearSettleTimer = React.useCallback(() => {
     if (!settleTimerRef.current) return;
@@ -41,9 +44,9 @@ export default function PageWheelPicker({ pages, pageIndex, onSelect }) {
       settleTimerRef.current = null;
       if (index === committedIndexRef.current) return;
       committedIndexRef.current = index;
-      onSelect?.(index);
+      onSelectRef.current?.(index);
     }, SETTLE_MS);
-  }, [clearSettleTimer, onSelect]);
+  }, [clearSettleTimer]);
 
   const scrollToIndex = React.useCallback((index, behavior = 'smooth', commit = true) => {
     const next = clampPage(index, pages.length);
@@ -52,6 +55,7 @@ export default function PageWheelPicker({ pages, pageIndex, onSelect }) {
     const list = listRef.current;
     if (list) {
       const top = next * ROW_HEIGHT;
+      programmaticTarget.current = top;
       if (typeof list.scrollTo === 'function') list.scrollTo({ top, behavior });
       else list.scrollTop = top;
     }
@@ -122,6 +126,12 @@ export default function PageWheelPicker({ pages, pageIndex, onSelect }) {
   }, [clearSettleTimer]);
 
   const handleScroll = (event) => {
+    // Smooth scrolling passes several other rows on its way to the requested
+    // one. Those intermediate positions must never replace the destination.
+    if (programmaticTarget.current != null) {
+      if (Math.abs(event.currentTarget.scrollTop - programmaticTarget.current) < 1) programmaticTarget.current = null;
+      return;
+    }
     const next = clampPage(Math.round(event.currentTarget.scrollTop / ROW_HEIGHT), pages.length);
     if (next === targetIndexRef.current) return;
     targetIndexRef.current = next;
@@ -129,9 +139,19 @@ export default function PageWheelPicker({ pages, pageIndex, onSelect }) {
     scheduleSelection(next);
   };
 
+  const choosePage = index => {
+    const next = clampPage(index, pages.length);
+    clearSettleTimer();
+    targetIndexRef.current = next;
+    setSelectedIndex(next);
+    onSelectRef.current?.(next);
+    setOpen(false);
+  };
+
   const handleKeyDown = (event) => {
     if (event.key === 'Escape' || event.key === 'Enter') {
       event.preventDefault();
+      if (event.key === 'Enter') { choosePage(targetIndexRef.current); return; }
       setOpen(false);
       return;
     }
@@ -201,6 +221,7 @@ export default function PageWheelPicker({ pages, pageIndex, onSelect }) {
                 aria-activedescendant={`page-wheel-option-${selectedIndex + 1}`}
                 tabIndex={0}
                 onScroll={handleScroll}
+                onPointerDown={() => { programmaticTarget.current = null; }}
                 onKeyDown={handleKeyDown}
                 className="relative z-[5] overflow-y-auto overscroll-contain outline-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 style={{
@@ -220,7 +241,7 @@ export default function PageWheelPicker({ pages, pageIndex, onSelect }) {
                       type="button"
                       role="option"
                       aria-selected={index === selectedIndex}
-                      onClick={() => scrollToIndex(index)}
+                      onClick={() => choosePage(index)}
                       className={`flex w-full items-center gap-3 px-3 text-left transition-[color,opacity,transform] duration-150 ${
                         index === selectedIndex ? 'text-violet-100' : 'text-slate-400'
                       }`}

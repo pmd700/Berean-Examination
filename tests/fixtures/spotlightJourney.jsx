@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
-import RichTextEditor from '@/components/editor/RichTextEditor';
+import TEXT_EDITOR_MACHINERY from '@/components/editor/TEXT_EDITOR_MACHINERY';
 
 const paragraphs = count => Array.from({ length: count }, (_, index) => `<p>Research paragraph ${index + 1}. Supporting context for this section.</p>`).join('');
 const content = `${paragraphs(32)}<details><summary>Evidence and sources</summary><div data-type="detailsContent">${paragraphs(10)}<details><summary>A closer examination</summary><div data-type="detailsContent">${paragraphs(8)}<p>The <strong>conscience</strong> is a witness.</p>${paragraphs(10)}</div></details></div></details>${paragraphs(10)}`;
@@ -32,7 +32,7 @@ function Fixture() {
   const [query, setQuery] = React.useState('');
   const [token, setToken] = React.useState(0);
   start = () => { setToken(current => current + 1); setQuery('conscience'); };
-  return <MemoryRouter><RichTextEditor bare content={html} onChange={setHtml}
+  return <MemoryRouter><TEXT_EDITOR_MACHINERY bare content={html} onChange={setHtml}
     onEditorReady={instance => { editor = instance; }} spotlightQuery={query} spotlightToken={String(token)}
     onSpotlightComplete={() => setQuery('')} /></MemoryRouter>;
 }

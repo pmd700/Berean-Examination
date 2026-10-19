@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Save, X, Link2 } from 'lucide-react';
-import RichTextEditor from './RichTextEditor';
+import TEXT_EDITOR_MACHINERY from './TEXT_EDITOR_MACHINERY';
 import KeywordLinker from './KeywordLinker';
 
 export default function AnnotationPopup({ 
@@ -79,7 +79,7 @@ export default function AnnotationPopup({
                 Link Keyword (⌘/Ctrl+K)
               </Button>
             </div>
-            <RichTextEditor 
+            <TEXT_EDITOR_MACHINERY
               value={commentary}
               onChange={setCommentary}
               placeholder="Write your expository commentary here..."

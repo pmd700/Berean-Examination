@@ -56,7 +56,7 @@ describe('Knowledge Web mass import', () => {
     assert.equal(prepared.markdown, 'Body');
   });
 
-  it('restores the exact rich-note payload and title from a Mass Backup .md file', async () => {
+  it('restores the exact rich-note payload and title from a library export .md file', async () => {
     const title = 'First line\nSecond line';
     const richHtml = [
       '<table><tbody><tr><td>A</td><td>B</td></tr></tbody></table>',

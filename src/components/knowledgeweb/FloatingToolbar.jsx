@@ -47,6 +47,7 @@ export default function FloatingToolbar({
   onDrawThicknessChange,
   keybinds = {},
   onOpenRemap,
+  label = 'Knowledge Web tools',
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -72,6 +73,7 @@ export default function FloatingToolbar({
               return (
                 <button
                   key={tool.id}
+                  title={tool.description}
                   onClick={() => {
                     onModeChange(isActive ? 'hand' : tool.id);
                     setExpanded(false);
@@ -161,6 +163,7 @@ export default function FloatingToolbar({
         )}
 
         <motion.button
+          aria-label={label}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => setExpanded(!expanded)}

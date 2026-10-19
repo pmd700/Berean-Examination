@@ -5,7 +5,6 @@ Nothing in this folder is imported by the offline application.
 Preserved for a future optional Online Mode:
 
 - `BrainChatOnline.jsx` — former AI workspace interface.
-- `AIInsightsOnline.jsx` — former chapter-insights interface.
 - `server/ai.ts` — provider wrapper requiring an explicit API key.
 - `server/brainMarkdown.ts` and `server/textUtilities.ts` — pure context formatting and sanitizing helpers.
 

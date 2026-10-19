@@ -73,11 +73,14 @@ describe('Bible Study export rights policy', () => {
     assert.match(getStudyExportRightsNotice('BSB'), /berean\.bible\/terms/);
     assert.match(getStudyExportRightsNotice('LSV'), /creativecommons\.org\/licenses\/by-sa\/4\.0/);
     assert.match(getStudyExportRightsNotice('KJV'), /cambridge\.org/);
+    assert.match(getStudyExportRightsNotice('NASB1995'), /1995.*The Lockman Foundation/);
+    assert.match(getStudyExportRightsNotice({ version: 'NASB1995', api_copyright: 'Edition-specific notice' }), /Edition-specific notice/);
+    assert.match(getStudyExportRightsNotice({ version: 'NASB', api_copyright: 'Publisher-supplied NASB notice' }), /Publisher-supplied NASB notice/);
+    assert.match(getStudyExportRightsNotice({ version: 'NBLA', api_copyright: 'Derechos reservados del editor' }), /Nueva Biblia de las Américas.*\nDerechos reservados del editor/);
   });
 
   it('requires every active Bible Study exporter to use the shared policy', () => {
     const files = [
-      'src/components/study/ChapterTransfer.jsx',
       'src/components/progress/ProgressTracker.jsx',
       'src/components/drawing/DrawingEditor.jsx',
       'src/pages/Study.jsx',

@@ -30,6 +30,7 @@ export default function SegmentRenderer({
     showAnnotationPreview,
     hideAnnotationPreview,
     onAnnotationIconClick,
+    showAnnotationIcons = true,
   } = helpers;
 
   const layout = useMemo(() => buildSegmentLayout(segments || []), [segments]);
@@ -101,6 +102,7 @@ export default function SegmentRenderer({
             <React.Fragment key={tokenIdx}>
               {startsWithBreak && <br />}
               <span
+                data-annotation-ids={tokenAnns.map(ann => ann.id).join(' ') || undefined}
                 style={buildTokenStyle(highlight, tokenAnns.length)}
                 onMouseEnter={tokenAnns.length ? (e) => showAnnotationPreview(e, tokenAnns) : undefined}
                 onMouseLeave={tokenAnns.length ? hideAnnotationPreview : undefined}
@@ -119,7 +121,7 @@ export default function SegmentRenderer({
         return (
           <React.Fragment key={tokenIdx}>
             <span className="relative inline">
-              {annotation && (
+              {showAnnotationIcons && annotation && (
                 <span
                   className="absolute -left-2 top-0.5 cursor-pointer text-brand hover:text-[#5A3E87] dark:text-brand dark:hover:text-brand-strong z-10"
                   onClick={() => onAnnotationIconClick(annotation)}
@@ -129,6 +131,7 @@ export default function SegmentRenderer({
               )}
               <span
                 data-token-key={`token-${verse}-${tokenIdx}`}
+                data-annotation-ids={tokenAnns.map(ann => ann.id).join(' ') || undefined}
                 style={buildTokenStyle(highlight, tokenAnns.length)}
                 onMouseEnter={isAnnotated ? (e) => showAnnotationPreview(e, tokenAnns) : undefined}
                 onMouseLeave={isAnnotated ? hideAnnotationPreview : undefined}

@@ -2,7 +2,7 @@ import React, { useId, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { ChevronDown, ExternalLink, FileText, Lock } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { REMOVED_TRANSLATION_MESSAGE } from '@shared/removedTranslations';
+import { getRemovedTranslationMessage } from '@shared/removedTranslations';
 import ExternalWebLink from '@/components/navigation/ExternalWebLink';
 
 function slugify(str) {
@@ -116,7 +116,7 @@ function ItemDisclosure({ item }) {
             {item.name}
           </h3>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {removed ? REMOVED_TRANSLATION_MESSAGE : item.usage}
+            {removed ? getRemovedTranslationMessage(item.code) : item.usage}
           </p>
         </div>
         <span
@@ -140,7 +140,7 @@ function ItemDisclosure({ item }) {
           {removed && (
             <p className="mb-3 flex items-center gap-1.5 text-sm font-medium text-gray-600 dark:text-gray-300">
               <Lock className="w-4 h-4 shrink-0" />
-              {REMOVED_TRANSLATION_MESSAGE}
+              {getRemovedTranslationMessage(item.code)}
             </p>
           )}
           <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-300">{item.attribution}</p>

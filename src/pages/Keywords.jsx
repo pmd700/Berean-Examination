@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { confirmDialog } from '@/components/ui/confirm-dialog';
 import BackToLibraryHomeButton, { useReturnToLibraryHome } from '@/components/navigation/BackToLibraryHomeButton';
-import RichTextEditor from '../components/editor/RichTextEditor';
+import TEXT_EDITOR_MACHINERY from '../components/editor/TEXT_EDITOR_MACHINERY';
 import SaveStatusIndicator from '../components/editor/SaveStatusIndicator';
 import { useAutoSave } from '../components/editor/useAutoSave';
 import { toast } from 'sonner';
@@ -357,7 +357,7 @@ export default function Keywords() {
               <div>
                 <Label className="text-gray-700 dark:text-gray-300 mb-2">Explanation *</Label>
                 <div className="border border-gray-200 dark:border-gray-700 rounded-lg">
-                  <RichTextEditor
+                  <TEXT_EDITOR_MACHINERY
                     content={explanation}
                     onChange={setExplanation}
                     onUploadingChange={setIsUploadingImages}

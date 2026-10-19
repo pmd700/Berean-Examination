@@ -14,7 +14,7 @@ import { CollapsibleToggle, ToggleSummary, ToggleContent } from '@/components/ed
 import { SpotlightJourney, startEditorRangeSpotlight } from '@/components/editor/spotlightJourney';
 import { buildNoteBackupMarkdown, extractNoteBackupPayload } from '@/lib/noteBackupMarkdown';
 vi.mock('@/api/desktopClient', () => ({ desktopClient: { entities: { Keyword: { list: async () => [] } } } }));
-import RichTextEditor from '@/components/editor/RichTextEditor';
+import TEXT_EDITOR_MACHINERY from '@/components/editor/TEXT_EDITOR_MACHINERY';
 
 let editor;
 let trip;
@@ -180,7 +180,7 @@ describe('note pointers', () => {
   });
 
   it('shows the nonblocking mode prompt in notes and keeps the shortcut out of other editors', async () => {
-    const { unmount } = render(<MemoryRouter><RichTextEditor bare noteAnnotations content={content} onChange={() => {}} onEditorReady={instance => { editor = instance; }} /></MemoryRouter>);
+    const { unmount } = render(<MemoryRouter><TEXT_EDITOR_MACHINERY bare noteAnnotations content={content} onChange={() => {}} onEditorReady={instance => { editor = instance; }} /></MemoryRouter>);
     await waitFor(() => expect(editor).toBeTruthy());
     editor.view.dom.getBoundingClientRect = () => ({ left: 100, top: 0, right: 700, bottom: 500, width: 600, height: 500 });
     act(() => { select('source'); key('p', { metaKey: true }); });
@@ -188,7 +188,7 @@ describe('note pointers', () => {
     fireEvent.click(document.querySelector('[aria-label="Cancel pointer"]'));
     expect(getPointerState(editor.state).pending.find()).toHaveLength(0);
     unmount(); editor = null;
-    render(<MemoryRouter><RichTextEditor bare content={content} onChange={() => {}} onEditorReady={instance => { editor = instance; }} /></MemoryRouter>);
+    render(<MemoryRouter><TEXT_EDITOR_MACHINERY bare content={content} onChange={() => {}} onEditorReady={instance => { editor = instance; }} /></MemoryRouter>);
     await waitFor(() => expect(editor).toBeTruthy());
     expect(editor.schema.marks.pointerAnchor).toBeUndefined();
     expect(key('p', { metaKey: true })).toBe(false);

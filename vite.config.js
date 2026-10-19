@@ -1,9 +1,10 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import path from 'path'
+import { pdfAssetsPlugin } from './tools/vite-pdf-assets.mjs'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), pdfAssetsPlugin()],
   build: {
     rollupOptions: {
       input: {

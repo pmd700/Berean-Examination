@@ -3,7 +3,7 @@ import { desktopClient } from '@/api/desktopClient';
 import { waitForLocalEntityWritesToSettle } from '@/lib/localEntities';
 
 describe('desktopClient media backup barrier', () => {
-  it('holds a Mass Backup snapshot until a protected image upload finishes', async () => {
+  it('holds a library export snapshot until a protected image upload finishes', async () => {
     const previousDescriptor = Object.getOwnPropertyDescriptor(window, 'bexDesktop');
     let releaseUpload;
     const uploadGate = new Promise((resolve) => { releaseUpload = resolve; });

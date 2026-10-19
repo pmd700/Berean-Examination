@@ -312,6 +312,46 @@ describe('moving the block to the slot', () => {
     return result;
   }
 
+  it('moves a marquee containing a heading, prose, a blank line and numbered items into a dropdown', () => {
+    mount('<details open><summary>Professor Mindset</summary><div data-type="detailsContent"><p></p></div></details><h2>Principles:</h2><p>You find the real problem <strong>under the surface.</strong></p><p></p><ol><li><p>surface</p></li><li><p>mechanism</p></li><li><p>impact</p></li><li><p>attempt</p></li><li><p>priority</p></li></ol><p>Keep outside</p>');
+    const before = html();
+    const selected = getDraggableBlocks(editor.state.doc).filter(block => block.node.type.name === 'heading' || block.node.type.name === 'listItem' || block.depth === 0 && block.node.type.name === 'paragraph' && block.node.textContent !== 'Keep outside').map(block => block.index);
+    const target = slots().find(slot => slot.depth === 1 && slot.side === 'before');
+    const moved = moveDraggableBlocksToPos(editor.state.tr, selected, target);
+    expect(moved.changed).toBe(true);
+    editor.view.dispatch(moved.tr);
+    const body = host.querySelector('.toggle-block__body');
+    expect(body.querySelector('h2').textContent).toBe('Principles:');
+    expect(body.querySelector('strong').textContent).toBe('under the surface.');
+    expect([...body.querySelectorAll('li')].map(item => item.textContent)).toEqual(['surface', 'mechanism', 'impact', 'attempt', 'priority']);
+    expect(editor.state.doc.lastChild.textContent).toBe('Keep outside');
+    expect(host.querySelectorAll('h2')).toHaveLength(1);
+    editor.commands.undo(); expect(html()).toBe(before);
+    editor.commands.redo(); expect(host.querySelector('.toggle-block__body ol')).toBeTruthy();
+  });
+
+  it('moves prose and a partial numbered list together while retaining the unselected entries and numbering', () => {
+    mount('<details open><summary>Target</summary><div data-type="detailsContent"><p>Existing</p></div></details><p>Carry prose</p><ol start="4"><li><p>Carry first</p></li><li><p>Carry second</p></li><li><p>Leave third</p></li></ol><p>Outside</p>');
+    const selected = getDraggableBlocks(editor.state.doc).filter(block => block.node.textContent.startsWith('Carry')).map(block => block.index);
+    const moved = moveDraggableBlocksToPos(editor.state.tr, selected, slots().find(slot => slot.depth === 1 && slot.side === 'after'));
+    expect(moved.changed).toBe(true); editor.view.dispatch(moved.tr);
+    expect(host.querySelector('.toggle-block__body').textContent).toBe('ExistingCarry proseCarry firstCarry second');
+    expect(host.querySelector('.toggle-block__body ol').getAttribute('start')).toBe('4');
+    expect(editor.state.doc.child(1).textContent).toBe('Leave third');
+    expect(editor.state.doc.lastChild.textContent).toBe('Outside');
+    editor.state.doc.check();
+  });
+
+  it('rejects mixed selections with a gap and a dropdown dropped into itself without changing any source text', () => {
+    mount('<details open><summary>Target</summary><div data-type="detailsContent"><p>Existing</p></div></details><p>Carry prose</p><ol><li><p>Leave first</p></li><li><p>Carry second</p></li></ol>');
+    const before = editor.getJSON(), rows = getDraggableBlocks(editor.state.doc);
+    const target = slots().find(slot => slot.depth === 1 && slot.side === 'before');
+    const selected = rows.filter(block => block.node.textContent.startsWith('Carry')).map(block => block.index);
+    expect(moveDraggableBlocksToPos(editor.state.tr, selected, target).changed).toBe(false);
+    expect(moveDraggableBlocksToPos(editor.state.tr, [0, 1], target).changed).toBe(false);
+    expect(editor.getJSON()).toEqual(before);
+  });
+
   it('files a top-level block into the toggle', () => {
     mount();
     const target = slots().find((slot) => slot.depth === 1 && slot.side === 'before'

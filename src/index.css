@@ -1,5 +1,20 @@
 @import './styles/theme.css';
+@import './styles/emoji.css';
 @import './styles/timegraph.css';
+@import './styles/splitView.css';
+
+@keyframes bex-reader-scroll-reveal {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.bex-reader-scroll {
+  animation: bex-reader-scroll-reveal 2.4s ease-in-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bex-reader-scroll { animation: none; }
+}
 
 @tailwind base;
 @tailwind components;
@@ -679,7 +694,7 @@ table.rt-table p,
 /* ── Rich Bible (segment) rendering ─────────────────────────────────────── */
 
 .bible-rich-para {
-  margin-bottom: 1.25rem;
+  margin-bottom: 1rem;
   text-align: left;
 }
 
@@ -777,7 +792,7 @@ table.rt-table p,
   word-break: break-all;
 }
 
-/* ── ⌘F + Spotlight highlights (RichTextEditor) ──
+/* ── ⌘F + Spotlight highlights (TEXT_EDITOR_MACHINERY) ──
    Purple is BEX's navigation colour: all hits stay readable and the exact
    destination receives a brief ring without changing the saved document. */
 .bex-find-hit {

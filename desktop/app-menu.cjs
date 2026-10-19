@@ -60,6 +60,7 @@ function buildTemplate(app) {
     },
     {
       label: 'Window',
+      role: 'windowMenu',
       submenu: [
         { role: 'minimize' },
         { role: 'zoom' },

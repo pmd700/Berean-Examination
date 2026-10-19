@@ -1,0 +1,12 @@
+.bex-bible-picker {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(760px, var(--radix-popover-content-available-height, 85vh));
+  display: flex;
+  flex-direction: column;
+}
+.bex-bible-picker__list {
+  min-height: 0;
+  max-height: min(580px, 65vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}

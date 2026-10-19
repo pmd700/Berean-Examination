@@ -1,0 +1,8 @@
+/* Local fallback also serves SVG/canvas labels through APP_FONT_FAMILY. */
+@font-face {
+  font-family: "BEX Color Emoji";
+  src: url('./fonts/Noto-COLRv1.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}

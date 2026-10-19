@@ -13,6 +13,7 @@
     "bibles:proof": "node --test tests/localBibleImport.test.cjs",
     "backup:proof": "node tools/run-local-backup-proof.cjs",
     "asset:proof": "node tools/run-local-asset-proof.cjs",
+    "attachment:proof": "node tools/run-local-attachment-proof.cjs",
     "ai-prompts:proof": "node --test tests/aiPromptContracts.test.js",
     "chapter-art:proof": "node tools/run-local-chapter-art-proof.cjs",
     "course:proof": "node tools/run-local-course-proof.cjs",
@@ -43,6 +44,8 @@
     "shutdown:proof": "node --test tests/shutdownBackup.test.cjs",
     "startup:network-proof": "node tools/run-offline-startup-network-proof.cjs",
     "study:proof": "node tools/run-local-study-proof.cjs",
+    "split-view:proof": "electron tools/run-split-view-proof.cjs",
+    "annotation-gutter:proof": "electron tools/run-annotation-gutter-proof.cjs",
     "typecheck": "tsc -p ./jsconfig.json",
     "preview": "vite preview",
     "desktop:dev": "electron .",
@@ -136,6 +139,7 @@
     "react-hot-toast": "^2.6.0",
     "react-leaflet": "^4.2.1",
     "react-markdown": "^9.0.1",
+    "react-pdf": "10.5.0",
     "react-resizable-panels": "^2.1.7",
     "react-router-dom": "^6.26.0",
     "recharts": "^2.15.4",
@@ -149,7 +153,8 @@
     "tiptap-markdown": "^0.8.2",
     "tsx": "^4.21.0",
     "vaul": "^1.1.2",
-    "zod": "^3.24.2"
+    "zod": "^3.24.2",
+    "mdast-util-from-markdown": "^2.0.2"
   },
   "overrides": {
     "esbuild": "^0.25.10"

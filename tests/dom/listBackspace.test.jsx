@@ -10,7 +10,7 @@ import { ListExitBoundaries } from '@/components/editor/ListExitBoundaryExtensio
 vi.mock('@/api/desktopClient', () => ({
   desktopClient: { entities: { Keyword: { list: async () => [] } } },
 }));
-import RichTextEditor from '@/components/editor/RichTextEditor';
+import TEXT_EDITOR_MACHINERY from '@/components/editor/TEXT_EDITOR_MACHINERY';
 
 let editor;
 afterEach(() => { act(() => editor?.destroy()); editor = null; });
@@ -38,7 +38,7 @@ function backspace() {
 describe('Backspace at a list marker', () => {
   it('removes the bullet in the shared editor, keeping the blank line, bold text and quote', async () => {
     const content = '<h2>Arguments</h2><p></p><ul><li><p><strong>Matthew 5:27-28</strong></p></li></ul><blockquote><p>The quotation</p></blockquote>';
-    render(<MemoryRouter><RichTextEditor content={content} onChange={() => {}} onEditorReady={instance => { editor = instance; }} bare /></MemoryRouter>);
+    render(<MemoryRouter><TEXT_EDITOR_MACHINERY content={content} onChange={() => {}} onEditorReady={instance => { editor = instance; }} bare /></MemoryRouter>);
     await waitFor(() => expect(editor).toBeTruthy());
     editor.setOptions({ editorProps: { handleScrollToSelection: () => true } });
     const original = editor.getJSON();

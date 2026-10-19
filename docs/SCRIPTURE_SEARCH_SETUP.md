@@ -15,7 +15,7 @@ This document covers the features and corrections discussed in this chat, includ
 - [x] Enlarge its purple hover/grab area: the current handle is 28 × 30 px with 4 px dots.
 - [x] Preserve block dragging and the existing block-type menu.
 
-Implementation: `src/index.css`, `src/components/editor/BlockDragExtension.js`, and `src/components/editor/RichTextEditor.jsx`.
+Implementation: `src/index.css`, `src/components/editor/BlockDragExtension.js`, and `src/components/editor/TEXT_EDITOR_MACHINERY.jsx`.
 
 ## 2. Timeline “New event” uses today's exact date
 
@@ -52,7 +52,7 @@ Implementation: `src/components/editor/slashCommands.js`, `src/components/editor
 - [x] Remove the command text during conversion and retain the paragraph's content and formatting.
 - [x] Preserve the **Quote** option in the six-dot block menu.
 
-Implementation: `src/components/editor/slashCommands.js` and `src/components/editor/RichTextEditor.jsx`. Checks: `tests/dom/slashQuote.test.jsx`.
+Implementation: `src/components/editor/slashCommands.js` and `src/components/editor/TEXT_EDITOR_MACHINERY.jsx`. Checks: `tests/dom/slashQuote.test.jsx`.
 
 ## 5. Backspace at bullets and numbered items
 

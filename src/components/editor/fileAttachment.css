@@ -1,0 +1,20 @@
+.ProseMirror .bex-file-attachment {
+  margin: .45rem 0;
+  max-width: 100%;
+  color: rgb(var(--ink));
+  border-radius: .5rem;
+}
+.bex-file-attachment__row { display: flex; align-items: center; gap: .25rem; }
+.bex-file-attachment__open {
+  display: inline-flex; align-items: center; gap: .65rem; min-width: 0;
+  max-width: 100%; padding: .5rem .6rem; border-radius: .4rem;
+  text-align: left; font-size: 14px; line-height: 1.4;
+}
+.bex-file-attachment__open svg { flex-shrink: 0; color: rgb(var(--ink-soft)); }
+.bex-file-attachment__open span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bex-file-attachment__open:hover, .bex-file-attachment__menu:hover { background: rgb(var(--ink) / .055); }
+.bex-file-attachment__menu { padding: .35rem; border-radius: .4rem; color: rgb(var(--ink-soft)); }
+.bex-file-attachment__open:focus-visible, .bex-file-attachment__menu:focus-visible { outline: 2px solid rgb(var(--brand-strong)); outline-offset: 2px; }
+.bex-file-attachment__open:disabled { opacity: .55; }
+.bex-file-attachment.is-selected { outline: 1px solid rgb(var(--brand-strong) / .45); }
+.bex-file-attachment__error { padding: 0 .6rem; font-size: 12px; color: #d18686; }

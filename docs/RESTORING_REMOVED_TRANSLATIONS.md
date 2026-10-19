@@ -4,7 +4,29 @@
 > were removed for legal/copyright compliance. It contains **no verse text** of
 > any kind. Do not paste scripture into this file.
 
-## What was removed and why
+## NASB 1995 API restoration — October 12, 2026
+
+NASB 1995 is available through the existing guarded API.Bible reader when the
+configured key has access to edition `b8ee27bcd1cae43a-01`. This exact edition
+was confirmed against the live catalog and Romans 3 response. The API's `NASB`
+abbreviation refers to the separate 2020 edition and must not be substituted.
+
+The Study removal check now accepts this API source. Older NASB 1995 study
+links fetch fresh scripture through that edition while retaining their IDs,
+personal writing, and annotation locators. API bodies remain in the bounded
+session cache and ephemeral reader view; new study parents store metadata and
+personal writing only. The footer retains the copyright supplied by the API,
+with a NASB 1995 notice as fallback, plus Lockman and API.Bible links.
+
+This does not reinstate the retired downloaded NASB 1995 package. NLT and the
+retired local NASB 2020 source retain their existing removal status. The sections
+below document the original local-source removal and restoration path.
+
+The removal message is already present in the first tracked commit, `19ffc59`,
+dated October 8, 2026 at 18:56:43 -05:00. Its creation before that commit cannot
+be determined from the available Git history.
+
+## What was removed and why (historical)
 
 To comply with copyright/licensing constraints, the **verse text** of three
 translations was deleted from every persisted location and made unreachable in
@@ -72,3 +94,9 @@ The three parser proofs use **synthetic, invented** content to exercise source
 formats, archive ordering, verse numbers, note markers, footnote asides, italics,
 and small-caps divine names. Keep fixtures synthetic—never paste copyrighted
 scripture into tests.
+
+## Publisher footnotes — October 13, 2026
+
+API reading requests already use `include-notes=true`, as documented in the [API.Bible passage guide](https://docs.api.bible/guides/passages/). The converter now retains each returned note's exact character offset, including leading whitespace normalization, and the reader inserts its marker at that position without changing scripture token indices or clipboard text. Publisher italics in JSON note bodies are retained.
+
+Live verification of Matthew 16:17–20 found no note nodes in the authorized NASB 1995 edition (`b8ee27bcd1cae43a-01`) in JSON or HTML. A full Matthew 16 chapter request and a request without verse wrappers also contained no notes. NASB 2020 (`a761ca71e0b3ddcf-01`) returned eight notes for the passage. NASB 1995 supports the same inline rendering if its API feed supplies notes; notes from another edition are not substituted. The absence of 1995 notes is an upstream content limitation, not a reader visibility setting.

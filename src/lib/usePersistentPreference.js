@@ -42,6 +42,7 @@ function isDesktop() {
  */
 export function usePersistentPreference(key, fallback) {
   const [value, setValue] = React.useState(() => readCached(key, fallback));
+  const [ready, setReady] = React.useState(() => !isDesktop());
   // A choice made in this session must not be overwritten by a slower read of
   // the stored value that was already in flight.
   const touched = React.useRef(false);
@@ -65,6 +66,7 @@ export function usePersistentPreference(key, fallback) {
         setValue(stored);
         writeCached(key, stored);
       } catch { /* not signed in yet — the cached value stands */ }
+      finally { if (!cancelled) setReady(true); }
     })();
     return () => { cancelled = true; };
   }, [key]);
@@ -74,6 +76,8 @@ export function usePersistentPreference(key, fallback) {
   React.useEffect(() => {
     const onChange = (event) => {
       if (event.detail?.key !== key) return;
+      touched.current = true;
+      latest.current = event.detail.value;
       setValue(event.detail.value);
     };
     window.addEventListener(CHANGE_EVENT, onChange);
@@ -98,7 +102,7 @@ export function usePersistentPreference(key, fallback) {
     })();
   }, [key]);
 
-  return [value, update];
+  return /** @type {[any, (next: any) => void, boolean]} */ ([value, update, ready]);
 }
 
 export default usePersistentPreference;

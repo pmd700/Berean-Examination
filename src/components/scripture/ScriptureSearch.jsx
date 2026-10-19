@@ -9,6 +9,7 @@ import {
   clearScriptureKey, getScriptureSetup, saveScriptureKey, SCRIPTURE_SETUP_CHANGED_EVENT,
 } from '@/lib/scriptureSetup';
 import { useOptionalWorkspaceTabs, TAB_KINDS } from '@/lib/WorkspaceTabs';
+import { useFavoriteBible } from '@/lib/favoriteBible';
 import './scriptureSearch.css';
 import freeUseBibleLogo from './free-use-bible-api.png';
 
@@ -36,10 +37,11 @@ function RouterNavigator({ navRef }) {
   return null;
 }
 
-export default function ScriptureSearch({ onSearch, initialQuery = '', className = '' } = {}) {
+export default function ScriptureSearch({ onSearch, initialQuery = '', className = '', showSearchIcon = true } = {}) {
   const inRouter = useInRouterContext();
   const navRef = React.useRef(null);
   const workspaceTabs = useOptionalWorkspaceTabs();
+  const [favoriteBible] = useFavoriteBible();
   const [configured, setConfigured] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
@@ -198,7 +200,7 @@ export default function ScriptureSearch({ onSearch, initialQuery = '', className
             if (onSearch) {
               onSearch(clean);
             }
-            const targetPath = `/Study?q=${encodeURIComponent(clean)}`;
+            const targetPath = `/Study?q=${encodeURIComponent(clean)}${!onSearch && favoriteBible ? `&version=${encodeURIComponent(`API:${favoriteBible.id}`)}` : ''}`;
             if (workspaceTabs) {
               const { tabs, activeTab, openTab, updateTab, selectTab } = workspaceTabs;
               const patch = {
@@ -226,7 +228,7 @@ export default function ScriptureSearch({ onSearch, initialQuery = '', className
               setMessage('Your API key is saved. Scripture search is coming next.');
             }
           }}>
-            <BookOpen className="h-4 w-4 shrink-0" aria-hidden="true" />
+            {showSearchIcon && <BookOpen className="h-4 w-4 shrink-0" aria-hidden="true" />}
             <input ref={searchRef} type="search" value={query} maxLength={200} onChange={(event) => { setQuery(event.target.value); setMessage(''); }} onKeyDown={(event) => {
               if (event.key === 'Escape') { setMessage(''); searchRef.current?.blur(); }
             }} placeholder="Search scripture…" aria-label="Search scripture" aria-describedby={message ? messageId : undefined} className="min-w-0 flex-1 border-0 bg-transparent text-sm outline-none" />

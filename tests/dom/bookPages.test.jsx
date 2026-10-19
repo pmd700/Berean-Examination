@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -30,6 +30,7 @@ import {
 } from '@/components/notes/bookModel';
 
 afterEach(() => {
+  vi.unstubAllGlobals();
   window.localStorage.removeItem('bex_workspace_tabs_v1');
   window.localStorage.removeItem('text_size');
   document.documentElement.removeAttribute('style');
@@ -292,6 +293,46 @@ describe('the overview', () => {
 });
 
 describe('page titles', () => {
+  it('restores a title measured while its workspace tab was hidden without editing the note', async () => {
+    let active = false;
+    vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockImplementation(() => active ? 56 : 0);
+    const note = { id: 138, title: 'The Nazarenes 🏘️', content: '<p>Final Product</p>' };
+    const pane = () => <MemoryRouter><ActiveTabProvider isActive={active}>
+      <div style={{ display: active ? 'block' : 'none' }}><NoteEditorPanel noteId={138} notes={[note]} /></div>
+    </ActiveTabProvider></MemoryRouter>;
+    const view = render(pane());
+    const title = screen.getByTestId('input-note-title');
+    active = true;
+    view.rerender(pane());
+    expect(title.value).toBe('The Nazarenes 🏘️');
+    expect(title.style.height).toBe('56px');
+  });
+
+  it('does not collapse the title to zero height when a layout measurement is unavailable', () => {
+    render(<MemoryRouter><NoteEditorPanel noteId={139} notes={[{
+      id: 139, title: 'The Nazarenes 🏘️', content: '<p>Final Product</p>',
+    }]} /></MemoryRouter>);
+    expect(screen.getByTestId('input-note-title').style.height).not.toBe('0px');
+  });
+
+  it('remeasures wrapped titles after a width change and disconnects its observer on close', () => {
+    const observations = [];
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(callback) { this.callback = callback; this.disconnect = vi.fn(); }
+      observe(element) { observations.push({ element, observer: this }); }
+    });
+    const view = render(<MemoryRouter><NoteEditorPanel noteId={140} notes={[{
+      id: 140, title: 'The Nazarenes 🏘️ and their historical sources', content: '<p>Final Product</p>',
+    }]} /></MemoryRouter>);
+    const title = screen.getByTestId('input-note-title');
+    Object.defineProperty(title, 'scrollHeight', { configurable: true, get: () => 112 });
+    const { observer } = observations.findLast(entry => entry.element === title);
+    act(() => observer.callback([{ target: title }]));
+    expect(title.style.height).toBe('112px');
+    view.unmount();
+    expect(observer.disconnect).toHaveBeenCalledOnce();
+  });
+
   it('remeasures a wrapped title when the shared text size reaches maximum', async () => {
     render(
       <MemoryRouter>

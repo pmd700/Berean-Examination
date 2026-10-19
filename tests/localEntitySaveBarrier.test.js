@@ -7,7 +7,7 @@ import {
   waitForLocalEntityWritesToSettle,
 } from '../src/lib/localEntities.js';
 
-test('Mass Backup save barrier waits for writes and remembers failures until retry succeeds', async () => {
+test('library export save barrier waits for writes and remembers failures until retry succeeds', async () => {
   const previousWindow = globalThis.window;
   let mode = 'slow-success';
   globalThis.window = {

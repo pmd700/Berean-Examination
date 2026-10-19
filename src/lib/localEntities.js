@@ -1,3 +1,5 @@
+import { publishNoteChange } from './noteChanges.js';
+
 function requireDesktopEntities() {
   const desktopApi = typeof window === 'undefined' ? null : window.bexDesktop;
   if (!desktopApi?.isDesktop) {
@@ -10,16 +12,27 @@ let activeMutationCount = 0;
 let mutationSequence = 0;
 let lastMutationActivityAt = 0;
 const unresolvedMutationFailures = new Map();
-const MASS_BACKUP_ENTITY_TYPES = new Set([
+const EXPORT_ENTITY_TYPES = new Set([
   'KnowledgeWeb',
   'MindNote',
   'Timegraph',
   'WebCard',
   'WebConnection',
   'CanvasObject',
+  'Annotation',
+  'Drawing',
+  'Keyword',
+  'StudyChapter',
+  'StudyCanvasObject',
+  'StudyConnection',
+  'TextHighlight',
+  'MindLink',
+  'WebFolder',
 ]);
 const latestMutationByScope = new Map();
 const successfulDeletionByEntity = new Map();
+
+export function localEntityMutationRevision() { return mutationSequence; }
 
 function mutationScopeKey(entityType, action, entityId, field) {
   return `${entityType}:${action}:${entityId ?? 'collection'}:${field}`;
@@ -50,7 +63,7 @@ async function trackMutation(
   operation,
   { fields = ['*'], supersedesEntityFailures = false } = {},
 ) {
-  if (!MASS_BACKUP_ENTITY_TYPES.has(entityType)) return operation();
+  if (!EXPORT_ENTITY_TYPES.has(entityType)) return operation();
   const sequence = recordMutationActivity();
   const normalizedFields = Array.from(new Set(
     (Array.isArray(fields) ? fields : [])
@@ -97,7 +110,7 @@ async function trackMutation(
     activeMutationCount = Math.max(0, activeMutationCount - 1);
     // Work such as a protected image upload can synchronously schedule an
     // editor debounce when its promise settles. Restart the quiet window here,
-    // not only when work starts, so Mass Backup waits for that follow-up save.
+    // not only when work starts, so Export waits for that follow-up save.
     recordMutationActivity();
   }
 }
@@ -129,12 +142,13 @@ export async function runWithLocalBackupBarrier(operation) {
  * timelines without each editor having to expose a bespoke backup hook.
  *
  * A failed autosave remains unresolved until that same mutation succeeds on a
- * retry. Mass Backup must surface that failure instead of archiving stale disk
- * state with a green confirmation.
+ * retry. Exports must surface that failure instead of using stale disk state
+ * with a green confirmation. operationName selects the relevant retry message.
  */
 export async function waitForLocalEntityWritesToSettle({
   quietMs = 800,
   timeoutMs = 15_000,
+  operationName = 'Export',
 } = {}) {
   if (!Number.isFinite(quietMs) || quietMs < 0 || quietMs > 5000) {
     throw new RangeError('The local-save quiet window is invalid.');
@@ -158,7 +172,7 @@ export async function waitForLocalEntityWritesToSettle({
       if (unresolvedMutationFailures.size > 0) {
         const failure = unresolvedMutationFailures.values().next().value;
         const error = new Error(
-          `BEX could not save recent ${failure.entityType} changes. Fix the save error, then try Mass Backup again. Nothing was written.`,
+          `BEX could not save recent ${failure.entityType} changes. Fix the save error, then try ${operationName} again. Nothing was written.`,
         );
         error.cause = failure.error;
         error.code = 'BEX_PENDING_SAVE_FAILED';
@@ -168,7 +182,7 @@ export async function waitForLocalEntityWritesToSettle({
     }
 
     if (now - startedAt >= timeoutMs) {
-      throw new Error('BEX is still saving recent edits. Wait a moment, then try Mass Backup again. Nothing was written.');
+      throw new Error(`BEX is still saving recent edits. Wait a moment, then try ${operationName} again. Nothing was written.`);
     }
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
@@ -242,7 +256,7 @@ function entityClient(entityType) {
      * Reads one stable, id-ordered page.
      *
      * Ordinary `list` calls intentionally keep their bounded API. Workflows
-     * that must visit every record (for example Mass Backup) use this cursor
+     * that must visit every record (for example Export) use this cursor
      * form repeatedly instead of treating the 5,000-row safety ceiling as the
      * end of the collection. The cursor is the last local entity id returned,
      * so deletions or insertions before it cannot shift later pages.
@@ -278,10 +292,14 @@ function entityClient(entityType) {
       ));
     },
     async update(entityId, patch) {
-      return trackMutation(entityType, 'update', entityId, async () => requireRecord(
-        await requireDesktopEntities().updateLocalEntity(entityType, entityId, patch),
-        'BEX could not update the local record.',
-      ), { fields: Object.keys(patch || {}) });
+      return trackMutation(entityType, 'update', entityId, async () => {
+        const record = requireRecord(
+          await requireDesktopEntities().updateLocalEntity(entityType, entityId, patch),
+          'BEX could not update the local record.',
+        );
+        if (entityType === 'MindNote') publishNoteChange({ operation: 'update', id: entityId, record, fields: Object.keys(patch || {}) });
+        return record;
+      }, { fields: Object.keys(patch || {}) });
     },
     async reorder(entityIds, containerId = null) {
       return trackMutation(entityType, 'reorder', containerId, async () => {
@@ -302,6 +320,7 @@ function entityClient(entityType) {
         if (!result?.ok || !result.result?.deleted) {
           throw responseError(result, 'BEX could not delete the local record.');
         }
+        if (entityType === 'MindNote') publishNoteChange({ operation: 'delete', id: entityId });
         return result.result;
       }, { supersedesEntityFailures: true });
     },

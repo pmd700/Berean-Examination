@@ -163,51 +163,39 @@ export function updateTimegraph(id, updater) {
 function scheduleSave(id) {
   const entry = getEntry(id);
   clearTimeout(entry.timer);
-  entry.timer = setTimeout(() => { flushTimegraph(id); }, AUTOSAVE_DELAY_MS);
+  entry.timer = setTimeout(() => { flushTimegraph(id).catch(() => {}); }, AUTOSAVE_DELAY_MS);
 }
 
 /**
  * Writes now rather than on the debounce. Used by the Save button and before a
  * surface unmounts, so a fast edit-then-close can't lose the last keystroke.
  */
-export async function flushTimegraph(id) {
+export function flushTimegraph(id) {
   const entry = getEntry(id);
   clearTimeout(entry.timer);
   entry.timer = null;
-  if (!entry.record || !entry.dirty) return entry.record;
-
-  // A save already in flight: mark dirty and let it re-run when it lands, so two
-  // rapid edits can't interleave into a lost update.
-  if (entry.inFlight) {
-    entry.pendingAgain = true;
-    return entry.record;
-  }
-
-  entry.inFlight = true;
-  entry.dirty = false;
-  patchEntry(id, { saveState: 'saving' });
-  try {
-    const saved = await platformEntities.Timegraph.update(id, toStoredShape(entry.record));
-    entry.inFlight = false;
-    // Keep whatever the user typed while the write was in flight; only take the
-    // database's timestamps back.
-    patchEntry(id, {
-      saveState: 'saved',
-      record: { ...entry.record, updated_date: saved?.updated_date ?? entry.record.updated_date },
-    });
-    if (entry.pendingAgain) {
-      entry.pendingAgain = false;
-      entry.dirty = true;
-      scheduleSave(id);
+  if (entry.flushPromise) return entry.flushPromise;
+  if (!entry.record || !entry.dirty) return Promise.resolve(entry.record);
+  // Refresh must await both the current write and any movement/edit made while
+  // that write was in flight. All callers share this one drain promise.
+  entry.flushPromise = (async () => {
+    while (entry.record && entry.dirty) {
+      clearTimeout(entry.timer); entry.timer = null;
+      entry.inFlight = true; entry.dirty = false;
+      patchEntry(id, { saveState: 'saving' });
+      try {
+        const saved = await platformEntities.Timegraph.update(id, toStoredShape(entry.record));
+        patchEntry(id, { record: { ...entry.record, updated_date: saved?.updated_date ?? entry.record.updated_date }, error: null });
+      } catch (error) {
+        entry.dirty = true;
+        patchEntry(id, { saveState: 'error', error });
+        throw error;
+      } finally { entry.inFlight = false; }
     }
+    patchEntry(id, { saveState: 'saved' });
     return entry.record;
-  } catch (error) {
-    entry.inFlight = false;
-    // Keep it dirty so the next edit — or an explicit Save — retries.
-    entry.dirty = true;
-    patchEntry(id, { saveState: 'error', error });
-    throw error;
-  }
+  })().finally(() => { entry.flushPromise = null; });
+  return entry.flushPromise;
 }
 
 export function getTimegraphSnapshot(id) {

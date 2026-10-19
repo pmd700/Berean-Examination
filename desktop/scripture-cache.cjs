@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * In-memory / disk cache with bounded capacity and licensing lifetimes:
+ * Session-only cache with bounded capacity and licensing lifetimes:
  * - Catalog: 24-hour freshness
  * - Book/Chapter maps: 7-day freshness
  * - Scripture content (passages, verses, chapters): 14-day freshness, max 499 verses per Bible
@@ -12,6 +12,8 @@ class ScriptureCache {
     this.catalog = null;
     this.catalogTime = 0;
     this.books = new Map(); // bibleId -> { time, data }
+    this.expiryTimer = setInterval(() => this.pruneExpired(), 60 * 60 * 1000);
+    this.expiryTimer.unref?.();
     this.content = new Map(); // `${bibleId}:${type}:${id}` -> { time, verseCount, data }
   }
 
@@ -49,6 +51,7 @@ class ScriptureCache {
 
   // --- Content (14 days, max 499 verses per Bible) ---
   getContent(bibleId, type, id) {
+    this.pruneExpired();
     const key = `${bibleId}:${type}:${id}`;
     const entry = this.content.get(key);
     if (!entry) return null;
@@ -62,8 +65,18 @@ class ScriptureCache {
     return entry.data;
   }
 
-  setContent(bibleId, type, id, data, verseCount = 1) {
+  pruneExpired() {
+    const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
+    for (const [key, value] of this.content) if (value.time < cutoff) this.content.delete(key);
+  }
+
+  setContent(bibleId, type, id, data, verseCount) {
+    this.pruneExpired();
+    // Unknown coverage and oversized bundles may be displayed for this search,
+    // but must never defeat the bounded cache by pretending to contain one verse.
+    if (!Number.isSafeInteger(verseCount) || verseCount < 1 || verseCount > this.maxVersesPerBible) return;
     const key = `${bibleId}:${type}:${id}`;
+    this.content.delete(key); // Replacing a bundle must not double-count it.
     // Prune if Bible exceeds max verses
     let currentVerses = 0;
     const bibleEntries = [];

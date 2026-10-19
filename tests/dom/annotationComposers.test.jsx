@@ -11,7 +11,7 @@ vi.mock('@/api/desktopClient', () => ({
   },
 }));
 
-import RichTextEditor from '@/components/editor/RichTextEditor';
+import TEXT_EDITOR_MACHINERY from '@/components/editor/TEXT_EDITOR_MACHINERY';
 import { collectFootnotes } from '@/components/editor/FootnoteExtension';
 import { collectTooltips } from '@/components/editor/TooltipExtension';
 
@@ -30,7 +30,7 @@ function mountNote(content = '<p>Paul writes plainly here</p>') {
   const api = {};
   const view = render(
     <MemoryRouter>
-      <RichTextEditor
+      <TEXT_EDITOR_MACHINERY
         content={content}
         onChange={() => {}}
         onEditorReady={(editor) => { api.editor = editor; }}

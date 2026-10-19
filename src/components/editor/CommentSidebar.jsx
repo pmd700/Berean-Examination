@@ -8,7 +8,7 @@ import {
   ESTIMATED_COMMENT_CARD_HEIGHT,
 } from './commentLayoutModel';
 import LogicRichHtml from '../logic/LogicRichHtml';
-import RichTextEditor from './RichTextEditor';
+import TEXT_EDITOR_MACHINERY from './TEXT_EDITOR_MACHINERY';
 
 const EDITING_WIDTH = 264;  // room to actually write in
 const MAX_WIDTH = 280;      // a saved card never grows past this
@@ -368,7 +368,7 @@ export default function CommentSidebar({ editor, anchorRef, tailSpacerRef }) {
             }}
             data-testid="input-comment-text"
           >
-            <RichTextEditor
+            <TEXT_EDITOR_MACHINERY
               nested
               bare
               content={value}

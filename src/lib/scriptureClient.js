@@ -79,52 +79,74 @@ export async function getScriptureUsage() {
 }
 
 /**
- * Dispatches a queue of content units with a max concurrency of 2.
- * Calls onProgress({ completed, total, currentResult }) as each unit completes.
+ * A bounded, cancellable batch. Completed units survive cancellation/retry and
+ * every progress snapshot uses the original request order, not completion order.
+ * @param {Array<{id: string, type: string}>} requests
+ * @param {{bibleId?: string, onProgress?: (snapshot: any) => void, batchId?: string,
+ * signal?: AbortSignal, initialResults?: any[], indexes?: number[], timeoutMs?: number}} options
  */
-export async function fetchScriptureBatch(requests, { bibleId, onProgress, batchId } = {}) {
-  const results = new Array(requests.length);
-  let completedCount = 0;
-  const total = requests.length;
-
-  let nextIndex = 0;
-  const maxConcurrency = 2;
-
+export async function fetchScriptureBatch(requests, {
+  bibleId, onProgress, batchId = crypto.randomUUID(), signal,
+  initialResults = [], indexes = requests.map((_, index) => index), timeoutMs = 20000,
+} = {}) {
+  const controller = new AbortController();
+  const activeRequests = new Set();
+  const results = requests.map((req, index) => initialResults[index] || { req, status: 'pending', data: null });
+  let cursor = 0;
+  let timedOut = false;
+  const report = () => onProgress?.({
+    completed: results.filter(result => result.status === 'success' || result.status === 'error').length,
+    total: requests.length, results: [...results],
+  });
+  const abort = () => {
+    controller.abort();
+    for (const id of activeRequests) void cancelScriptureRequest(id);
+  };
+  signal?.addEventListener('abort', abort, { once: true });
+  if (signal?.aborted) abort();
+  const timer = setTimeout(() => { timedOut = true; abort(); }, timeoutMs);
+  for (const index of indexes) results[index] = { req: requests[index], status: 'pending', data: null };
+  report();
   async function worker() {
-    while (nextIndex < requests.length) {
-      const idx = nextIndex++;
-      const req = requests[idx];
-      const reqId = `${batchId || 'batch'}-${idx}-${req.id}`;
-
+    while (cursor < indexes.length && !controller.signal.aborted) {
+      const index = indexes[cursor++];
+      const req = requests[index];
+      const requestId = `${batchId}-${index}`;
+      activeRequests.add(requestId);
+      results[index] = { req, status: 'loading', data: null };
+      report();
+      let onAbort;
       try {
-        const res = await fetchScriptureContent({
-          bibleId,
-          type: req.type,
-          id: req.id,
-          requestId: reqId,
+        const aborted = new Promise((_, reject) => {
+          onAbort = () => reject(new Error(timedOut ? 'This search timed out. Retry this passage.' : 'Loading cancelled.'));
+          controller.signal.addEventListener('abort', onAbort, { once: true });
+          if (controller.signal.aborted) onAbort();
         });
-        results[idx] = { req, data: res.data, meta: res.meta, cached: res.cached, error: null };
-      } catch (err) {
-        results[idx] = { req, data: null, meta: null, cached: false, error: err.message };
-      }
-
-      completedCount += 1;
-      if (typeof onProgress === 'function') {
-        onProgress({
-          completed: completedCount,
-          total,
-          latest: results[idx],
-          results: [...results],
-        });
+        const response = await Promise.race([
+          fetchScriptureContent({ bibleId, type: req.type, id: req.id, requestId }), aborted,
+        ]);
+        results[index] = { req, ...response, status: 'success', error: null };
+      } catch (error) {
+        results[index] = { req, data: null, status: controller.signal.aborted ? 'cancelled' : 'error', error: error.message };
+      } finally {
+        controller.signal.removeEventListener('abort', onAbort);
+        activeRequests.delete(requestId);
+        report();
       }
     }
   }
-
-  const workers = [];
-  for (let w = 0; w < Math.min(maxConcurrency, requests.length); w++) {
-    workers.push(worker());
+  try {
+    await Promise.all(Array.from({ length: Math.min(2, indexes.length) }, () => worker()));
+    if (controller.signal.aborted) {
+      for (const index of indexes) if (results[index].status === 'pending') {
+        results[index] = { req: requests[index], data: null, status: 'cancelled',
+          error: timedOut ? 'This search timed out. Retry this passage.' : 'Loading cancelled.' };
+      }
+    }
+    report();
+    return results;
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', abort);
   }
-  await Promise.all(workers);
-
-  return results;
 }

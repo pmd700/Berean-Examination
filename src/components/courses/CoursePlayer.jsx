@@ -376,7 +376,7 @@ export default function CoursePlayer({ course, lesson, onClose, onProgressSaved,
           />
         </div>
 
-        <div className="flex items-center justify-between gap-3">
+        <div className="bex-player-controls flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-1">
             <PlayerButton label={playing ? 'Pause' : 'Play'} onClick={togglePlayback}>
               {playing ? <Pause className="h-5 w-5 fill-current" /> : <Play className="ml-0.5 h-5 w-5 fill-current" />}

@@ -1,7 +1,33 @@
 import { desktopClient } from '@/api/desktopClient';
+import { registerPendingEditorSave } from '@/lib/pendingEditorSaves';
 
 let _debounceTimer = null;
 let _lastPayload = null;
+let _pendingPayload = null;
+let _inFlight = null;
+
+export function flushActivity() {
+  if (_debounceTimer) clearTimeout(_debounceTimer);
+  _debounceTimer = null;
+  if (_inFlight) return _inFlight.then(async saved => (await flushActivity()) || saved);
+  if (!_pendingPayload) return Promise.resolve(false);
+  const operation = (async () => {
+    let saved = false;
+    while (_pendingPayload) {
+      const payload = _pendingPayload;
+      _pendingPayload = null;
+      try { await desktopClient.owner.updatePreferences({ last_activity: payload }); saved = true; }
+      catch (error) { _pendingPayload ||= payload; throw error; }
+    }
+    return saved;
+  })().finally(() => { _inFlight = null; });
+  _inFlight = operation;
+  return operation;
+}
+
+// Refresh must save the exact resume destination, including a note's page,
+// even when its ordinary activity debounce has not finished yet.
+registerPendingEditorSave(flushActivity);
 
 /**
  * Track user activity. Debounced to avoid spamming.
@@ -15,15 +41,10 @@ export function trackActivity(activity) {
 
   if (payload === _lastPayload) return;
   _lastPayload = payload;
+  _pendingPayload = payload;
 
   if (_debounceTimer) clearTimeout(_debounceTimer);
-  _debounceTimer = setTimeout(async () => {
-    try {
-      await desktopClient.owner.updatePreferences({ last_activity: payload });
-    } catch (e) {
-      console.warn('Failed to track activity:', e);
-    }
-  }, 2000);
+  _debounceTimer = setTimeout(() => { void flushActivity().catch(error => console.warn('Failed to track activity:', error)); }, 2000);
 }
 
 /**

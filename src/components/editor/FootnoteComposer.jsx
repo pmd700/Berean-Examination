@@ -1,7 +1,7 @@
 import React from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Check, X } from 'lucide-react';
-import RichTextEditor from './RichTextEditor';
+import TEXT_EDITOR_MACHINERY from './TEXT_EDITOR_MACHINERY';
 import AnnotationPopover from './AnnotationPopover';
 import { collectFootnotes, getFootnoteState } from './FootnoteExtension';
 
@@ -137,7 +137,7 @@ export default function FootnoteComposer({ editor }) {
             }}
             data-testid="input-footnote-text"
           >
-            <RichTextEditor
+            <TEXT_EDITOR_MACHINERY
               nested
               bare
               plainFormatting

@@ -1036,7 +1036,7 @@ export default function DrawingEditor({ open, onClose, drawingId, annotationId, 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-gray-50 dark:bg-gray-950">
+    <div className="bex-drawing-editor fixed inset-0 z-50 bg-gray-50 dark:bg-gray-950">
       {isLoading ? (
         <div className="flex items-center justify-center h-full">
           <Loader2 className="w-8 h-8 text-brand animate-spin" />
@@ -1044,7 +1044,7 @@ export default function DrawingEditor({ open, onClose, drawingId, annotationId, 
       ) : (
         <>
           {/* Top Bar */}
-          <div className="absolute top-0 left-0 right-0 h-14 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 z-40">
+          <div className="bex-drawing-header absolute top-0 left-0 right-0 h-14 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 z-40">
             <div className="flex items-center gap-3">
               <Button variant="ghost" size="icon" onClick={onClose} className="h-9 w-9">
                 <X className="w-5 h-5" />

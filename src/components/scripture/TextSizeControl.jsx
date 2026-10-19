@@ -25,6 +25,16 @@ export function useTextSizePreference() {
 
 export { getTextSizeScale, normalizeTextSize, scaleTextPixels };
 
+export function useScriptureNotesTextSizePreference() {
+  const [storedValue, setStoredValue] = usePersistentPreference('scripture_notes_text_size', DEFAULT_TEXT_SIZE);
+  const value = normalizeTextSize(storedValue);
+  React.useEffect(() => {
+    document.documentElement.style.setProperty('--bex-scripture-note-text-size', `${scaleTextPixels(13, value)}px`);
+  }, [value]);
+  const setValue = React.useCallback(next => setStoredValue(normalizeTextSize(next)), [setStoredValue]);
+  return [value, setValue];
+}
+
 export default function TextSizeControl({
   value = DEFAULT_TEXT_SIZE,
   onChange,
@@ -43,8 +53,8 @@ export default function TextSizeControl({
         onChange={(e) => onChange(Number(e.target.value))}
         aria-label={ariaLabel}
         data-testid={testId}
-        className="text-size-slider w-24 h-1.5 appearance-none bg-gray-300 dark:bg-gray-600 rounded-full cursor-pointer accent-violet-500"
-        style={{ accentColor: '#f97316' }}
+        className="text-size-slider w-24 h-1.5 appearance-none bg-gray-300 dark:bg-gray-600 rounded-full cursor-pointer accent-brand"
+        style={{ accentColor: 'rgb(var(--brand))' }}
       />
       <span className="text-base font-serif text-gray-400 dark:text-gray-500 leading-none select-none">A</span>
       <style>{`
@@ -54,7 +64,7 @@ export default function TextSizeControl({
           width: 16px;
           height: 16px;
           border-radius: 50%;
-          background: #ea580c;
+          background: rgb(var(--brand));
           cursor: pointer;
           border: 2px solid white;
           box-shadow: 0 1px 3px rgba(0,0,0,0.3);
@@ -63,7 +73,7 @@ export default function TextSizeControl({
           width: 16px;
           height: 16px;
           border-radius: 50%;
-          background: #ea580c;
+          background: rgb(var(--brand));
           cursor: pointer;
           border: 2px solid white;
           box-shadow: 0 1px 3px rgba(0,0,0,0.3);
@@ -81,12 +91,12 @@ export default function TextSizeControl({
 
 export function getScriptureTextClass(size = 3) {
   switch (size) {
-    case 1: return 'text-sm leading-relaxed';
-    case 2: return 'text-base leading-relaxed';
-    case 3: return 'text-lg leading-relaxed';
-    case 4: return 'text-xl leading-loose';
-    case 5: return 'text-2xl leading-loose';
-    default: return 'text-lg leading-relaxed';
+    case 1: return 'text-sm leading-[1.5]';
+    case 2: return 'text-base leading-[1.5]';
+    case 3: return 'text-lg leading-[1.5]';
+    case 4: return 'text-xl leading-[1.65]';
+    case 5: return 'text-2xl leading-[1.65]';
+    default: return 'text-lg leading-[1.5]';
   }
 }
 
@@ -94,20 +104,20 @@ export function getVerseNumberClass(size = 3) {
   switch (size) {
     case 1: return 'text-xs';
     case 2: return 'text-xs';
-    case 3: return 'text-sm';
-    case 4: return 'text-sm';
-    case 5: return 'text-base';
-    default: return 'text-sm';
+    case 3: return 'text-xs';
+    case 4: return 'text-xs';
+    case 5: return 'text-sm';
+    default: return 'text-xs';
   }
 }
 
 export function getHeaderClass(size = 3) {
   switch (size) {
-    case 1: return 'text-base';
-    case 2: return 'text-lg';
-    case 3: return 'text-xl';
-    case 4: return 'text-2xl';
-    case 5: return 'text-3xl';
-    default: return 'text-xl';
+    case 1: return 'text-[15px]';
+    case 2: return 'text-[17px]';
+    case 3: return 'text-[19px]';
+    case 4: return 'text-[22px]';
+    case 5: return 'text-[27px]';
+    default: return 'text-[19px]';
   }
 }

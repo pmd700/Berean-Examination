@@ -1,6 +1,8 @@
 import { SBLGNT_DOCUMENTS } from './sblgntDocs';
 import { KATEX_DOCUMENTS } from './katexDocs';
 import { RAJDHANI_DOCUMENTS } from './rajdhaniDocs';
+import emojiLicense from '@/styles/fonts/OFL.txt?raw';
+import { getRemovedTranslationMessage, isTranslationRemovedFromPlan } from '@shared/removedTranslations';
 
 export const SOURCE_LICENSE_SECTIONS = [
   {
@@ -242,12 +244,13 @@ export const SOURCE_LICENSE_SECTIONS = [
       },
       {
         name: 'New Living Translation (NLT)',
-        license: 'Not licensed for bundled distribution — removed',
-        usage: 'Not bundled or selectable. BEX does not claim written permission to distribute the NLT.',
-        attribution: 'The Holy Bible, New Living Translation is copyrighted © 1996, 2004, 2015 by Tyndale House Foundation. BEX does not ship NLT text and has not received a separate written license to distribute it.',
+        code: 'NLT',
+        license: isTranslationRemovedFromPlan('NLT') ? getRemovedTranslationMessage('NLT') : 'API.Bible access',
+        usage: isTranslationRemovedFromPlan('NLT') ? getRemovedTranslationMessage('NLT') : 'Available on demand through the configured API.Bible edition.',
+        attribution: 'The Holy Bible, New Living Translation is copyrighted © 1996, 2004, 2015 by Tyndale House Foundation. BEX does not bundle NLT text.',
         sourceUrl: 'https://www.tyndale.com/',
         licenseUrl: 'https://www.tyndale.com/permissions',
-        legallyRemoved: true
+        legallyRemoved: isTranslationRemovedFromPlan('NLT')
       },
       {
         name: 'Literal Standard Version (LSV)',
@@ -272,22 +275,29 @@ export const SOURCE_LICENSE_SECTIONS = [
         licenseUrl: 'https://www.gov.uk/government/publications/copyright-notice-duration-of-copyright-term/copyright-notice-duration-of-copyright-term'
       },
       {
+        name: 'Nueva Biblia de las Américas (NBLA)',
+        code: 'NBLA',
+        license: 'API.Bible access',
+        usage: 'Spanish Scripture retrieved on demand through the configured API.Bible edition. Publisher notes and attribution are preserved.',
+        attribution: 'The API response supplies the edition-specific copyright notice from The Lockman Foundation, displayed below the Scripture text.',
+        sourceUrl: 'https://www.nuevabiblia.com/',
+        licenseUrl: 'https://api.bible/terms-and-conditions',
+      },
+      {
         name: 'New American Standard Bible 1995 (NASB 1995)',
-        license: 'Not licensed for bundled distribution — removed',
-        usage: 'Not bundled or selectable. BEX does not claim written permission to distribute NASB 1995.',
-        attribution: 'NASB® 1995 is copyrighted © 1960, 1971, 1977, 1995 by The Lockman Foundation. BEX does not ship NASB 1995 text and has not received a separate written license to distribute it.',
-        sourceUrl: 'https://www.lockman.org/nasb-1995/',
-        licenseUrl: 'https://www.lockman.org/permission-to-quote-copyright-trademark-information/',
-        legallyRemoved: true
+        license: 'API.Bible access',
+        usage: 'Available through API.Bible when the configured key has access to the NASB 1995 edition. Scripture is fetched on demand; personal annotations remain local.',
+        attribution: 'New American Standard Bible® 1995. Copyright © 1960, 1962, 1963, 1968, 1971, 1972, 1973, 1975, 1977, 1995 by The Lockman Foundation. All rights reserved. The reader displays the copyright supplied by API.Bible.',
+        sourceUrl: 'https://www.lockman.org/',
+        licenseUrl: 'https://api.bible/terms-and-conditions',
       },
       {
         name: 'New American Standard Bible 2020 (NASB 2020)',
-        license: 'Not licensed for bundled distribution — removed',
-        usage: 'Not bundled or selectable. BEX does not claim written permission to distribute NASB 2020.',
-        attribution: 'NASB® 2020 is copyrighted © 1960, 1971, 1977, 1995, 2020 by The Lockman Foundation. BEX does not ship NASB 2020 text and has not received a separate written license to distribute it.',
+        license: 'API.Bible access',
+        usage: 'Available as NASB through the configured API.Bible edition. The retired downloaded source is not selectable.',
+        attribution: 'NASB® 2020 is copyrighted © 1960, 1971, 1977, 1995, 2020 by The Lockman Foundation. The reader displays the copyright supplied by API.Bible.',
         sourceUrl: 'https://www.lockman.org/nasb-2020/',
-        licenseUrl: 'https://www.lockman.org/permission-to-quote-copyright-trademark-information/',
-        legallyRemoved: true
+        licenseUrl: 'https://api.bible/terms-and-conditions',
       }
     ]
   },
@@ -295,6 +305,15 @@ export const SOURCE_LICENSE_SECTIONS = [
     title: 'Software & Contributors',
     description: 'Open-source software included in BEX and the notices that accompany it.',
     items: [
+      {
+        name: 'Noto Color Emoji',
+        license: 'SIL OFL 1.1',
+        usage: 'Bundled locally to render emoji in text, editors, and canvas labels offline.',
+        attribution: 'Noto Color Emoji by Google and contributors. BEX distributes the unmodified COLRv1 font under the SIL Open Font License, Version 1.1.',
+        sourceUrl: 'https://github.com/googlefonts/noto-emoji',
+        licenseUrl: 'https://openfontlicense.org/open-font-license-official-text/',
+        documents: [{ label: 'Read the full Noto Color Emoji license', title: 'SIL Open Font License 1.1', format: 'text', content: emojiLicense }]
+      },
       {
         name: 'KaTeX 0.18.1',
         license: 'MIT',

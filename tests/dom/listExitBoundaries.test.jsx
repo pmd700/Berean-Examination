@@ -17,7 +17,7 @@ vi.mock('@/api/desktopClient', () => ({
   },
 }));
 
-import RichTextEditor from '@/components/editor/RichTextEditor';
+import TEXT_EDITOR_MACHINERY from '@/components/editor/TEXT_EDITOR_MACHINERY';
 
 const STRANDED_LIST_CONTENT = `
   <ol>
@@ -36,7 +36,7 @@ describe('list exit boundaries in the global editor', () => {
     let editor = null;
     const { container } = render(
       <MemoryRouter>
-        <RichTextEditor
+        <TEXT_EDITOR_MACHINERY
           content={STRANDED_LIST_CONTENT}
           onChange={() => {}}
           onEditorReady={(instance) => { editor = instance; }}
@@ -116,7 +116,7 @@ describe('Enter under a passage that was pasted into a list item', () => {
       </li>
     </ol>`;
 
-  /** Mirrors RichTextEditor's onCreate, which normalizes before anyone types. */
+  /** Mirrors TEXT_EDITOR_MACHINERY's onCreate, which normalizes before anyone types. */
   function openDocument(content) {
     const editor = new Editor({ extensions: [StarterKit, ListExitBoundaries], content });
     const normalized = normalizeListExitBoundaries(editor.state.tr);
@@ -172,7 +172,7 @@ describe('Enter under a passage that was pasted into a list item', () => {
     editor.destroy();
   });
 
-  it('remembers numbering across a blank line in RichTextEditor', async () => {
+  it('remembers numbering across a blank line in TEXT_EDITOR_MACHINERY', async () => {
     const content = `
       <ol>
         <li><p>Sell outcomes not services</p></li>
@@ -187,7 +187,7 @@ describe('Enter under a passage that was pasted into a list item', () => {
     let editor = null;
     const { container } = render(
       <MemoryRouter>
-        <RichTextEditor
+        <TEXT_EDITOR_MACHINERY
           content={content}
           onChange={() => {}}
           onEditorReady={(instance) => { editor = instance; }}
