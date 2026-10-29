@@ -26,10 +26,11 @@ import { collectTooltips } from '@/components/editor/TooltipExtension';
  * survives whatever happens next.
  */
 
-function mountNote(content = '<p>Paul writes plainly here</p>') {
+function mountNote(content = '<p>Paul writes plainly here</p>', onRender = () => {}) {
   const api = {};
   const view = render(
     <MemoryRouter>
+      <React.Profiler id="footnote-drafts" onRender={onRender}>
       <TEXT_EDITOR_MACHINERY
         content={content}
         onChange={() => {}}
@@ -37,6 +38,7 @@ function mountNote(content = '<p>Paul writes plainly here</p>') {
         bare
         noteAnnotations
       />
+      </React.Profiler>
     </MemoryRouter>,
   );
   return { api, view };
@@ -60,6 +62,37 @@ async function writeInComposer(panel, text) {
 }
 
 describe('a saved footnote survives what happens next', () => {
+  it('starts the next footnote blank and never reuses or overwrites the previous citation', async () => {
+    const initialBodies = [];
+    const seen = new Set();
+    const { api } = mountNote(undefined, () => {
+      // Inspect each editor's first committed DOM, before passive effects can
+      // reset stale content. This catches the focus/content-sync race.
+      const surface = document.querySelector('[data-testid="footnote-composer"] .ProseMirror');
+      if (surface && !seen.has(surface)) { seen.add(surface); initialBodies.push(surface.textContent); }
+    });
+    await waitFor(() => expect(api.editor).toBeTruthy());
+    await act(async () => { api.editor.commands.setTextSelection(5); api.editor.commands.addFootnote(); });
+    let panel = await screen.findByTestId('footnote-composer');
+    await writeInComposer(panel, 'First citation.');
+    fireEvent.click(screen.getByTestId('button-footnote-save'));
+    await waitFor(() => expect(screen.queryByTestId('footnote-composer')).toBeNull());
+    const first = collectFootnotes(api.editor.state.doc)[0];
+    await act(async () => { api.editor.commands.setTextSelection(api.editor.state.doc.content.size - 1); api.editor.commands.addFootnote(); });
+    panel = await screen.findByTestId('footnote-composer');
+    expect(initialBodies).toEqual(['', '']);
+    await waitFor(() => expect(document.activeElement).toBe(panel.querySelector('.ProseMirror')));
+    expect(panel.querySelector('.ProseMirror').textContent).toBe('');
+    await writeInComposer(panel, 'Second citation.');
+    fireEvent.click(screen.getByTestId('button-footnote-save'));
+    const notes = collectFootnotes(api.editor.state.doc);
+    expect(notes).toHaveLength(2);
+    expect(notes[0].id).toBe(first.id);
+    expect(notes[0].text).toContain('First citation.');
+    expect(notes[1].id).not.toBe(first.id);
+    expect(notes[1].text).toContain('Second citation.');
+    expect(notes[1].text).not.toContain('First citation.');
+  });
   it('is not discarded by a press elsewhere while the panel closes', async () => {
     const { api } = mountNote();
     await waitFor(() => expect(api.editor).toBeTruthy());

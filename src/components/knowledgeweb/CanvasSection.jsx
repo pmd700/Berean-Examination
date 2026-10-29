@@ -161,24 +161,25 @@ export default function CanvasSection({ obj, zoom, isSelected, onSelect, onDragE
       data-obj-id={obj.id}
       className={`absolute select-none group ${
         isLocked ? 'cursor-default' : dragging ? 'cursor-grabbing' : 'cursor-grab'
-      } ${isSelected ? 'z-[5]' : 'z-[2]'}`}
+      }`}
       style={{
         left: x, top: y,
         width: w,
         height: h,
-        willChange: dragging ? 'transform' : 'auto',
-        pointerEvents: isLocked ? 'none' : 'auto',
+        // No stacking context here: the fill belongs below noodles, while
+        // section controls must remain above their wide invisible hit areas.
+        pointerEvents: 'none',
       }}
       onMouseDown={isLocked ? undefined : onMouseDown}
       onDoubleClick={isLocked ? undefined : handleDoubleClick}
     >
       <div
-        className={`w-full h-full rounded-2xl border-2 border-dashed transition-all duration-150 ${
+        className={`absolute inset-0 rounded-2xl border-2 border-dashed transition-all duration-150 ${isSelected ? 'z-[5]' : 'z-[2]'} ${
           isSelected ? 'ring-2 ring-sky-400 ring-offset-1 ring-offset-gray-950' : ''
         }`}
-        style={{ background: colors.bg, borderColor: colors.border }}
-      >
-        <div className="px-3 py-2 flex items-start justify-between gap-2">
+        style={{ background: colors.bg, borderColor: colors.border, pointerEvents: isLocked ? 'none' : 'auto' }}
+      />
+        <div className="absolute inset-x-0 top-0 z-[8] px-3 py-2 flex items-start justify-between gap-2" style={{ pointerEvents: isLocked ? 'none' : 'auto' }}>
           {editing ? (
             <input
               ref={inputRef}
@@ -221,12 +222,20 @@ export default function CanvasSection({ obj, zoom, isSelected, onSelect, onDragE
               : <Unlock className="w-3.5 h-3.5" />}
           </button>
         </div>
-      </div>
+
+      {/* Only the section's edges rise above connections. The interior stays
+          below them so noodles and contained cards remain selectable. */}
+      {!isLocked && [
+        { top: -3, left: 0, right: 0, height: 8 },
+        { bottom: -3, left: 0, right: 0, height: 8 },
+        { left: -3, top: 0, bottom: 0, width: 8 },
+        { right: -3, top: 0, bottom: 0, width: 8 },
+      ].map((edge, index) => <div key={index} data-section-edge={index} className="absolute z-[8]" style={{ ...edge, pointerEvents: 'auto' }} />)}
 
       {/* Drag-handle indicator (bottom right, just inside the resize corner). */}
       {!isLocked && (
         <div
-          className="absolute bottom-1 right-6 pointer-events-none opacity-50 group-hover:opacity-90 transition-opacity"
+          className="absolute bottom-1 right-6 z-[8] pointer-events-none opacity-50 group-hover:opacity-90 transition-opacity"
           title="Drag from anywhere on the section"
           aria-hidden="true"
         >
@@ -237,9 +246,10 @@ export default function CanvasSection({ obj, zoom, isSelected, onSelect, onDragE
       {/* Resize handle (disabled when locked). */}
       {!isLocked && (
         <div
-          className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize opacity-0 group-hover:opacity-100 transition-opacity"
+          className="absolute bottom-0 right-0 z-[9] w-4 h-4 cursor-se-resize opacity-0 group-hover:opacity-100 transition-opacity"
+          data-testid={`section-resize-${obj.id}`}
           onMouseDown={onResizeDown}
-          style={{ borderRight: `3px solid ${colors.border}`, borderBottom: `3px solid ${colors.border}`, borderRadius: '0 0 8px 0' }}
+          style={{ pointerEvents: 'auto', borderRight: `3px solid ${colors.border}`, borderBottom: `3px solid ${colors.border}`, borderRadius: '0 0 8px 0' }}
         />
       )}
     </div>

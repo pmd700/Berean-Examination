@@ -8,6 +8,6 @@ import '@/index.css';
 import CourseStudio from './CourseStudio';
 import { installAppTypography } from '@/styles/typography';
 
-installAppTypography();
-
-ReactDOM.createRoot(document.getElementById('root')).render(<CourseStudio />);
+installAppTypography().then(() => {
+  ReactDOM.createRoot(document.getElementById('root')).render(<CourseStudio />);
+});

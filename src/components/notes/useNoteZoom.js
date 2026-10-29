@@ -9,7 +9,7 @@ export default function useNoteZoom(viewportRef, pageRef, noteId, available) {
     let scale = 1;
     let pinch = null;
     const resize = () => {
-      page.style.width = `${Math.min(820, viewport.clientWidth)}px`;
+      page.style.width = `${Math.min(880, viewport.clientWidth)}px`;
     };
     page.style.zoom = '1';
     resize();

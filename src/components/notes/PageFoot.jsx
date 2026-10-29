@@ -1,8 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Check, Pencil, Plus, Trash2 } from 'lucide-react';
+import TEXT_EDITOR_MACHINERY from '../editor/TEXT_EDITOR_MACHINERY';
 import LogicRichHtml from '../logic/LogicRichHtml';
-import { collectFootnotes, FOOTNOTE_JUMP_EVENT } from '../editor/FootnoteExtension';
+import { collectFootnotes, getFootnoteState, FOOTNOTE_JUMP_EVENT } from '../editor/FootnoteExtension';
 import {
   lineBoxesForElement,
   SWEEP_FADE_MS,
@@ -114,7 +115,7 @@ export default function PageFoot({
   return (
     <div className="mt-10 select-none" data-testid="page-foot">
       {footnotes.length > 0 && (
-        <ol ref={listRef} className="mb-5 space-y-2 border-t border-line/50 pt-4" data-testid="footnote-list">
+        <ol ref={listRef} className="mb-5 space-y-2 border-t border-line/50 px-6 pt-4" data-testid="footnote-list">
           {footnotes.map(footnote => (
             <FootnoteEntry
               key={footnote.id}
@@ -122,6 +123,9 @@ export default function PageFoot({
               sweeping={sweepId === footnote.id}
               onSweepDone={endSweep}
               onEdit={() => editor?.commands.editFootnote(footnote.id)}
+              editing={getFootnoteState(editor.state).editId === footnote.id}
+              onChange={html => editor.commands.updateFootnote(footnote.id, html)}
+              onFinish={() => editor.commands.finishFootnoteEdit()}
               onDelete={() => { editor?.commands.removeFootnote(footnote.id); editor?.commands.focus(); }}
             />
           ))}
@@ -163,7 +167,7 @@ export default function PageFoot({
  * is not padded out to the full width. The sweep quickens as it goes, holds,
  * then fades — and covers only this note, so it always stops before the next.
  */
-function FootnoteEntry({ footnote, sweeping, onSweepDone, onEdit, onDelete }) {
+function FootnoteEntry({ footnote, sweeping, onSweepDone, onEdit, onDelete, editing, onChange, onFinish }) {
   const bodyRef = React.useRef(null);
   const [bars, setBars] = React.useState([]);
   const [fading, setFading] = React.useState(false);
@@ -243,21 +247,32 @@ function FootnoteEntry({ footnote, sweeping, onSweepDone, onEdit, onDelete }) {
 
         <div
           ref={bodyRef}
-          className="bex-annotation-body relative text-[12.5px] leading-[1.5] text-ink-soft"
+          className="bex-footnote-body bex-annotation-body relative select-text text-[12.5px] leading-[1.5] text-ink-soft"
+          onClick={event => { if (!editing && !event.target.closest('a')) onEdit(); }}
+          onKeyDown={event => {
+            if (editing && (event.key === 'Escape' || (event.key === 'Enter' && (event.metaKey || event.ctrlKey)))) {
+              event.preventDefault(); event.stopPropagation(); onFinish();
+            }
+          }}
         >
-          <LogicRichHtml content={footnote.text || '<p></p>'} />
+          {editing ? <TEXT_EDITOR_MACHINERY
+            nested bare plainFormatting
+            content={footnote.text || '<p></p>'}
+            onChange={onChange}
+            onEditorReady={instance => { instance.commands.focus('end'); instance.view.dom.focus(); }}
+          /> : <LogicRichHtml content={footnote.text || '<p></p>'} />}
         </div>
       </div>
 
       <span className="flex shrink-0 items-start gap-0.5 opacity-0 transition-opacity group-hover/footnote:opacity-100">
         <button
           type="button"
-          onClick={onEdit}
+          onClick={editing ? onFinish : onEdit}
           className="grid h-6 w-6 place-items-center rounded text-ink-soft transition-colors hover:bg-white/[0.07] hover:text-white"
-          title="Edit footnote"
+          title={editing ? 'Done editing footnote' : 'Edit footnote'}
           data-testid={`button-footnote-edit-${footnote.number}`}
         >
-          <Pencil className="h-3 w-3" />
+          {editing ? <Check className="h-3 w-3" /> : <Pencil className="h-3 w-3" />}
         </button>
         <button
           type="button"

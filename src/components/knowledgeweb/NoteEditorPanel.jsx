@@ -679,7 +679,7 @@ export default function NoteEditorPanel({
 
       {/* Document canvas — centered, borderless, lots of breathing room */}
       <div ref={documentScrollRef} className="flex-1 min-h-0 overflow-auto" style={{ touchAction: 'pan-x pan-y' }} data-testid="note-zoom-viewport" data-bex-marquee-surface>
-        <div ref={documentPageRef} className="mx-auto px-6 sm:px-10 py-12 sm:py-16" data-testid="note-zoom-page">
+        <div ref={documentPageRef} className="mx-auto px-6 sm:px-9 py-12 sm:py-16" data-testid="note-zoom-page">
           {/* Title — reads like page text, not an input. An untitled note
               shows its name as ghost text rather than as real content, so the
               page doesn't open with a heading you never wrote. */}

@@ -61,7 +61,7 @@ import {
 } from '@/lib/bibleStudyExportPolicy';
 import { readLocalOwner } from '@/lib/localOwner';
 import { listAllChapterArt } from '@/lib/chapterArtRegistry';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import ExternalWebLink from '@/components/navigation/ExternalWebLink';
 import { useCurrentWorkspaceTab, useTabTitle } from '@/lib/WorkspaceTabs';
 import { commentaryLinkLabel, commentaryVersionLabel, copyCommentaryContent, copyCommentaryLink, parseCommentaryLinkTarget, revealAnnotation } from '@/lib/commentaryLink';
@@ -1794,14 +1794,14 @@ export default function Study() {
       
 
       <div className="bex-study-footer max-w-7xl mx-auto px-4 pb-24 pt-8 flex items-center justify-center gap-6">
-        <a href={createPageUrl('ContactFeedback')} className="flex items-center gap-1.5 text-xs text-ink-faint dark:text-ink-faint hover:text-brand dark:hover:text-brand transition-colors">
+        <Link to={createPageUrl('ContactFeedback')} className="flex items-center gap-1.5 text-xs text-ink-faint dark:text-ink-faint hover:text-brand dark:hover:text-brand transition-colors">
           <Send className="w-3 h-3" />
           Feedback & Contact
-        </a>
-        <a href={createPageUrl('SourcesLicenses')} className="flex items-center gap-1.5 text-xs text-ink-faint dark:text-ink-faint hover:text-brand dark:hover:text-brand transition-colors">
+        </Link>
+        <Link to={createPageUrl('SourcesLicenses')} className="flex items-center gap-1.5 text-xs text-ink-faint dark:text-ink-faint hover:text-brand dark:hover:text-brand transition-colors">
           <FileText className="w-3 h-3" />
           Sources & Licenses
-        </a>
+        </Link>
       </div>
 
       <DrawingEditor

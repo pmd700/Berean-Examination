@@ -19,6 +19,7 @@ const desktopApi = Object.freeze({
   getLocalMamChapter: (request) => ipcRenderer.invoke('local-mam:get-chapter', request),
   getLocalEntity: (entityType, entityId) => ipcRenderer.invoke('local-entity:get', entityType, entityId),
   getLocalOwner: () => ipcRenderer.invoke('local-owner:get'),
+  getNativeEmojiFont: () => ipcRenderer.invoke('emoji:get-native-font'),
   getPrivacyStatus: () => ipcRenderer.invoke('privacy:get-status'),
   getScriptureStatus: () => ipcRenderer.invoke('scripture:get-status'),
   saveScriptureKey: (key) => ipcRenderer.invoke('scripture:save-key', key),

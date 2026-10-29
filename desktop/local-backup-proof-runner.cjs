@@ -104,6 +104,11 @@ async function runProof(proofRoot) {
   assert.equal('path' in response.backup, false);
   const backupPath = path.join(sourceLibrary, 'Backups', response.backup.fileName);
   assert.equal(fs.existsSync(backupPath), true);
+  assert.equal(fs.readdirSync(path.dirname(backupPath)).some(name => /\.partial(?:-wal|-shm)?$/.test(name)), false,
+    'A completed backup must not leave temporary SQLite/WAL files');
+  const journalCheck = new DatabaseSync(backupPath, { readOnly: true });
+  assert.equal(journalCheck.prepare('PRAGMA journal_mode').get().journal_mode, 'delete');
+  journalCheck.close();
   assert.equal(
     fs.readFileSync(backupPath).includes(Buffer.from(PRIVATE_MARKER, 'utf8')),
     false,
@@ -136,8 +141,20 @@ async function runProof(proofRoot) {
     2,
   );
 
+  // Restoring a point older than every retention window must not lose that
+  // target while creating the emergency snapshot immediately beforehand.
+  const ancientBackupPath = path.join(sourceLibrary, 'Backups', 'BEX-2020-01-01T00-00-00-000Z-abcdef123456.bex-backup.db');
+  fs.copyFileSync(backupPath, ancientBackupPath);
+  await restoreLocalBackup(ancientBackupPath, { privacyProtector: protector });
+  assert.ok(fs.existsSync(ancientBackupPath));
+  assert.equal(getLocalEntity('KnowledgeWeb', web.id).title, web.title);
+
   const outsideBackupPath = path.join(proofRoot, 'outside.bex-backup.db');
   fs.copyFileSync(backupPath, outsideBackupPath);
+  // Keep a standalone fixture for the later interrupted-install test; regular
+  // rolling snapshots may legitimately expire after more emergency backups.
+  const interruptedBackupPath = path.join(sourceLibrary, 'Backups', 'interrupted-proof.bex-backup.db');
+  fs.copyFileSync(backupPath, interruptedBackupPath);
   await assert.rejects(
     () => restoreLocalBackup(outsideBackupPath, { privacyProtector: protector }),
     (error) => error?.code === 'BEX_RESTORE_BACKUP_INVALID',
@@ -173,7 +190,7 @@ async function runProof(proofRoot) {
 
   closeDatabase();
   const sourceDatabasePath = path.join(sourceLibrary, 'Database', 'berean.db');
-  installLocalRestore({ backupPath, databasePath: sourceDatabasePath });
+  installLocalRestore({ backupPath: interruptedBackupPath, databasePath: sourceDatabasePath });
   initializeDatabase(sourceLibrary, { privacyProtector: protector });
   assert.equal(getLocalEntity('KnowledgeWeb', web.id).title, rollbackTitle);
   closeDatabase();
@@ -189,6 +206,7 @@ async function runProof(proofRoot) {
     'restored private, Knowledge Web, Second Brain, and Study records match',
     'production restore creates an emergency backup before replacing current work',
     'production restore returns the library to the selected point in time',
+    'retention protects a selected old restore target while creating its emergency backup',
     'outside and corrupt files are rejected before replacement',
     'a post-install decryption failure automatically restores the current database',
     'an interrupted replacement automatically restores the original database at launch',

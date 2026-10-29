@@ -20,6 +20,7 @@ import useKeybinds from '../components/knowledgeweb/useKeybinds';
 import KeybindRemapModal from '../components/knowledgeweb/KeybindRemapModal';
 import FloatingZoomControls from '../components/knowledgeweb/FloatingZoomControls';
 import CardEditor from '../components/knowledgeweb/CardEditor';
+import useCardWorkspaceSession from '../components/knowledgeweb/useCardWorkspaceSession';
 import { normalizeCardTitle } from '../components/knowledgeweb/cardTitle';
 import {
   estimateSmartCardGeometry,
@@ -783,6 +784,12 @@ export default function KnowledgeWeb() {
     }
     pendingSelectionRef.current = null;
   }, [activeWebId, loadedCanvasWebId, cards]);
+
+  useCardWorkspaceSession({ tab: currentWorkspaceTab, updateTab,
+    webId: activeNoteId ? null : activeWebId, loadedWebId: loadedCanvasWebId,
+    cards, selectedCardId, setSelectedCardId,
+    explicitCard: new URLSearchParams(routeLocation.search).has('card'),
+  });
 
   // An already-open Knowledge Web tab stays mounted. Consume each Spotlight
   // instruction exactly once, keep a short-lived copy solely for the purple
@@ -4924,11 +4931,20 @@ export default function KnowledgeWeb() {
       {selectedCard && selectedCardIds.length <= 1 && (
         <CardEditor
           card={selectedCard} allCards={cards}
+          initialMode={currentWorkspaceTab?.webCard?.cardId === selectedCard.id ? currentWorkspaceTab.webCard.mode : 'compact'}
+          onModeChange={mode => {
+            if (currentWorkspaceTab) updateTab(currentWorkspaceTab.id, { webCard: { webId: activeWebId, cardId: selectedCard.id, mode } });
+          }}
           onUpdate={updateCard} onDelete={deleteCard}
           onClose={() => {
             setActiveSpotlight(null);
             setSelectedCardId(null);
             setSelectedCardIds([]);
+            const params = new URLSearchParams(routeLocation.search);
+            if (params.has('card')) {
+              params.delete('card');
+              navigate(`${routeLocation.pathname}${params.size ? `?${params}` : ''}`, { replace: true });
+            }
           }}
           onFocus={handleFocus}
           isFocused={focusState.active && focusState.cardId === selectedCardId}

@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('bexCourseStudio', Object.freeze({
   createProject: () => ipcRenderer.invoke('course-studio:create'),
   exportPackage: (project) => ipcRenderer.invoke('course-studio:export-package', project),
   isCourseStudio: true,
+  getNativeEmojiFont: () => ipcRenderer.invoke('emoji:get-native-font'),
   listRecentProjects: () => ipcRenderer.invoke('course-studio:recent'),
   openProject: () => ipcRenderer.invoke('course-studio:open'),
   openRecentProject: (folder) => ipcRenderer.invoke('course-studio:open-recent', folder),

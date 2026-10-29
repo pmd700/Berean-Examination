@@ -2,10 +2,13 @@ import React from 'react';
 import { ArrowLeft, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createPageUrl } from '@/utils';
+import { Link, useNavigate } from 'react-router-dom';
 import SourceLicenseSection from '../components/licenses/SourceLicenseSection';
 import { SOURCE_LICENSE_SECTIONS } from '../components/licenses/sourceLicensesData';
+import SoftwareLicenses from '../components/licenses/SoftwareLicenses';
 
 export default function SourcesLicenses() {
+  const navigate = useNavigate();
   const visibleSections = SOURCE_LICENSE_SECTIONS;
 
   return (
@@ -13,7 +16,7 @@ export default function SourcesLicenses() {
       <div className="mx-auto max-w-5xl px-4 py-8">
         <Button
           variant="ghost"
-          onClick={() => window.history.back()}
+          onClick={() => navigate(-1)}
           className="mb-6 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
@@ -34,12 +37,12 @@ export default function SourcesLicenses() {
               </p>
             </div>
 
-            <a href={createPageUrl('Study')} className="shrink-0">
-              <Button variant="outline" className="dark:border-gray-700">
+            <Button asChild variant="outline" className="shrink-0 dark:border-gray-700">
+              <Link to={createPageUrl('Study')}>
                 <BookOpen className="mr-2 h-4 w-4" />
                 Return to Bible Study
-              </Button>
-            </a>
+              </Link>
+            </Button>
           </div>
         </div>
 
@@ -47,6 +50,7 @@ export default function SourcesLicenses() {
           {visibleSections.map((section) => (
             <SourceLicenseSection key={section.title} section={section} />
           ))}
+          <SoftwareLicenses />
         </div>
 
         <div className="mt-10 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700 px-5 py-4 text-sm text-gray-500 dark:text-gray-400">

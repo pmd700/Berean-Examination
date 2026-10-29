@@ -2,6 +2,180 @@
 
 ## Global to-do list
 
+### Emoji visibility and native Mac artwork — October 21, 2026
+
+- [x] Reproduce blank Apple emoji pixels in the actual sandboxed Electron renderer; font availability and Unicode presence alone do not prove rendering works.
+- [x] Add a global painted-pixel check and a Mac-only compatibility path using the local Apple artwork, with native shaping for combined emoji. Preserve Windows/Linux's existing fallback.
+- [x] Keep Unicode text, copied text, and stored documents unchanged; retain the renderer sandbox, context isolation, and the user's OS security settings.
+- [x] Verify note headings, normal/bold/italic text, skin tones, flags, keycaps, families, mixed-tone pairs, SVG, and canvas. Native Mac and simulated Windows-style fallback each pass 72 pixel samples; 13 unit/contract checks, scoped lint, and production build pass.
+- [x] Correct the converted Apple font's vertical baseline using its typographic descender proportion. Cache version 2 replaces the old metrics; 36 pixel-based alignment comparisons from 12px to 144px in regular/bold text pass alongside the existing 72 visibility/style samples.
+- [x] Add a development compatibility path for an older running desktop preload: prepare a git-ignored local Apple font asset and load it through the existing loopback server. On October 21 the live BEX server returned the exact generated Apple bytes; the old-preload regression passes all 72 samples with every tested Mac emoji using Apple artwork. No full desktop restart is required for this path.
+- [ ] Refresh the user's visible interface to adopt the new loader. Desktop UI automation was unavailable; use BEX's normal autosave-aware Refresh button. The running process itself can stay open.
+
+Details and implementation boundaries: [Local Apple emoji compatibility](desktop/emoji/README.md).
+
+### BEX iPhone app and encrypted cloud synchronization — October 19, 2026
+
+**Status: plan approved; implementation has not started.** This checklist is the source of truth for this feature. Mark a task complete only when its implementation and its acceptance checks are finished; include a short dated evidence note under the relevant phase. Do not mark an entire phase complete because its code exists or its build passes.
+
+#### Agreed outcome and GitHub ownership
+
+- [x] PLAN-01 — Choose the encrypted cloud mailbox approach: the iPhone and Mac work independently, then exchange encrypted changes through a hosted relay. The Mac does not have to stay awake or run a vault server for the phone to work.
+- [x] PLAN-02 — Keep one logical Berean Library, with the existing Mac vault preserved and encrypted replicas on authorized devices. A synchronized replica is not a separately maintained library; physical copies are necessary for offline use.
+- [x] PLAN-03 — Use the existing private [Berean-Examination GitHub repository](https://github.com/pmd700/Berean-Examination) for Mac code, dedicated iPhone code, shared sync code, tests, and deployment definitions. GitHub is for source code; private vault data and cloud sync records do not belong in Git.
+- [x] PLAN-04 — Write this phased implementation checklist. No mobile app, cloud resources, device pairing, or synchronization has been created by writing this plan.
+
+The iPhone app will be an installable PWA with its own entry point, navigation, layouts, and build. It will work from its Home Screen icon without native Apple signing or weekly reinstalling. Shared document formats and selected editor internals may be reused, while phone-specific presentation stays separate. Cloudflare Workers Free plus D1 is the initial relay candidate; select final storage only after the library-size and media feasibility checks below.
+
+**Confirmed scope and device — October 19, 2026:** synchronize the entire logical vault, not a user-selected subset. This includes every document, page, attachment, relationship, version/history record, and library setting. Inventory is an engineering completeness check, not a request for the user to choose which content matters. Target device: iPhone 14 Plus, iOS 27.0.1, Lockdown Mode off (user reported; actual-device validation pending). A notes-only pilot is an intermediate test, never the final scope. Backup archives, exports/imports, installed course files, imported Bible files, and previously unknown vault files must also be accounted for explicitly; do not silently discard them. Machine-bound keys, open SQLite journals, and runtime caches need safe device-specific equivalents rather than blind file mirroring. Any proposed exception must be documented before release.
+
+**Immediate next deliverable:** write the complete vault sync contract from the existing persistence code: stable identity, all entity/file types, dependency ordering, attachment references, conflicts, and deletion behavior. Then implement and test a disposable two-client round trip before connecting the real vault. No additional device questionnaire is needed to start this work.
+
+**Boundaries:** unsynchronized Mac edits cannot appear on the phone while the Mac is off. Phone edits reach the Mac when BEX next runs, unlocks, and synchronizes. Previously downloaded content remains usable offline. No permanent background execution on iOS is promised: save locally first, synchronize while the app is active, and resume reliably after suspension. Existing desktop-only use remains available without a cloud account or network connection. Cloud synchronization is optional and is not a replacement for backups.
+
+#### Phase 0 — Inventory, feasibility, and preservation
+
+- [x] P0-01 — Record a clean desktop baseline: current branch/commit, build, relevant tests, and existing failures. Make a recoverable local vault backup before any migration or first sync; use disposable libraries during development.
+- [x] P0-02 — Measure record counts, largest serialized records, media sizes, and total proposed encrypted sync storage locally. Record aggregate sizes, not private titles or contents, in engineering notes.
+- [ ] P0-03 — Inventory every entity and relationship: books/pages, note links/folders, timelines/events/tags, commentaries and their edition/verse/token locators, highlights, keywords, Knowledge Web cards/edges/canvas objects/versions, study canvas objects/connections, drawings, and referenced media. Classify owner preferences, activity, courses, imported Bibles, credentials, and per-device workspace state explicitly instead of silently including or omitting them.
+- [ ] P0-04 — Audit existing custom/private Knowledge Web encryption and document serialization. Preserve additional web passwords and their recovery boundaries; outer sync encryption must not silently remove those protections.
+- [ ] P0-05 — Prove the proposed hosting/storage fits current free quotas, including encryption overhead, history, indexes, initial upload, and retry traffic. Produce a capacity estimate and a no-charge failure policy before deployment.
+- [ ] P0-06 — Define the first pilot as notes/books plus exact links; define complete release as all agreed writing and relationship types, with any unsupported media clearly named. Verify on the user's actual iPhone/iOS and Lockdown Mode configuration early.
+
+**Progress — October 19, 2026:** P0-01/P0-02 are complete. Baseline commit is `86e050b`; production build, scoped lint, 11 storage/shutdown checks, 14 encrypted backup/restore checks, and 18 attachment checks across two Electron launches pass. The earlier full DOM run recorded 767/769 passing, with the two timing-sensitive workspace tests subsequently passing in their isolated nine-test suite; project typecheck already has outstanding errors. A SHA-256-verified compressed archive preserves the original vault snapshot and all prior backup history. The real vault passed its integrity check; row/media fingerprints are unchanged after maintenance. Storage fell from approximately 1.42 GB to 211 MB including the recovery archive; live data is about 39 MB, with a largest encrypted entity record of 441,312 bytes. See [Vault storage and recovery details](docs/VAULT_STORAGE.md). Full entity/dependency coverage, phone configuration, and cloud feasibility remain unchecked; these measurements do not complete Phase 0 or authorize deploying the sync service.
+
+**Exit check:** documented complete-vault data map and capacity estimate, successful backup/restore rehearsal, and explicit handling for every vault record and file category, including device-specific security/runtime state.
+
+#### Phase 1 — Separate app boundaries and shared contracts
+
+- [ ] P1-01 — Add a dedicated `apps/iphone/` PWA entry point, assets, routes, and build while retaining the current `src/` and `desktop/` desktop layout. Avoid a wholesale directory move as a prerequisite.
+- [ ] P1-02 — Add a runtime-independent `shared/sync/` contract package and a `services/sync-relay/` Worker package. Shared modules must not import Electron, Node-only APIs, browser UI, or secret configuration.
+- [ ] P1-03 — Specify vault identity, device identity, protocol/schema version, operation identity, record revision, dependency ordering, and synchronization cursors. Distinguish local-save success from relay acknowledgement and other-device delivery.
+- [ ] P1-04 — Design and test collision-free record creation on two offline devices. The current desktop store requires positive safe-integer record IDs; preserve existing IDs and links, and use a reviewed allocation or compatibility-mapping scheme rather than dropping UUIDs into integer-only paths. Handle a restored/cloned device without reusing its identity or allocated IDs.
+- [ ] P1-05 — Preserve page, event, card, connection, footnote, and commentary identities and exact edition references. Add cross-platform resolution for existing note/commentary hyperlinks and embedded timeline/web references.
+- [ ] P1-06 — Define portable rich-text and canvas payloads, migration rules, record-size limits, media descriptors, and compatibility behavior for older clients. Reject an unsupported newer format without damaging local data.
+- [ ] P1-07 — Separate shared library data from device state such as scroll positions, open tabs, viewport size, and biometric/lock preferences. Choose shared preferences explicitly; do not let a phone camera position overwrite the Mac workspace.
+
+**Exit check:** versioned fixtures round-trip between simulated Mac and phone stores without changing existing IDs, text, formatting, or relationships.
+
+#### Phase 2 — Encryption, pairing, and recovery
+
+- [ ] P2-01 — Document the threat model and exposed metadata. Encrypt titles, text, links, and attachment contents on the device before upload; the relay stores ciphertext plus the minimum routing/revision metadata. Distinguish confidentiality from traffic metadata and availability guarantees.
+- [ ] P2-02 — Use reviewed authenticated encryption available in Node and Web Crypto, random nonces, purpose-bound authentication data, and shared test vectors. Specify key versions and rotation. Do not invent a cryptographic primitive.
+- [ ] P2-03 — Introduce an explicitly paired sync-key hierarchy and device-local wrapping/unlock design. The current Mac Keychain/safeStorage envelope is machine-bound and cannot simply be copied to Safari. Never expose the Mac vault's raw encryption key through a generic renderer or network endpoint.
+- [ ] P2-04 — Build one-time, expiring QR/code pairing with confirmation on an already trusted device. Bind the handshake to the vault and device identities; relay authentication credentials and decryption keys must have separate roles. Keep long-lived secrets out of URLs, analytics, screenshots, and logs.
+- [ ] P2-05 — Protect phone key material and cached content with an explicit unlock/recovery design; decide PIN/passphrase and optional platform authentication after an iPhone capability proof. Clearing browser storage or losing the phone must have a documented recovery path.
+- [ ] P2-06 — Add authorized-device listing, token expiry/renewal, lost-device revocation, and future-key rotation. Explain that revocation cannot erase copies a lost device already decrypted or downloaded.
+- [ ] P2-07 — Test tampered payloads, wrong keys, replayed operations, expired pairing codes, unauthorized devices, stale credentials, and recovery. Locking a vault must stop protected operations and clear mounted private views appropriately.
+
+**Exit check:** a disposable paired phone can decrypt only its authorized library; the relay and its logs contain no plaintext study content or decryption keys; recovery and revocation have been exercised.
+
+#### Phase 3 — Durable local sync engine
+
+- [ ] P3-01 — Add crash-safe journal/outbox, inbox, revision, device, and cursor storage alongside the existing vault. Commit a local edit and its pending sync operation in the same transaction; UI save success means the edit is durable locally even when the relay is unreachable.
+- [ ] P3-02 — Capture every mutation path, including autosave, import, reorder, restore, bulk graph operations, media import, and cascaded deletion. Reuse existing validation and save barriers; remote application must not generate an endless echo of the same operation.
+- [ ] P3-03 — Bootstrap with a consistent snapshot and journal watermark, then replay later changes. Upload/download in resumable bounded batches with cancellation and explicit progress, without blocking continued local editing.
+- [ ] P3-04 — Implement idempotent push/pull and acknowledgements. Duplicate requests, interrupted batches, and repeated app starts must not duplicate records or lose pending edits. Advance a cursor only after durable application of the corresponding changes.
+- [ ] P3-05 — Represent deletions as tombstones and track acknowledgements before compaction. A device returning after a long offline period must rebootstrap safely instead of resurrecting deleted notes or graph edges.
+- [ ] P3-06 — Detect concurrent edits using base revisions, not wall-clock last-write-wins. Automatically merge only independently safe changes; preserve both rich-text versions or edits to the same event/card in a visible conflict resolution workflow. Keep an untouched original until resolution is saved.
+- [ ] P3-07 — Reconcile parent/child dependencies and assets atomically where needed. Handle edit-versus-delete, moved pages, note reordering, dangling links, and deleted canvas endpoints without silently dropping content.
+- [ ] P3-08 — Add bounded retries with backoff, quota-aware batching, pause/resume, and app-foreground/network-return triggers. Pending changes survive offline periods, crashes, lock/unlock, refresh, and shutdown.
+- [ ] P3-09 — Make backup restoration a deliberate sync recovery operation with a new epoch/reconciliation checkpoint; do not upload an old backup as if it were the latest state and silently overwrite newer phone work.
+
+**Exit check:** two disposable stores converge after different offline histories, retry storms, crashes, conflicts, deletions, and backup restoration with no silent data loss.
+
+#### Phase 4 — Private cloud mailbox and cost controls
+
+- [ ] P4-01 — Create development and production Cloudflare resources in the user's account, explicitly on free plans. Keep deployment credentials in protected local/CI secret storage; no paid upgrades, custom domain, or billable object-storage dependency is required for the initial text pilot.
+- [ ] P4-02 — Implement authenticated encrypted-record push/pull, pairing/device management, and scoped library access. Keep the relay unable to decrypt content and prevent cross-vault reads or writes.
+- [ ] P4-03 — Enforce schema/version checks, payload and batch limits, request authentication, rate limits, and conditional revision writes. Idempotency checks and record writes must commit together on the relay.
+- [ ] P4-04 — Configure HTTPS, exact allowed origins, restrictive browser policy, bounded request logs, and useful sanitized errors. Never place an administrative Cloudflare token in the iPhone bundle.
+- [ ] P4-05 — Handle D1's row-size limit using bounded encrypted chunks with authenticated manifests when necessary. Index routing metadata so sync does not scan or decrypt the entire library per request.
+- [ ] P4-06 — Add local/cloud capacity indicators, measured free-plan headroom, and clear quota errors. When a limit is reached, keep local saves working, preserve the queue, and show that sync is paused; never silently enable billing or discard pending changes.
+- [ ] P4-07 — Add safe retention, compaction, encrypted export/recovery, service shutdown, and provider-migration procedures. A mailbox outage must not prevent use of already available local content.
+
+**Exit check:** a phone reaches its mailbox with the Mac powered off; unauthorized requests fail; quota exhaustion and a simulated provider outage preserve queued edits.
+
+#### Phase 5 — Mac integration and initial pairing
+
+- [ ] P5-01 — Integrate the sync adapter with `desktop/local-entity-store.cjs`, `desktop/privacy-vault.cjs`, and the existing IPC/save boundary. Extend `src/lib/platform/` without replacing the current desktop store or making desktop startup depend on the cloud.
+- [ ] P5-02 — Add a Sync settings page: enable/disable, device pairing, connected devices, local-saved/queued/synced/conflict states, last successful exchange, retry, and storage usage. Do not report another device's changes as received until that device acknowledges them.
+- [ ] P5-03 — Enroll the existing library without creating new note IDs or a blank replacement vault. Preview counts, preserve an existing backup, and verify bootstrap completeness before showing pairing success.
+- [ ] P5-04 — Reconcile incoming edits with open Mac editors using existing note-change notifications and save barriers. Preserve unsaved typing; surface conflicts instead of injecting a remote snapshot over a live draft.
+- [ ] P5-05 — Prove existing local backup/restore, AI export, library links, autosave, vault locking, and normal shutdown still work with sync enabled, disabled, and unavailable.
+
+**Exit check:** the user's existing Mac library remains usable offline and can exchange pilot notes with a disposable second client without duplicate records or broken links.
+
+#### Phase 6 — Installable iPhone foundation and offline notes pilot
+
+- [ ] P6-01 — Build phone-specific Library, Search, Notes/Books, Scripture, Timelines, Knowledge Webs, and Settings navigation. Share serialization and selected editor code; do not render the Mac's wide desktop layout at a smaller scale.
+- [ ] P6-02 — Add manifest, icons, standalone display, safe-area/keyboard handling, HTTPS deployment, and a service worker for the app shell. Host the shell independently of the Mac using a free provider address. Pairing and study API responses must not leak into a shared public cache.
+- [ ] P6-03 — Implement encrypted local records and a durable outbox using supported iPhone browser storage. Request persistent storage where supported, report quota failures, and document storage clearing/eviction limitations; provide recovery/export for unsent edits.
+- [ ] P6-04 — Add pairing/unlock, initial-download progress, offline startup after first setup, and foreground/resume sync. Do not depend on iOS background sync, background fetch, or the PWA remaining alive after dismissal.
+- [ ] P6-05 — Implement notes/books with titles, pages, index, page/scroll restoration, rich text, toggles, footnotes, hyperlinks, search, and local autosave. Preserve every unsupported block losslessly until its phone interaction is implemented.
+- [ ] P6-06 — Verify actual iPhone selection, keyboard, dictation, copy/paste, emoji in headings/body, long notes, rotation, accessibility labels, and touch-sized controls. Test on the actual configured iPhone, not only a desktop viewport.
+- [ ] P6-07 — Install through Safari's Add to Home Screen, perform one pairing, then read/edit/reopen notes while the Mac is asleep and again while the phone is offline. Reconnect and verify the exact edits on Mac.
+
+**Exit check:** a real installed iPhone PWA passes the complete notes round trip, including app dismissal, offline relaunch, suspension, and Mac wake-up reconciliation.
+
+#### Phase 7 — Full BEX writing and relationship parity
+
+- [ ] P7-01 — Add phone Scripture reading, translation/favorite preferences, highlighting, and commentary editing. Retain exact source edition, book/chapter/verse/token ranges, existing commentary IDs, and reciprocal links to notes.
+- [ ] P7-02 — Inventory Bible availability and permissions on iPhone. Reuse allowed bundled/imported sources where permitted; retain copyright, API cache/reporting rules, and provider keys on a trusted boundary. Do not upload licensed full Bible bodies or a personal API key merely because a study record is synced. Explain any online-only reading requirement.
+- [ ] P7-03 — Adapt timelines to touch with event editing, tags, links, date precision/BCE handling, and navigation appropriate to a narrow screen. Preserve event IDs and distinguish event data from per-device camera state.
+- [ ] P7-04 — Adapt Knowledge Webs to touch: pan/zoom, cards, editing, connections, sections, drawing/image objects, embedded timelines, and linked webs. Preserve graph direction/labels, positions, sizes, existing web passwords, and durable link targets.
+- [ ] P7-05 — Add keyword reading/editing, study canvas records/connections, drawings, folders, and cross-feature navigation. Verify all entity types from P0-03 have either a complete round trip or a clearly documented pending implementation.
+- [ ] P7-06 — Reuse note and commentary link generation/resolution on both platforms. Opening a link on iPhone must reach the correct note page/commentary and Bible edition without falling back silently to another version.
+- [ ] P7-07 — Preserve the AI export's canonical record references and verify that a fully synchronized Mac export includes phone-authored work. Never call a partial cache a complete library export.
+
+**Exit check:** synthetic fixtures for every agreed content type survive phone edits, synchronization, Mac reopening, and export with their formatting and references intact.
+
+#### Phase 8 — Media and remaining free-storage feasibility
+
+- [ ] P8-01 — Replace device-specific media paths with stable authenticated asset references while preserving existing `bex-media://` links through a local resolver. Keep media encryption and hash/size integrity checks.
+- [ ] P8-02 — Implement bounded encrypted chunks, resumable upload/download, attachment dependency tracking, deduplication where safe, and a download-availability indicator. A note can sync before a large file finishes, but it must not pretend the attachment is available offline.
+- [ ] P8-03 — Choose full or selective phone downloads for PDFs, images, audio/video, and course assets after measuring storage and permissions. Keep uncached media explicitly unavailable offline; do not silently remove its reference.
+- [ ] P8-04 — Verify the chosen media transport has a tested zero-charge boundary. Keep large media local-only with clear status if the free allowance cannot support it; do not enable R2 or another usage-billed service merely because it includes a free tier. Revisit capacity with the user if full media sync exceeds a genuinely free configuration.
+- [ ] P8-05 — Test media on a real iPhone, including import/display, interrupted transfer, corruption rejection, cache cleanup, deletion acknowledgements, and backup/restore. Do not remove a device's only unsynchronized copy during cleanup.
+
+**Exit check:** the plan names exactly which media is synchronized, downloadable offline, or local-only, with no hidden charges or broken attachment links. Full-library-media parity is not marked complete when media remains local-only.
+
+#### Phase 9 — Release, recovery, and actual-device proof
+
+- [ ] P9-01 — Add protocol/crypto fixtures, database migration/rollback tests, two-client integration tests, authorization tests, browser tests, desktop native proofs, and iPhone acceptance scripts for the above phases. Run appropriate lint/build/typechecks and distinguish new failures from the recorded baseline.
+- [ ] P9-02 — Exercise concurrent same-note edits, edit-versus-delete, duplicate IDs/requests, stale devices, cursor expiration, interrupted initial sync, quota exhaustion, corrupt data, lost keys, revocation, and library restore. Preserve both sides of unresolved conflicts.
+- [ ] P9-03 — Verify all desktop entity creation/import/reorder/delete/restore paths participate; prove no mutation can bypass the journal. Keep a content manifest/count comparison to detect omitted records and dependencies.
+- [ ] P9-04 — Prove “Mac powered off, phone online,” “Mac powered off, phone offline,” “phone dismissed/reopened,” “both devices edit separately,” and “Mac wakes and receives phone edits.” Verify that app updates do not reset pairing, cached data, or the pending queue.
+- [ ] P9-05 — Introduce versioned deployment and service-worker update behavior. Save/flush local changes before activation, protect unsent records, and support an older Mac client during a staged mobile/relay rollout.
+- [ ] P9-06 — Add GitHub checks for the desktop, iPhone, shared contract, and Worker builds. Use local credentials or a protected scoped CI secret for Cloudflare deployment; do not deploy production automatically on every push during the pilot. Do not publish the vault or its recovery material in code, logs, build artifacts, or test captures.
+- [ ] P9-07 — Write the user's concise install/pair/recovery/conflict/offline/cost guide. Rehearse disabling cloud sync, exporting the library, restoring a backup, and migrating away from the provider without losing writing.
+- [ ] P9-08 — Start with a disposable library, then an opt-in backed-up real-library pilot. Reconcile counts and representative documents/links, record actual-device evidence and remaining limits, and only then mark the feature released.
+
+**Completion rule:** this project is complete only when the installed iPhone version and the existing Mac library satisfy every agreed acceptance scenario. Separate UI code, a working deployment, or one successful note transfer is not sufficient. Creating this checklist does not authorize checking off implementation tasks in advance.
+
+#### Suggested code locations and existing systems to retain
+
+- `apps/iphone/` — dedicated React PWA screens, mobile storage adapter, manifest/service worker, and phone tests.
+- `shared/sync/` — portable versioned data/operation contracts, migration rules, encryption interoperability fixtures, and reconciliation logic.
+- `services/sync-relay/` — authenticated Cloudflare Worker, D1 schema/migrations, capacity limits, and sanitized operational diagnostics.
+- `desktop/` — existing encrypted vault and database owner; add journal integration and device-local sync services here.
+- `src/lib/platform/`, `src/lib/localEntities.js`, and `src/lib/pendingEditorSaves.js` — reuse desktop entity routing, mutation barriers, and save/refresh/shutdown integration.
+- `src/components/editor/TEXT_EDITOR_MACHINERY.jsx`, `src/lib/noteLink.js`, `src/lib/commentaryLink.js`, `src/lib/timegraph/`, and Knowledge Web formats — retain compatible editor content, IDs, links, and chronology/graph semantics; share only code that is actually portable.
+
+No runtime code or folder restructuring is part of this planning edit. Future implementation may refine these locations after the Phase 0/1 proofs while keeping the agreed separation and preservation guarantees.
+
+#### Free-tier and platform references
+
+Checked October 19, 2026; recheck before deployment. These are current provider limits, not a guarantee of unlimited or permanently unchanged free service.
+
+- [Cloudflare D1 limits](https://developers.cloudflare.com/d1/platform/limits/): 500 MB per Free database, 5 GB total account database storage, and 2,000,000 bytes per string/BLOB/row. The account-wide limit must not be mistaken for one 5 GB database.
+- [Cloudflare D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/): Free daily read/write limits and explicit query failures when allowances are exhausted; keep the project on Free and preserve local queues at the boundary.
+- [Cloudflare Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/): verify request, CPU, static-asset, and bandwidth allowances for the chosen deployment rather than assuming every Cloudflare product is free.
+- [Apple Home Screen web apps](https://support.apple.com/en-mide/guide/iphone/iphea86e5236/27/ios/27): the chosen install route does not require App Store distribution.
+- [Apple free developer-account limits](https://developer.apple.com/help/account/basics/about-your-developer-account): native free provisioning expires after seven days; it is not the selected installation strategy.
+- [WebKit storage policy](https://webkit.org/blog/14403/updates-to-storage-policy/): browser storage has quotas and eviction behavior; offline storage and recovery must be proven on the target iPhone.
+
+
 ### Scripture loading, recovery, and permanent writing — October 11, 2026
 
 - [x] Keep the existing `Study.jsx` reader, glass controls, font sizes, interlinear, copying, highlights, and annotations. Display completed passages progressively in reference order, with a placeholder and individual Retry for each unfinished request.

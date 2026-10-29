@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ArrowLeft, Check, Copy, Mail } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/sonner';
@@ -9,6 +10,7 @@ import { Toaster } from '@/components/ui/sonner';
 const CONTACT_EMAIL = 'simonbarjona@atomicmail.io';
 
 export default function ContactFeedback() {
+  const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
 
   const openEmail = async () => {
@@ -40,7 +42,7 @@ export default function ContactFeedback() {
       <div className="mx-auto flex min-h-screen max-w-xl flex-col px-6 py-8">
         <Button
           variant="ghost"
-          onClick={() => window.history.back()}
+          onClick={() => navigate(-1)}
           className="mb-16 w-fit text-[#A7AFC0] hover:bg-white/5 hover:text-white"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />

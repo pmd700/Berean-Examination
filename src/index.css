@@ -859,6 +859,16 @@ table.rt-table p,
 }
 .bex-nested-editor > * + * { margin-top: 0.35rem; }
 .bex-nested-editor p { margin: 0; }
+/* Editing a printed footnote changes its content, not its writing column or
+   typography. In particular, fullscreen card layout must not indent it. */
+.bex-footnote-body .ProseMirror.bex-nested-editor {
+  width: 100% !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  font-size: inherit !important;
+  line-height: inherit !important;
+}
 .bex-nested-editor h1 { font-size: 1.35em; font-weight: 700; margin: 0.2em 0 0.1em; }
 .bex-nested-editor h2 { font-size: 1.2em; font-weight: 700; margin: 0.2em 0 0.1em; }
 .bex-nested-editor h3,

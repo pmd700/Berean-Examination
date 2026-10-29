@@ -10,7 +10,7 @@ import 'katex/dist/katex.min.css'
 import '@/components/logic/logic-renderer.css'
 import { installAppTypography } from '@/styles/typography'
 
-installAppTypography()
+const typographyReady = installAppTypography()
 
 // "ResizeObserver loop completed with undelivered notifications" (and the older
 // "ResizeObserver loop limit exceeded") are benign by spec: the browser simply
@@ -41,7 +41,7 @@ const HARNESS = window.location.search.includes('syncharness')
 const Harness = React.lazy(() => import('@/pages/SyncHarness.jsx'))
 
 
-ReactDOM.createRoot(document.getElementById('root')).render(
+typographyReady.then(() => ReactDOM.createRoot(document.getElementById('root')).render(
   HARNESS ? (
     <React.Suspense fallback={null}>
       <Harness />
@@ -49,4 +49,4 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   ) : (
     <App />
   )
-)
+))

@@ -9,6 +9,7 @@ const path = require('node:path');
 const { CourseStudioProjectStore, PROJECT_FILE_NAME } = require('../course-platform/course-studio-project.cjs');
 const { exportCourseStudioProject, validateCourseStudioProject } = require('../course-platform/course-studio-export.cjs');
 const { registerCourseStudioHandlers } = require('./course-studio-ipc.cjs');
+const { registerEmojiHandlers } = require('./emoji.cjs');
 const { signCourseCatalogWithKeychain, signCourseManifestWithKeychain, verifyCourseManifestSignature } = require('./course-signing.cjs');
 const { catalogLibrary, publishPackage, setCatalogVersion } = require('../course-platform/local-course-publisher.cjs');
 const { registerCourseMediaProtocol, registerCourseMediaScheme } = require('./course-media-protocol.cjs');
@@ -75,6 +76,7 @@ async function builtUrl() {
 async function launch() {
   session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
   const appUrl = app.isPackaged || process.argv.includes('--built') ? await builtUrl() : await developmentUrl();
+  registerEmojiHandlers({ appUrl, ipcMain, cacheFolder: path.join(app.getPath('userData'), 'Emoji') });
   const store = new CourseStudioProjectStore({ recentFilePath: path.join(app.getPath('userData'), 'course-studio-recent.json') });
   const chooseProjectFolder = async (mode) => {
     const result = await dialog.showOpenDialog(window, {

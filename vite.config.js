@@ -2,9 +2,10 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import path from 'path'
 import { pdfAssetsPlugin } from './tools/vite-pdf-assets.mjs'
+import { licenseAssetsPlugin } from './tools/vite-license-assets.mjs'
 
 export default defineConfig({
-  plugins: [react(), pdfAssetsPlugin()],
+  plugins: [react(), pdfAssetsPlugin(), licenseAssetsPlugin()],
   build: {
     rollupOptions: {
       input: {

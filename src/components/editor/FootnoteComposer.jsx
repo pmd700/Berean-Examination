@@ -35,25 +35,13 @@ function isEmptyBody(html) {
  *
  * Unlike a tooltip there is no read popup to write: a footnote's whole point is
  * that it is already printed at the foot of the page. This only handles writing
- * one — raised fresh with ⌘⇧F, or reopened from the footer.
+ * a new one with ⌘⇧F. Existing bodies are edited inline by PageFoot.
  *
  * The editor here is deliberately restricted to plain formatting: a footnote is
  * a citation or an aside, not a place for tables, images or embeds.
  */
 export default function FootnoteComposer({ editor }) {
   const [version, setVersion] = React.useState(0);
-  const [draftValue, setDraftValue] = React.useState('');
-  const draftIdRef = React.useRef(null);
-  /**
-   * A draft is answered once and once only.
-   *
-   * Saving closes the panel, but the panel lives on through its exit animation,
-   * and a press anywhere during that window used to reach `cancel` — which,
-   * reading the pre-save body, deleted the annotation that had just been
-   * written. Recording which draft has already been settled makes the second
-   * answer a no-op no matter where it comes from.
-   */
-  const settledIdRef = React.useRef(null);
 
   React.useEffect(() => {
     if (!editor) return undefined;
@@ -71,15 +59,17 @@ export default function FootnoteComposer({ editor }) {
 
   const draft = draftId ? footnotes.find(item => item.id === draftId) : null;
 
-  React.useEffect(() => {
-    if (!draft) { draftIdRef.current = null; return; }
-    if (draftIdRef.current === draft.id) return;
-    draftIdRef.current = draft.id;
-    settledIdRef.current = null;
-    setDraftValue(draft.text || '');
-  }, [draft]);
-
   if (!editor || !draft) return <AnimatePresence />;
+  return <FootnoteDraft key={draft.id} editor={editor} draft={draft} />;
+}
+
+function FootnoteDraft({ editor, draft }) {
+  // Initialize before mounting/focusing the nested editor. Resetting reused
+  // state in an effect let the next editor initially load the previous body;
+  // once focused, its content-sync guard could retain that stale citation.
+  const [draftValue, setDraftValue] = React.useState(() => draft.text || '');
+  // Exit-animation listeners must never settle a saved draft a second time.
+  const settledIdRef = React.useRef(null);
 
   const save = () => {
     if (settledIdRef.current === draft.id) return;

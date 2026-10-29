@@ -104,7 +104,7 @@ export const Footnote = Node.create({
           const at = state.selection.to;
           dispatch(tr
             .insert(at, node)
-            .setMeta(footnoteKey, { activeId: id, draftId: id }));
+            .setMeta(footnoteKey, { activeId: id, draftId: id, editId: null }));
         }
         return true;
       },
@@ -135,7 +135,7 @@ export const Footnote = Node.create({
         if (dispatch) {
           // Back to front: deleting shifts every position after it.
           doomed.reverse().forEach((pos) => { tr.delete(pos, pos + 1); });
-          dispatch(tr.setMeta(footnoteKey, { activeId: null, draftId: null }));
+          dispatch(tr.setMeta(footnoteKey, { activeId: null, draftId: null, editId: null }));
         }
         return true;
       },
@@ -145,17 +145,22 @@ export const Footnote = Node.create({
         return true;
       },
 
-      /** Reopen an existing footnote in the composer. */
+      /** Edit an existing body in place at the foot of the page. */
       editFootnote: (id) => ({ tr, dispatch }) => {
         if (!id) return false;
         if (dispatch) {
-          dispatch(tr.setMeta(footnoteKey, { activeId: id, draftId: id }).setMeta('addToHistory', false));
+          dispatch(tr.setMeta(footnoteKey, { activeId: id, draftId: null, editId: id }).setMeta('addToHistory', false));
         }
         return true;
       },
 
       clearFootnoteDraft: () => ({ tr, dispatch }) => {
         if (dispatch) dispatch(tr.setMeta(footnoteKey, { draftId: null }).setMeta('addToHistory', false));
+        return true;
+      },
+
+      finishFootnoteEdit: () => ({ tr, dispatch }) => {
+        if (dispatch) dispatch(tr.setMeta(footnoteKey, { editId: null }).setMeta('addToHistory', false));
         return true;
       },
 
@@ -188,13 +193,14 @@ export const Footnote = Node.create({
         key: footnoteKey,
 
         state: {
-          init: () => ({ activeId: null, draftId: null, offset: 0 }),
+          init: () => ({ activeId: null, draftId: null, editId: null, offset: 0 }),
           apply(tr, prev) {
             const meta = tr.getMeta(footnoteKey);
             if (!meta) return prev;
             return {
               activeId: 'activeId' in meta ? meta.activeId : prev.activeId,
               draftId: 'draftId' in meta ? meta.draftId : prev.draftId,
+              editId: 'editId' in meta ? meta.editId : prev.editId,
               offset: 'offset' in meta ? meta.offset : prev.offset,
             };
           },

@@ -24,6 +24,7 @@ const { installContextMenu } = require('./context-menu.cjs');
 const { createMachineRequest } = require('./activation.cjs');
 const { registerActivationHandlers } = require('./activation-ipc.cjs');
 const { registerClipboardHandlers } = require('./clipboard-ipc.cjs');
+const { registerEmojiHandlers } = require('./emoji.cjs');
 const { registerExportFileHandlers } = require('./export-file-ipc.cjs');
 const { registerContactHandlers } = require('./contact-ipc.cjs');
 const { registerExternalLinkHandlers, validateExternalUrl } = require('./external-link-ipc.cjs');
@@ -534,6 +535,7 @@ async function launch() {
     ipcMain,
   });
   registerClipboardHandlers({ appUrl, ipcMain, clipboard });
+  registerEmojiHandlers({ appUrl, ipcMain, cacheFolder: path.join(app.getPath('userData'), 'Emoji') });
   registerExportFileHandlers({
     appUrl,
     ipcMain,

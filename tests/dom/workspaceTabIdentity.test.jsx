@@ -34,6 +34,7 @@ vi.mock('@/lib/PrivateWebContext', () => ({
 vi.mock('@/components/utils/activityTracker', () => ({ trackActivity: vi.fn() }));
 vi.mock('@/api/desktopClient', () => ({
   desktopClient: { entities: {
+    Keyword: { list: async () => [] },
     MindNote: { list: data.loadNotes },
     KnowledgeWeb: { list: data.loadWebs },
     WebFolder: { list: async () => [] },
@@ -92,6 +93,38 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe('each workspace tab owns its document identity', () => {
+  it('restores the current card and fullscreen mode after a real workspace remount, and Escape closes it completely', async () => {
+    data.webs = [{ id: 1, title: 'Canvas' }];
+    data.cards.mockResolvedValue([{ id: 41, web_id: 1, title: 'Remember this card', description: '<p>Card writing.</p>', x: 0, y: 0 }]);
+    const tab = { id: 'web', kind: 'knowledge-web', title: 'Canvas', path: webDeepLink(1, 'Canvas'), webCard: { webId: 1, cardId: 41, mode: 'fullscreen' } };
+    const first = mount([tab], 'web');
+    await waitFor(() => expect(document.querySelector('.bex-card-fullscreen .ProseMirror')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Expanded', exact: true }));
+    await waitFor(() => expect(session().tabs[0].webCard.mode).toBe('expanded'));
+    fireEvent.click(screen.getByRole('button', { name: 'Full screen', exact: true }));
+    await waitFor(() => expect(session().tabs[0].webCard.mode).toBe('fullscreen'));
+    const stored = JSON.parse(localStorage.getItem('bex_workspace_tabs_v1'));
+    first.unmount();
+    const second = mount(stored.tabs, stored.activeId);
+    await waitFor(() => expect(document.querySelector('.bex-card-fullscreen .ProseMirror')).toBeTruthy());
+    fireEvent.keyDown(document.querySelector('.bex-card-fullscreen .ProseMirror'), { key: 'Escape' });
+    await waitFor(() => expect(document.querySelector('.bex-card-fullscreen, .bex-card-inspector')).toBeNull());
+    await waitFor(() => expect(session().tabs[0].webCard).toBeNull());
+    expect(session().tabs[0].path).toBe(tab.path);
+    const closed = JSON.parse(localStorage.getItem('bex_workspace_tabs_v1'));
+    second.unmount();
+    mount(closed.tabs, closed.activeId);
+    await waitFor(() => expect(session().tabs[0].title).toBe('Canvas'));
+    expect(document.querySelector('.bex-card-fullscreen, .bex-card-inspector')).toBeNull();
+  });
+
+  it('clears a deleted card from the saved session without blocking the web from loading', async () => {
+    data.webs = [{ id: 1, title: 'Canvas' }];
+    mount([{ id: 'web', kind: 'knowledge-web', title: 'Canvas', path: webDeepLink(1, 'Canvas'), webCard: { webId: 1, cardId: 999, mode: 'fullscreen' } }], 'web');
+    await waitFor(() => expect(data.cards).toHaveBeenCalledWith({ web_id: 1 }));
+    await waitFor(() => expect(session().tabs[0].webCard).toBeNull());
+    expect(document.querySelector('.bex-card-fullscreen, .bex-card-inspector')).toBeNull();
+  });
   it('restores three different note titles without first clicking their tabs', async () => {
     const tabs = noteTabs();
     mount(tabs, 'note-3');

@@ -11,6 +11,9 @@ import { normalizeCardTitle } from './cardTitle';
 import { buildCardClipboardText } from './cardClipboard';
 import moment from 'moment';
 import { startFieldSpotlight } from '@/lib/spotlightMotion';
+import { useIsActiveTab } from '@/lib/WorkspaceTabs';
+import { registerPendingEditorSave } from '@/lib/pendingEditorSaves';
+import { cardEditorMode } from './useCardWorkspaceSession';
 
 const AUTO_EXPAND_THRESHOLD = 350;
 
@@ -41,7 +44,10 @@ export default function CardEditor({
   spotlightField = '',
   spotlightToken = '',
   onSpotlightComplete,
+  initialMode = 'compact',
+  onModeChange,
 }) {
+  const activeTab = useIsActiveTab();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [tagsStr, setTagsStr] = useState('');
@@ -51,7 +57,7 @@ export default function CardEditor({
   const [uploading, setUploading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   // 'compact' | 'expanded' | 'fullscreen'
-  const [descriptionMode, setDescriptionMode] = useState('compact');
+  const [descriptionMode, setDescriptionMode] = useState(() => cardEditorMode(initialMode));
   const [tagFocused, setTagFocused] = useState(false);
   const [activeSuggestionIdx, setActiveSuggestionIdx] = useState(-1);
   const [titleFocused, setTitleFocused] = useState(false);
@@ -64,6 +70,43 @@ export default function CardEditor({
   const spotlightCompleteRef = useRef(onSpotlightComplete);
   spotlightCompleteRef.current = onSpotlightComplete;
   const saveTimer = useRef(null);
+  const pendingSaveRef = useRef(null);
+  const savingRef = useRef(null);
+  const updateRef = useRef(onUpdate);
+  updateRef.current = onUpdate;
+  const flushSave = React.useCallback(async () => {
+    if (savingRef.current) await savingRef.current;
+    const pending = pendingSaveRef.current;
+    if (!pending) return false;
+    clearTimeout(saveTimer.current);
+    pendingSaveRef.current = null;
+    pendingFieldRef.current = null;
+    const saving = (async () => updateRef.current(pending.id, pending.updates))();
+    savingRef.current = saving;
+    try { await saving; }
+    catch (error) { pendingSaveRef.current = pending; throw error; }
+    finally { if (savingRef.current === saving) savingRef.current = null; }
+    return true;
+  }, []);
+  useEffect(() => registerPendingEditorSave(flushSave), [flushSave]);
+  const modeChangeRef = useRef(onModeChange);
+  modeChangeRef.current = onModeChange;
+  useEffect(() => { modeChangeRef.current?.(descriptionMode); }, [descriptionMode, card.id]);
+  const closeEditor = React.useCallback(async () => {
+    await flushSave();
+    onClose();
+  }, [flushSave, onClose]);
+  useEffect(() => {
+    if (!activeTab) return undefined;
+    const closeOnEscape = event => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      closeEditor().catch(error => console.error('[Card editor] Save before close failed:', error));
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [activeTab, closeEditor]);
   // Track which field scheduled the pending autosave so external changes
   // to other fields don't accidentally cancel an in-flight save (and so
   // we can cancel the title autosave specifically when the title is
@@ -116,6 +159,7 @@ export default function CardEditor({
 
   useEffect(() => {
     clearTimeout(saveTimer.current);
+    pendingSaveRef.current = null;
     pendingFieldRef.current = null;
     setTitle(normalizeCardTitle(card.title));
     setDescription(card.description || '');
@@ -124,7 +168,7 @@ export default function CardEditor({
     setScriptureRefs(card.scripture_refs || []);
     setNewRef('');
     setConfirmDelete(false);
-    setDescriptionMode('compact');
+    setDescriptionMode(cardEditorMode(initialMode));
   }, [card.id]);
 
   // When card.title changes from outside the inspector (e.g. inline
@@ -136,6 +180,7 @@ export default function CardEditor({
     if (titleFocused) return;
     if (pendingFieldRef.current === 'title') {
       clearTimeout(saveTimer.current);
+      pendingSaveRef.current = null;
       pendingFieldRef.current = null;
     }
     setTitle(normalizeCardTitle(card.title));
@@ -195,16 +240,19 @@ export default function CardEditor({
     const currentCardId = card.id;
     const fields = Object.keys(updates);
     clearTimeout(saveTimer.current);
-    pendingFieldRef.current = fields.length === 1 ? fields[0] : 'multi';
-    saveTimer.current = setTimeout(() => {
-      pendingFieldRef.current = null;
-      onUpdate(currentCardId, updates);
-    }, 500);
+    pendingSaveRef.current = { id: currentCardId, updates: { ...(pendingSaveRef.current?.updates || {}), ...updates } };
+    const pendingFields = Object.keys(pendingSaveRef.current.updates);
+    pendingFieldRef.current = pendingFields.length === 1 ? pendingFields[0] : 'multi';
+    saveTimer.current = setTimeout(() => { flushSave().catch(error => console.error('[Card editor] Autosave failed:', error)); }, 500);
   };
 
   // Flush a pending title autosave immediately — used on Enter / blur
   // so the user gets instant persistence rather than a 500ms wait.
   const flushTitleSave = () => {
+    if (pendingSaveRef.current?.updates?.title !== undefined) {
+      flushSave().catch(error => console.error('[Card editor] Title save failed:', error));
+      return;
+    }
     if (pendingFieldRef.current !== 'title') return;
     clearTimeout(saveTimer.current);
     pendingFieldRef.current = null;
@@ -280,6 +328,14 @@ export default function CardEditor({
   return (
     <div
       ref={editorRootRef}
+      onKeyDownCapture={event => {
+        // Inline footnotes belong to this card. Escape leaves the whole card;
+        // body-level popovers still get to dismiss themselves first.
+        if (!activeTab || event.key !== 'Escape' || event.defaultPrevented || !editorRootRef.current?.contains(event.target)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        closeEditor().catch(error => console.error('[Card editor] Save before close failed:', error));
+      }}
       className={
         isFullscreen
           // Starts below the workspace tab bar rather than at the top of the
@@ -348,7 +404,7 @@ export default function CardEditor({
                 </button>
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={() => { closeEditor().catch(error => console.error('[Card editor] Save before close failed:', error)); }}
                   title="Close editor"
                   aria-label="Close editor"
                   className="text-gray-500 hover:text-gray-300 transition-colors"
@@ -405,13 +461,13 @@ export default function CardEditor({
               border: 0;
               border-radius: 0;
             }
-            .kw-card-editor-fullscreen .ProseMirror {
+            .kw-card-editor-fullscreen .ProseMirror:not(.bex-nested-editor) {
               min-height: calc(100vh - 14rem);
               width: min(calc(100% - 5rem), 104rem);
               margin-inline: auto;
             }
             @media (max-width: 48rem) {
-              .kw-card-editor-fullscreen .ProseMirror {
+              .kw-card-editor-fullscreen .ProseMirror:not(.bex-nested-editor) {
                 width: calc(100% - 2rem);
               }
             }
@@ -442,7 +498,7 @@ export default function CardEditor({
               <Crosshair className="w-3.5 h-3.5" />
             </button>
           )}
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition-colors">
+          <button onClick={() => { closeEditor().catch(error => console.error('[Card editor] Save before close failed:', error)); }} className="text-gray-500 hover:text-gray-300 transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>

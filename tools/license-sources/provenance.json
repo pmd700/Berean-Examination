@@ -1,0 +1,58 @@
+{
+  "electronVersion": "43.2.0",
+  "nodeVersion": "24.18.0",
+  "sources": {
+    "electron-DEPS": {
+      "url": "https://raw.githubusercontent.com/electron/electron/v43.2.0/DEPS",
+      "sha256": "54b07e0abc39bf873413c79129d0c800e432e6a6669e308ea07d3c2da863348f"
+    },
+    "Mantle-LICENSE": {
+      "url": "https://raw.githubusercontent.com/Mantle/Mantle/2a8e2123a3931038179ee06105c9e6ec336b12ea/LICENSE.md",
+      "sha256": "285eede6f638adc9c352be7d66134611e5ea95044095a84de9867fb864e66eab"
+    },
+    "ReactiveObjC-LICENSE": {
+      "url": "https://raw.githubusercontent.com/ReactiveCocoa/ReactiveObjC/74ab5baccc6f7202c8ac69a8d1e152c29dc1ea76/LICENSE.md",
+      "sha256": "095fec1a3d6ad029fe0661fa6092a272d50af016b1771992e0bba9b2a73e7763"
+    },
+    "nan-LICENSE": {
+      "url": "https://raw.githubusercontent.com/nodejs/nan/675cefebca42410733da8a454c8d9391fcebfbc2/LICENSE.md",
+      "sha256": "95d152af7a776fba93bd795d3235d478cca4a207f8e1475fc9a3d71d28964c39"
+    },
+    "Squirrel-Mac-LICENSE": {
+      "url": "https://raw.githubusercontent.com/Squirrel/Squirrel.Mac/0e5d146ba13101a1302d59ea6e6e0b3cace4ae38/LICENSE",
+      "sha256": "6f240e244a105d6366bc898ac9c67460624c9052839d4b988c6dbe4c571008b3"
+    },
+    "openssl-node-24.18.0-LICENSE": {
+      "url": "https://raw.githubusercontent.com/nodejs/node/v24.18.0/deps/openssl/openssl/LICENSE.txt",
+      "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a"
+    },
+    "tiptap-2.27.2-LICENSE": {
+      "url": "https://raw.githubusercontent.com/ueberdosis/tiptap/4b8d4e9434cdaf624d1c982f3b99f95d1359b4e1/LICENSE.md",
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    "tiptap-2.26.2-LICENSE": {
+      "url": "https://raw.githubusercontent.com/ueberdosis/tiptap/v2.26.2/LICENSE.md",
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    "radix-1.1.2-LICENSE": {
+      "url": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+      "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+    },
+    "embla-8.6.0-LICENSE": {
+      "url": "https://raw.githubusercontent.com/davidjerleke/embla-carousel/v8.6.0/LICENSE",
+      "sha256": "992490064b90ec94c302fe5f29dcc14cb44145857064e46f9ffe6c8f511c1093"
+    },
+    "boolbase-1.0.0-LICENSE": {
+      "url": "https://raw.githubusercontent.com/fb55/boolbase/54811f01c797a6bb1c263183ae90b7dd627e0638/LICENSE",
+      "sha256": "cdf4d87ae0a6c160227263bf4e39a0a10e30e89ae7256e0f7ac7bde0836552c6"
+    },
+    "input-otp-1.4.2-LICENSE": {
+      "url": "https://raw.githubusercontent.com/guilhermerodz/input-otp/81ccdb48c010d800b24942aa231909f0c971b1ca/LICENSE",
+      "sha256": "079031192fea535a245aa64a637d8433c406b82a14f91c3606b1d63e41c00152"
+    },
+    "victory-vendor-36.9.2-LICENSE": {
+      "url": "https://raw.githubusercontent.com/FormidableLabs/victory/v36.9.2/LICENSE.txt",
+      "sha256": "34dee5fd5e5cc756efb5ad4d64652bce719bdf5e900ca5d7538253e737930bc4"
+    }
+  }
+}

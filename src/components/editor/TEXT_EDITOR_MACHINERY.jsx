@@ -266,7 +266,9 @@ export default function TEXT_EDITOR_MACHINERY({
   localFindShortcut = false,
   scrollPastEnd = false,
   noteAnnotations = false,
-  footnotes = false,
+  // Every top-level writing surface must parse and preserve the same footnotes.
+  // Nested annotation bodies cannot contain another footnote composer.
+  footnotes = !nested,
   plainFormatting = false,
   pageFoot = null,
   marqueeScope = 'editor',
@@ -1411,8 +1413,8 @@ export default function TEXT_EDITOR_MACHINERY({
         />
       )}
 
-      {/* ⌘T tooltips and ⌘⇧F footnotes. Notes and books only — the footnote
-          bodies themselves are printed by the page that owns this editor. */}
+      {/* Tooltips belong to notes/books; Cmd/Ctrl+Shift+F footnotes are shared
+          by top-level editors and printed by their owning page or PageFoot. */}
       {noteAnnotations && !nested && (
         <>
           <TooltipLayer editor={editor} />

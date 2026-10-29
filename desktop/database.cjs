@@ -689,6 +689,7 @@ async function restoreLocalBackup(backupPath, { privacyProtector } = {}) {
     database: requireActiveDatabase(),
     libraryPath,
     privacyVault: requirePrivacyVault(),
+    protectedBackupPaths: [inspected.path],
   });
 
   closeDatabase();

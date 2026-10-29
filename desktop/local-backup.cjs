@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
 const { copyEncryptedMediaSnapshot } = require('./local-media-backup.cjs');
+const { deduplicateBackupMedia, removeEmptyVerificationSidecars, pruneBackupHistory } = require('./backup-storage.cjs');
 
 const BACKUP_FOLDER_NAME = 'Backups';
 const BACKUP_FILE_SUFFIX = '.bex-backup.db';
@@ -107,6 +108,7 @@ async function createEncryptedLocalBackup({
   libraryPath,
   now = new Date(),
   privacyVault,
+  protectedBackupPaths = [],
 } = {}) {
   if (!privacyVault || typeof privacyVault.createEncryptedBackup !== 'function') {
     throw codedError('BEX_PRIVACY_NOT_OPEN', 'The encrypted Berean Library vault is unavailable.');
@@ -121,17 +123,25 @@ async function createEncryptedLocalBackup({
     throw codedError('BEX_BACKUP_EXISTS', 'A backup with this name already exists.');
   }
 
-  await privacyVault.createEncryptedBackup(partialPath);
   let backupDatabase;
   let backupSummary;
   try {
-    backupDatabase = new DatabaseSync(partialPath, { readOnly: true });
+    await privacyVault.createEncryptedBackup(partialPath);
+    // The live database uses WAL; the immutable snapshot should not. Opening a
+    // WAL-mode copy read-only created orphan .partial-shm/-wal files per close.
+    backupDatabase = new DatabaseSync(partialPath);
+    backupDatabase.exec('PRAGMA journal_mode = DELETE');
     backupSummary = readDatabaseSummary(backupDatabase);
+  } catch (error) {
+    if (backupDatabase) { backupDatabase.close(); backupDatabase = null; }
+    for (const file of [partialPath, `${partialPath}-wal`, `${partialPath}-shm`]) fs.rmSync(file, { force: true });
+    throw error;
   } finally {
     if (backupDatabase) backupDatabase.close();
   }
 
   if (!summariesMatch(sourceSummary, backupSummary)) {
+    fs.rmSync(partialPath, { force: true });
     throw codedError(
       'BEX_BACKUP_VERIFICATION_FAILED',
       'The backup did not contain the same records as the live library.',
@@ -153,12 +163,23 @@ async function createEncryptedLocalBackup({
   }
   if (process.platform !== 'win32') fs.chmodSync(finalPath, 0o600);
   const fileStats = fs.statSync(finalPath);
+  let storageMaintenance;
+  try {
+    const deduplication = deduplicateBackupMedia(backupFolder);
+    const retention = pruneBackupHistory({ backupFolder, verifiedBackupPath: finalPath, protectedBackupPaths, now: now.getTime() });
+    storageMaintenance = { ...deduplication, ...retention, removedSidecars: removeEmptyVerificationSidecars(backupFolder) };
+  } catch (error) {
+    // A failed optimization must never invalidate a completed backup or stop
+    // shutdown. Retry maintenance after the next verified backup instead.
+    console.error('[backup] Storage maintenance deferred:', error.code || error.message);
+  }
   return {
     bytes: fileStats.size,
     createdAt: now.toISOString(),
     fileName,
     path: finalPath,
     mediaFileCount: mediaSummary.fileCount,
+    storageMaintenance,
     ...backupSummary,
   };
 }

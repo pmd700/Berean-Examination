@@ -10,7 +10,7 @@ const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
 describe('global app typography', () => {
   it('has one JavaScript source of truth installed by both app entry points', () => {
     const typography = read('src/styles/typography.js');
-    assert.match(typography, /export const APP_FONT_FAMILY = getAppFontFamily\(\)/);
+    assert.match(typography, /export let APP_FONT_FAMILY = getAppFontFamily\(\)/);
     assert.match(typography, /setProperty\('--bex-app-font-family', APP_FONT_FAMILY\)/);
     assert.match(read('src/main.jsx'), /installAppTypography\(\)/);
     assert.match(read('src/studio/main.jsx'), /installAppTypography\(\)/);
@@ -63,6 +63,17 @@ describe('global app typography', () => {
       assert.ok(font.indexOf('Arial') < font.indexOf('"BEX Color Emoji"'));
       assert.ok(font.indexOf('"BEX Color Emoji"') < font.indexOf('"Apple Color Emoji"'));
     }
+  });
+
+  it('uses locally derived Apple artwork when the native font paints blank pixels', () => {
+    const font = getAppFontFamily('MacIntel', false);
+    assert.ok(font.indexOf('"BEX Native Apple Emoji"') < font.indexOf('"BEX Color Emoji"'));
+    assert.ok(font.indexOf('"BEX Color Emoji"') < font.indexOf('"Apple Color Emoji"'));
+    const typography = read('src/styles/typography.js');
+    assert.match(typography, /getImageData/);
+    assert.match(typography, /getNativeEmojiFont/);
+    assert.match(read('desktop/main.cjs'), /registerEmojiHandlers/);
+    assert.match(read('desktop/course-studio-main.cjs'), /registerEmojiHandlers/);
   });
 });
 
