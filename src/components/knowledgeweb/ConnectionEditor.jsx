@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { X, Trash2, ArrowRight, Minus, Clock, BookOpen, Plus, ExternalLink, Spline, Minus as Line } from 'lucide-react';
+import { X, Trash2, ArrowRight, Minus, Clock, BookOpen, Plus, ExternalLink } from 'lucide-react';
 import { Switch } from "@/components/ui/switch";
-import { createPageUrl } from '@/utils';
 import moment from 'moment';
 
 const QUICK_LABELS = [

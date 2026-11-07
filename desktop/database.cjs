@@ -963,6 +963,7 @@ function initializeDatabase(libraryPath, { privacyProtector, skipRestoreRecovery
 }
 
 module.exports = {
+  CURRENT_SCHEMA_VERSION: currentSchemaVersion(),
   activateInstallation,
   applyMigrations,
   assertLocalFilesAvailable,

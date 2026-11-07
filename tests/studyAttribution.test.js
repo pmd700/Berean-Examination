@@ -27,8 +27,9 @@ test('every local Bible credit uses secure working-link plumbing', async () => {
 
 test('Study renders the active translation notice after the Scripture area', async () => {
   const studySource = await readFile(new URL('../src/pages/Study.jsx', import.meta.url), 'utf8');
-  const scriptureClose = studySource.lastIndexOf('</div>\n              <ScriptureAttribution');
+  const scriptureClose = studySource.lastIndexOf('<ScriptureAttribution material={currentChapter}');
   assert.notEqual(scriptureClose, -1);
+  assert.ok(scriptureClose > studySource.lastIndexOf('<InterlinearVerse'), 'Translation attribution must follow the rendered Scripture');
   assert.match(studySource, /data-testid="text-scripture-attribution"/);
 
   for (const option of LOCAL_BIBLE_OPTIONS) {

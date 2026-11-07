@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useCallback } from 'react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { BarChart3, LineChart as LineChartIcon, Calendar, BookOpen, MessageSquare, Lightbulb } from 'lucide-react';
+import { BarChart3, LineChart as LineChartIcon, Calendar, BookOpen } from 'lucide-react';
 import { format, subDays, parseISO, differenceInDays, startOfWeek, startOfMonth, endOfWeek, endOfMonth, addDays } from 'date-fns';
 
 const TIMEFRAMES = [

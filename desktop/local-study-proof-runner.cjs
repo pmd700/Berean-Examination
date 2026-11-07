@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { app, safeStorage } = require('electron');
 const {
+  CURRENT_SCHEMA_VERSION,
   closeDatabase,
   createLocalEntity,
   deleteLocalEntity,
@@ -125,7 +126,7 @@ async function createRecord(handlers, entityType, value) {
 
 async function createPhase(libraryPath, protector) {
   const opened = initializeDatabase(libraryPath, { privacyProtector: protector });
-  assert.equal(opened.schemaVersion, 15);
+  assert.equal(opened.schemaVersion, CURRENT_SCHEMA_VERSION);
   assert.equal(opened.privacy.locked, false);
   const handlers = registerHandlers();
 
@@ -277,7 +278,7 @@ async function createPhase(libraryPath, protector) {
 
 async function reopenPhase(libraryPath, protector) {
   const reopened = initializeDatabase(libraryPath, { privacyProtector: protector });
-  assert.equal(reopened.schemaVersion, 15);
+  assert.equal(reopened.schemaVersion, CURRENT_SCHEMA_VERSION);
   assert.equal(reopened.privacy.created, false);
   const handlers = registerHandlers();
 

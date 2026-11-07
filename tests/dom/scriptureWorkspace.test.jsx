@@ -1,7 +1,16 @@
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ScriptureWorkspace from '@/components/study/ScriptureWorkspace';
+
+// jsdom's RAF timestamp and Vitest's global performance clock can have
+// different origins. Production browsers use one clock; reproduce that
+// contract rather than extending timeouts or changing the camera animation.
+const scheduleFrame = window.requestAnimationFrame.bind(window);
+beforeEach(() => {
+  vi.stubGlobal('requestAnimationFrame', callback => scheduleFrame(() => callback(performance.now())));
+});
+afterEach(() => { vi.unstubAllGlobals(); });
 
 function mount(enabled = true) {
   const view = render(<ScriptureWorkspace enabled={enabled}><div className="bex-study-page"><p>Scripture text to select</p><input aria-label="Note writing" /></div></ScriptureWorkspace>);

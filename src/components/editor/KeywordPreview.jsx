@@ -3,7 +3,6 @@ import ReactDOM from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ExternalLink } from 'lucide-react';
 import { desktopClient } from '@/api/desktopClient';
-import MarkdownRenderer from './MarkdownRenderer';
 import { createPageUrl } from '@/utils';
 
 export default function KeywordPreview({ keywordId, position, onClose }) {

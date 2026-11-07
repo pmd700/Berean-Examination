@@ -10,6 +10,7 @@ const {
   safeStorage,
 } = require('electron');
 const {
+  CURRENT_SCHEMA_VERSION,
   closeDatabase,
   createLocalEntity,
   deleteLocalImage,
@@ -162,7 +163,7 @@ function registerRealHandlers() {
 
 async function createPhase(libraryPath, protector) {
   const opened = initializeDatabase(libraryPath, { privacyProtector: protector });
-  assert.equal(opened.schemaVersion, 15);
+  assert.equal(opened.schemaVersion, CURRENT_SCHEMA_VERSION);
   assert.equal(opened.privacy.locked, false);
   const handlers = registerRealHandlers();
   registerLocalMediaProtocol({ protocol, readLocalMedia });
@@ -683,7 +684,7 @@ async function createPhase(libraryPath, protector) {
   closeDatabase();
   assertPlaintextAbsent(libraryPath);
   return [
-    'schema 15 opens the encrypted Knowledge Web, Second Brain, Bible Study, Asset, Chapter Art, and Course stores',
+    `schema ${CURRENT_SCHEMA_VERSION} opens the encrypted Knowledge Web, Second Brain, Bible Study, Asset, Chapter Art, and Course stores`,
     'untrusted pages are rejected before local-data access',
     'untrusted, fake, unsafe-path, and locked media requests fail safely',
     'a Knowledge Web image saves as an encrypted library file',
@@ -714,7 +715,7 @@ async function createPhase(libraryPath, protector) {
 
 async function reopenPhase(libraryPath, protector) {
   const reopened = initializeDatabase(libraryPath, { privacyProtector: protector });
-  assert.equal(reopened.schemaVersion, 15);
+  assert.equal(reopened.schemaVersion, CURRENT_SCHEMA_VERSION);
   assert.equal(reopened.privacy.created, false);
   const handlers = registerRealHandlers();
   registerLocalMediaProtocol({ protocol, readLocalMedia });

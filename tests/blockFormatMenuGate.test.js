@@ -55,7 +55,9 @@ describe('opening the format chooser', () => {
 
   it('still refuses everything it refused before', () => {
     assert.equal(blockFormatMenuIndex(state({ selected: [] })), null);
-    assert.equal(blockFormatMenuIndex(state({ selected: [3, 4] })), null);
+    // An explicit handle click now formats the full selected run; marquee
+    // and drag sources above still cannot open the chooser themselves.
+    assert.equal(blockFormatMenuIndex(state({ selected: [3, 4], anchor: 4 })), 4);
     assert.equal(blockFormatMenuIndex(state({ previewing: true })), null);
     assert.equal(blockFormatMenuIndex(null), null);
     assert.equal(blockFormatMenuIndex(undefined), null);
@@ -72,7 +74,8 @@ describe('opening the format chooser', () => {
 describe('the gestures that record themselves', () => {
   it('marks a handle press that never travelled as a click', () => {
     const click = blockDrag.slice(blockDrag.indexOf("if (mode === 'drag' && !dragging)"));
-    assert.match(click.slice(0, 500), /source: SELECTION_SOURCE\.CLICK/);
+    const clickBranch = click.slice(0, click.indexOf("if (mode === 'drag' && dragging"));
+    assert.match(clickBranch, /source: SELECTION_SOURCE\.CLICK/);
   });
 
   it('marks the moment a press becomes a carry as a drag', () => {

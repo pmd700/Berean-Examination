@@ -10,6 +10,7 @@ const {
   safeStorage,
 } = require('electron');
 const {
+  CURRENT_SCHEMA_VERSION,
   closeDatabase,
   initializeDatabase,
   installCoursePackage,
@@ -145,7 +146,7 @@ async function main() {
   assert.ok(libraryPath && packagePath);
   assert.equal(safeStorage.isEncryptionAvailable(), true);
   const protector = createSafeStorageProtector(safeStorage);
-  assert.equal(initializeDatabase(libraryPath, { privacyProtector: protector }).schemaVersion, 15);
+  assert.equal(initializeDatabase(libraryPath, { privacyProtector: protector }).schemaVersion, CURRENT_SCHEMA_VERSION);
   await installCoursePackage(packagePath, {
     allowUnsigned: process.argv[4] !== '--signed',
     currentBexVersion: '0.0.0',

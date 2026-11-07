@@ -55,7 +55,11 @@
     "timegraph:proof": "node tools/run-local-timegraph-proof.cjs",
     "timegraph:model-proof": "node --test tests/timegraphModel.test.js tests/timegraphExport.test.js tests/timegraphIntegration.test.js",
     "test:dom": "vitest run --config vitest.config.js",
-    "test:dom:watch": "vitest --config vitest.config.js"
+    "test:dom:watch": "vitest --config vitest.config.js",
+    "check:core": "node tools/run-maintenance-checks.cjs",
+    "check:native": "node tools/run-maintenance-checks.cjs --native",
+    "measure:renderer": "node tools/measure-renderer-bundles.mjs",
+    "test:node": "node tools/run-node-tests.cjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

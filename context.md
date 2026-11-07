@@ -50,6 +50,8 @@ Dates below are day-level timestamps from Git, project records or this conversat
 - [Verified upgrades] Spreadsheet edge-drag previews, typing caret, overflow/wrap/clip, borders/presets, fast tooltips, alignments, popup comments, blank-paste erasing, rigid sticky scrolling and subtle selection tint improve everyday editing — 2026-11-06.
 - [Verified calculations] Excel table references, legacy-import repair and 108 function names support live research formulas, matching all 1,077 supplied workbook calculations and preserving native table exports — 2026-11-06.
 
+- [Maintenance] Deferred feature loading, reduced editor polling/document scans, active-tab shortcut ownership, precise UI types and repeatable checks improve startup work and safety while retaining all course/video machinery — 2026-11-07.
+
 ## Interpretation
 
 Requests and historical checklists are context, not acceptance tests; inspect the current code before promising behavior. Source is in Git, private Vault data is separate, and neither a successful build nor this document proves clean-Mac installation or iPhone readiness. Earlier revisions of the removed documents remain in Git at `23d4bac`.

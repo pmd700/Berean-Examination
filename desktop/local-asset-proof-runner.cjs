@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { app, safeStorage } = require('electron');
 const {
+  CURRENT_SCHEMA_VERSION,
   closeDatabase,
   createLocalEntity,
   deleteLocalEntity,
@@ -37,7 +38,7 @@ function assertPlaintextAbsent(libraryPath) {
 
 function createPhase(libraryPath, protector) {
   const opened = initializeDatabase(libraryPath, { privacyProtector: protector });
-  assert.equal(opened.schemaVersion, 15);
+  assert.equal(opened.schemaVersion, CURRENT_SCHEMA_VERSION);
   const media = saveLocalImage({
     bytes: PROOF_IMAGE,
     mimeType: 'image/png',
@@ -63,7 +64,7 @@ function createPhase(libraryPath, protector) {
   closeDatabase();
   assertPlaintextAbsent(libraryPath);
   return [
-    'schema 15 creates an encrypted Asset record beside an encrypted Media file',
+    `schema ${CURRENT_SCHEMA_VERSION} creates an encrypted Asset record beside an encrypted Media file`,
     'Asset metadata and image bytes are absent from plaintext storage',
     'Asset records reject file paths outside the protected BEX Media protocol',
   ];
@@ -71,7 +72,7 @@ function createPhase(libraryPath, protector) {
 
 function reopenPhase(libraryPath, protector) {
   const opened = initializeDatabase(libraryPath, { privacyProtector: protector });
-  assert.equal(opened.schemaVersion, 15);
+  assert.equal(opened.schemaVersion, CURRENT_SCHEMA_VERSION);
   const assets = listLocalEntities('Asset', {});
   assert.equal(assets.length, 1);
   assert.equal(assets[0].name, ASSET_NAME);

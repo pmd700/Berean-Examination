@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, EyeOff, Lock, Unlock, Plus, Trash2, GripVertical, ChevronDown } from 'lucide-react';
+import { Eye, EyeOff, Lock, Unlock, Plus, Trash2, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 

@@ -42,17 +42,20 @@ test('original-language sources carry creator and copying information', () => {
   assert.equal(uxlc.licenseUrl, 'https://tanach.us/License.html');
 });
 
-test('removed translations do not falsely claim BEX received permission', () => {
-  for (const name of [
-    'New Living Translation (NLT)',
-    'New American Standard Bible 1995 (NASB 1995)',
-    'New American Standard Bible 2020 (NASB 2020)',
-  ]) {
+test('removed downloads and API-only editions do not falsely claim bundled permission', () => {
+  for (const name of ['New Living Translation (NLT)']) {
     const item = source(name);
     assert.equal(item.legallyRemoved, true);
-    assert.match(item.license, /Not licensed for bundled distribution/);
+    assert.match(item.license, /Temporarily removed from plan/);
     assert.doesNotMatch(item.attribution, /Used by permission/i);
-    assert.match(item.attribution, /does not ship|does not distribute/i);
+    assert.match(item.attribution, /does not ship|does not distribute|does not bundle/i);
+  }
+  for (const name of ['New American Standard Bible 1995 (NASB 1995)', 'New American Standard Bible 2020 (NASB 2020)']) {
+    const item = source(name);
+    assert.notEqual(item.legallyRemoved, true);
+    assert.match(item.usage, /API\.Bible/);
+    assert.doesNotMatch(item.attribution, /Used by permission/i);
+    assert.match(item.usage + item.exportPolicy, /on demand|not selectable|not bundled/i);
   }
 });
 
@@ -103,7 +106,7 @@ test('local Rajdhani distribution retains its copyright and full OFL notice', ()
   const rajdhani = source('Rajdhani');
   assert.equal(rajdhani.license, 'SIL OFL 1.1');
   assert.match(rajdhani.usage, /Bundled locally/);
-  assert.match(rajdhani.usage, /400, 500, 600, and 700/);
+  assert.match(rajdhani.usage, /Bundled locally as a licensed legacy option/);
   assert.match(rajdhani.attribution, /2014 Indian Type Foundry/);
   assert.equal(rajdhani.documents.length, 1);
 

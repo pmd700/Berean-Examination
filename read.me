@@ -1,6 +1,6 @@
 # Berean Examination (BEX) — start here
 
-Updated 2026-11-06. For an AI entering this repository: read this file and `context.md`, inspect applicable AGENTS.md instructions, then inspect current code before editing. These two files replace the former 25 Markdown documents; their historical originals remain in Git commit `23d4bac`.
+Updated 2026-11-07. For an AI entering this repository: read this file and `context.md`, inspect applicable AGENTS.md instructions, then inspect current code before editing. These two files replace the former 25 Markdown documents; their historical originals remain in Git commit `23d4bac`.
 
 ## What this application is
 
@@ -100,6 +100,10 @@ Vault backup database files may have matching `.media` companions; keep them tog
 
 Apple emoji compatibility uses the local system font, converted/cached outside Vault when native rendering paints blank; never commit or distribute Apple's generated font bytes or disable OS security. Windows/Linux retain bundled Noto. `node tools/prepare-native-emoji-cache.cjs` prepares the ignored old-preload development fallback when needed.
 
+## Maintenance and verification
+
+The November 7 cleanup preserves all course/video and Course Studio intentions, including dormant machinery. See `maintenance-checklist.md` for the checkpoint, recovery location, measured changes and remaining backlog. Page modules and Mermaid load on demand; shared editor subscriptions reuse immutable documents, inactive canvases do not own window shortcuts, and motion work is canceled when interrupted/unmounted. `npm run check:core` runs lint, all DOM tests, the full Node/TypeScript contract suite and both production renderer builds. `npm run check:native` runs disposable Electron proofs; build first. `npm run measure:renderer` reports the static JS/CSS dependency closure, separately from deferred features and full application size. The Vite manifest supports repeatable dependency measurements. Type checking remains a separate explicit gate and still reports legacy errors; no blanket suppressions were introduced.
+
 ## Verify changes
 
 Use the focused checks appropriate to the change; see package.json and tests/tools for the full list.
@@ -118,7 +122,7 @@ npx vitest run --config vitest.config.js tests/dom/annotationComposers.test.jsx 
 node --test tests/backupStorage.test.cjs tests/emojiFont.test.cjs tests/softwareLicenses.test.mjs
 ```
 
-Native proofs include `npm run study:proof`, `npm run backup:proof`, `npm run attachment:proof`, `node tools/run-footnote-creation-proof.cjs`, `node tools/run-footnote-alignment-proof.cjs`, `node tools/run-section-hit-priority-proof.cjs` and `node tools/run-emoji-rendering-proof.cjs`. They require a real Electron-capable Mac session; test with synthetic/disposable libraries. Existing pure Node/TS tests also use `cd tests && node --import tsx --test`, with their own JSX config. Passing DOM tests or a build does not prove OS-level rendering or cross-Mac installation.
+Native proofs include `npm run study:proof`, `npm run backup:proof`, `npm run attachment:proof`, `node tools/run-footnote-creation-proof.cjs`, `node tools/run-footnote-alignment-proof.cjs`, `node tools/run-section-hit-priority-proof.cjs` and `node tools/run-emoji-rendering-proof.cjs`. They require a real Electron-capable Mac session; test with synthetic/disposable libraries. Run pure Node/TypeScript tests through `npm run test:node`; its project-root working directory, test JSX/alias config and explicit raw-notice loader match the application build contracts. Passing DOM tests or a build does not prove OS-level rendering or cross-Mac installation.
 
 ## Dependencies, assets and notices
 

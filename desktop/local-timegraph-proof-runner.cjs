@@ -12,6 +12,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { app, safeStorage } = require('electron');
 const {
+  CURRENT_SCHEMA_VERSION,
   closeDatabase,
   createLocalEntity,
   deleteLocalEntity,
@@ -69,7 +70,7 @@ function assertPlaintextAbsent(libraryPath) {
 }
 
 function createPhase(libraryPath, protector) {
-  assert.equal(initializeDatabase(libraryPath, { privacyProtector: protector }).schemaVersion, 15);
+  assert.equal(initializeDatabase(libraryPath, { privacyProtector: protector }).schemaVersion, CURRENT_SCHEMA_VERSION);
 
   const saved = createLocalEntity('Timegraph', {
     title: SECRET_TITLE,
@@ -148,14 +149,14 @@ function createPhase(libraryPath, protector) {
   assertPlaintextAbsent(libraryPath);
 
   return [
-    'schema 15 stores a Timegraph with BCE, deep-time, exact and ranged events',
+    `schema ${CURRENT_SCHEMA_VERSION} stores a Timegraph with BCE, deep-time, exact and ranged events`,
     'the store rejects unsafe URLs, unknown link kinds, undated events, out-of-range years, duplicate ids and bad enums',
     'no Timegraph title or event text is readable as plaintext anywhere in the library',
   ];
 }
 
 function reopenPhase(libraryPath, protector) {
-  assert.equal(initializeDatabase(libraryPath, { privacyProtector: protector }).schemaVersion, 15);
+  assert.equal(initializeDatabase(libraryPath, { privacyProtector: protector }).schemaVersion, CURRENT_SCHEMA_VERSION);
 
   const [listed] = listLocalEntities('Timegraph', {});
   assert.ok(listed, 'the Timegraph did not survive the relaunch');

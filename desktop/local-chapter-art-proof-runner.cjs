@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { app, safeStorage } = require('electron');
 const {
+  CURRENT_SCHEMA_VERSION,
   closeDatabase,
   createLocalEntity,
   deleteLocalEntity,
@@ -52,7 +53,7 @@ function assertPlaintextAbsent(libraryPath) {
 }
 
 function createPhase(libraryPath, protector) {
-  assert.equal(initializeDatabase(libraryPath, { privacyProtector: protector }).schemaVersion, 15);
+  assert.equal(initializeDatabase(libraryPath, { privacyProtector: protector }).schemaVersion, CURRENT_SCHEMA_VERSION);
   const media = saveLocalImage({
     bytes: image(FIRST_MARKER),
     mimeType: 'image/png',
@@ -69,13 +70,13 @@ function createPhase(libraryPath, protector) {
   closeDatabase();
   assertPlaintextAbsent(libraryPath);
   return [
-    'schema 15 saves one encrypted Chapter Art catalog with shared protected Media',
+    `schema ${CURRENT_SCHEMA_VERSION} saves one encrypted Chapter Art catalog with shared protected Media`,
     'duplicate catalogs are rejected and private artwork details remain absent from plaintext',
   ];
 }
 
 function reopenPhase(libraryPath, protector) {
-  assert.equal(initializeDatabase(libraryPath, { privacyProtector: protector }).schemaVersion, 15);
+  assert.equal(initializeDatabase(libraryPath, { privacyProtector: protector }).schemaVersion, CURRENT_SCHEMA_VERSION);
   const [catalog] = listLocalEntities('ChapterArtCatalog', {});
   assert.equal(catalog.entries.length, 2);
   const firstMedia = readLocalMedia(catalog.entries[0].cover_art_url);

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Filter, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Filter, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function FilterPanel({ cards, filters, onFiltersChange }) {

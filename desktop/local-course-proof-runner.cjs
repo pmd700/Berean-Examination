@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { app, safeStorage } = require('electron');
 const {
+  CURRENT_SCHEMA_VERSION,
   closeDatabase,
   initializeDatabase,
   installCoursePackage,
@@ -210,7 +211,7 @@ async function createPhase(libraryPath, protector) {
   writeFixturePackage(conflictingPackagePath, { title: 'Silently changed title' });
 
   const opened = initializeDatabase(libraryPath, { privacyProtector: protector });
-  assert.equal(opened.schemaVersion, 15);
+  assert.equal(opened.schemaVersion, CURRENT_SCHEMA_VERSION);
   const handlers = registerHandlers(async () => ({
     canceled: false,
     ...(await installCoursePackage(packagePath, {
@@ -368,7 +369,7 @@ async function createPhase(libraryPath, protector) {
   closeDatabase();
   assertProgressPlaintextAbsent(libraryPath);
   return [
-    'schema 15 starts with an honest empty Course library',
+    `schema ${CURRENT_SCHEMA_VERSION} starts with an honest empty Course library`,
     'the real desktop install action accepts a valid local development package',
     'every Course file is fingerprinted and stored once by its fingerprint',
     'release mode blocks unsigned packages before installation',
@@ -386,7 +387,7 @@ async function createPhase(libraryPath, protector) {
 
 async function reopenPhase(libraryPath, protector) {
   const opened = initializeDatabase(libraryPath, { privacyProtector: protector });
-  assert.equal(opened.schemaVersion, 15);
+  assert.equal(opened.schemaVersion, CURRENT_SCHEMA_VERSION);
   const handlers = registerHandlers();
   const listHandler = handlers.get(COURSE_CHANNELS.list);
   const saveHandler = handlers.get(COURSE_CHANNELS.saveProgress);

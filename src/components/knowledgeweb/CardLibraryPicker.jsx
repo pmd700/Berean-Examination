@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, X, Plus, Copy } from 'lucide-react';
+import { Search, X, Copy } from 'lucide-react';
 import { desktopClient } from '@/api/desktopClient';
 import { motion, AnimatePresence } from 'framer-motion';
 

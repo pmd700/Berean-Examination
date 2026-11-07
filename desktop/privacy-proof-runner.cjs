@@ -9,6 +9,7 @@ const {
   PrivacyVault,
 } = require('./privacy-vault.cjs');
 const {
+  CURRENT_SCHEMA_VERSION,
   closeDatabase,
   initializeDatabase,
   lockPrivacyVault,
@@ -184,7 +185,7 @@ function runIntegratedPhase(databasePath, protector) {
 
   try {
     const firstOpen = initializeDatabase(libraryPath, { privacyProtector: protector });
-    assert.equal(firstOpen.schemaVersion, 15);
+    assert.equal(firstOpen.schemaVersion, CURRENT_SCHEMA_VERSION);
     assert.equal(firstOpen.privacy.created, true);
     assert.equal(firstOpen.privacy.mode, 'automatic');
     assert.equal(firstOpen.privacy.locked, false);
@@ -201,7 +202,7 @@ function runIntegratedPhase(databasePath, protector) {
     assertPlaintextAbsent(realDatabasePath);
 
     const restartOpen = initializeDatabase(libraryPath, { privacyProtector: protector });
-    assert.equal(restartOpen.schemaVersion, 15);
+    assert.equal(restartOpen.schemaVersion, CURRENT_SCHEMA_VERSION);
     assert.equal(restartOpen.privacy.created, false);
     assert.equal(restartOpen.privacy.locked, false);
     assert.deepEqual(readPrivateRecord(RECORD_ID), TEST_RECORD);
@@ -211,7 +212,7 @@ function runIntegratedPhase(databasePath, protector) {
   }
 
   return [
-    'real Berean database reaches schema version 14',
+    `real Berean database reaches schema version ${CURRENT_SCHEMA_VERSION}`,
     'production vault saves only encrypted private-record bytes',
     'production lock blocks reads and automatic unlock restores them',
     'production database restart reopens the same protected library key',

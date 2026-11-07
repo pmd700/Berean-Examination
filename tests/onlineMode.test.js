@@ -22,15 +22,17 @@ test('Offline Mode blocks ESV but leaves all local translations available', () =
   }
 });
 
-test('Study guards offline translations before the preserved API branch', async () => {
+test('Study uses the canonical guarded search session while the legacy provider stays dormant', async () => {
   const studySource = await readFile(new URL('../src/pages/Study.jsx', import.meta.url), 'utf8');
-  const offlineGuard = studySource.indexOf('if (!isOnlineTranslationAvailable(selectedVersion))');
-  const preservedApi = studySource.indexOf("platformFunctions.invoke('fetchBibleChapter'");
-
-  assert.notEqual(offlineGuard, -1, 'Offline guard must remain in Study');
-  assert.notEqual(preservedApi, -1, 'Future Online Mode API code must remain preserved');
-  assert.ok(offlineGuard < preservedApi, 'Offline guard must run before the API branch');
-  assert.match(studySource, /value: 'ESV'.*onlineOnly: true/);
-  assert.doesNotMatch(studySource, /value: 'KJV'.*onlineOnly: true/);
-  assert.match(studySource, /useState\('BSB'\)/);
+  const sessionSource = await readFile(new URL('../src/components/scripture/useScriptureSearchSession.js', import.meta.url), 'utf8');
+  const desktopSource = await readFile(new URL('../src/api/desktopClient.js', import.meta.url), 'utf8');
+  assert.match(studySource, /useScriptureSearchSession/);
+  assert.match(studySource, /startSearch\(queryText, bibleId/);
+  const guard = sessionSource.indexOf('if (isTranslationRemovedFromPlan(session.abbreviation))');
+  const batch = sessionSource.indexOf('await fetchScriptureBatch(');
+  assert.notEqual(guard, -1, 'Removed translations must be guarded by the current reader');
+  assert.ok(batch > guard, 'The edition guard must run before retrieval');
+  assert.match(sessionSource.slice(guard, batch), /return;/);
+  assert.match(desktopSource, /Online Mode is dormant/);
+  assert.match(desktopSource, /No provider or Internet request was started/);
 });
