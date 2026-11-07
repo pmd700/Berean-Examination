@@ -41,7 +41,7 @@ function isEmptyBody(html) {
  * a citation or an aside, not a place for tables, images or embeds.
  */
 export default function FootnoteComposer({ editor }) {
-  const [version, setVersion] = React.useState(0);
+  const [, setVersion] = React.useState(0);
 
   React.useEffect(() => {
     if (!editor) return undefined;
@@ -51,10 +51,12 @@ export default function FootnoteComposer({ editor }) {
   }, [editor]);
 
   const { draftId, offset } = editor ? getFootnoteState(editor.state) : {};
+  const doc = editor?.state.doc;
   const footnotes = React.useMemo(
-    // `version` stands in for the mutable document; see TooltipLayer.
-    () => (editor ? collectFootnotes(editor.state.doc, offset || 0) : []),
-    [editor, version, offset],
+    // Keep subscribing to draft/selection metadata, but collect only when the
+    // immutable document or the owning page's numbering offset changes.
+    () => (editor ? collectFootnotes(doc, offset || 0) : []),
+    [editor, doc, offset],
   );
 
   const draft = draftId ? footnotes.find(item => item.id === draftId) : null;

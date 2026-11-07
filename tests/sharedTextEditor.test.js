@@ -19,6 +19,7 @@ import path from 'node:path';
 const root = path.resolve(import.meta.dirname, '..');
 const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
 const editor = read('src/components/editor/TEXT_EDITOR_MACHINERY.jsx');
+const canvasShortcuts = read('src/components/knowledgeweb/useCanvasKeyboardShortcuts.js');
 
 /** Every writing surface in the app, and what it is. */
 const SURFACES = Object.freeze({
@@ -223,13 +224,18 @@ describe('undo belongs to the editor, not the page', () => {
     assert.match(blockDrag, /import \{ redo, undo \} from '@tiptap\/pm\/history'/);
   });
 
+  it('wires the extracted canvas shortcut owner into the page', () => {
+    assert.match(knowledgeWeb, /import useCanvasKeyboardShortcuts from/);
+    assert.match(knowledgeWeb, /useCanvasKeyboardShortcuts\(\{[\s\S]*?isActive: isActiveTab/);
+  });
+
   it('the page hands every canvas command back when a note is open', () => {
     // Undo used to carve out this exception alone, which left copy, cut, paste
     // and Delete still acting on a canvas that is not even on screen. The guard
     // now covers the whole handler, and has to sit ahead of the first command.
-    const handler = knowledgeWeb.slice(
-      knowledgeWeb.indexOf('const handleKeyDown = (e) => {'),
-      knowledgeWeb.indexOf("window.addEventListener('keydown', handleKeyDown)"),
+    const handler = canvasShortcuts.slice(
+      canvasShortcuts.indexOf('const handleKeyDown = (e) => {'),
+      canvasShortcuts.indexOf("window.addEventListener('keydown', handleKeyDown)"),
     );
     const guard = handler.indexOf('if (activeNoteIdRef.current) return;');
     const firstCommand = handler.indexOf("if (isMod && (e.key === 'z' || e.key === 'Z'))");
@@ -241,8 +247,8 @@ describe('undo belongs to the editor, not the page', () => {
   });
 
   it('the page never runs canvas undo underneath a fullscreen card editor', () => {
-    const undoBranch = knowledgeWeb.slice(
-      knowledgeWeb.indexOf("if (isMod && (e.key === 'z' || e.key === 'Z'))"),
+    const undoBranch = canvasShortcuts.slice(
+      canvasShortcuts.indexOf("if (isMod && (e.key === 'z' || e.key === 'Z'))"),
     ).slice(0, 1400);
     assert.match(undoBranch, /document\.querySelector\('\.kw-card-editor-fullscreen'\)/);
     assert.match(undoBranch, /if \(hasFullscreenCardEditor\) return;/);
@@ -253,9 +259,9 @@ describe('undo belongs to the editor, not the page', () => {
     // editor — a block selection releases the caret, a popover button takes the
     // press, a freshly turned page has not been clicked into yet. Each of those
     // used to copy or paste cards instead of text.
-    const handler = knowledgeWeb.slice(
-      knowledgeWeb.indexOf('const handleKeyDown = (e) => {'),
-      knowledgeWeb.indexOf("window.addEventListener('keydown', handleKeyDown)"),
+    const handler = canvasShortcuts.slice(
+      canvasShortcuts.indexOf('const handleKeyDown = (e) => {'),
+      canvasShortcuts.indexOf("window.addEventListener('keydown', handleKeyDown)"),
     );
     const guard = handler.indexOf('if (activeNoteIdRef.current) return;');
 
@@ -366,22 +372,30 @@ describe('modifier-key commands belong to selected text, not the card canvas', (
   });
 
   it('the Knowledge Web also recognizes a visible block-selected editor', () => {
-    assert.match(knowledgeWeb, /\.ProseMirror\.bex-block-selection-active/);
-    assert.match(knowledgeWeb, /if \(isEditingText \|\| hasActiveTextBlocks\) return;/);
+    assert.match(canvasShortcuts, /\.ProseMirror\.bex-block-selection-active/);
+    assert.match(canvasShortcuts, /if \(isEditingText \|\| hasActiveTextBlocks\) return;/);
   });
 });
 
 describe('marquee selection never steals another widget press', () => {
   const blockDrag = read('src/components/editor/BlockDragExtension.js');
 
-  it('uses the full height of both page margins as a marquee starting area', () => {
+  it('uses the full page-margin height within the owning selection surface', () => {
     const startGesture = blockDrag.slice(
       blockDrag.indexOf('startGutterGesture = (event)'),
       blockDrag.indexOf('releaseTextCaret()', blockDrag.indexOf('startGutterGesture = (event)')),
     );
+    // Notes own their page surface; Study owns only its editor box. Both allow
+    // a marquee above/below the nearest text block, but neither may claim a
+    // press outside its surface (especially over neighboring Scripture).
+    assert.match(startGesture, /const surface = selectionSurface\(this\.view\)/);
+    assert.match(startGesture, /const surfaceRect = surface\.getBoundingClientRect\(\)/);
+    assert.match(startGesture, /event\.clientY < surfaceRect\.top/);
+    assert.match(startGesture, /event\.clientY > surfaceRect\.bottom\) return false;/);
     assert.match(startGesture, /const block = blockAtY\(this\.view, event\.clientY\)/);
     assert.doesNotMatch(startGesture, /editorRect/);
-    assert.doesNotMatch(startGesture, /event\.clientY\s*[<>]/);
+    assert.doesNotMatch(startGesture, /event\.clientY\s*[<>]=?\s*block\.rect\.(?:top|bottom)/);
+    assert.doesNotMatch(startGesture, /block\.rect\.(?:top|bottom)\s*[<>]=?\s*event\.clientY/);
   });
 
   it('requires the press to land on the page surface', () => {

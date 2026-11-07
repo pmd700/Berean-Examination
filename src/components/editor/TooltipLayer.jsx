@@ -28,7 +28,7 @@ function isEmptyBody(html) {
  * close the panel without needing to be wired up individually.
  */
 export default function TooltipLayer({ editor }) {
-  const [version, setVersion] = React.useState(0);
+  const [, setVersion] = React.useState(0);
   const [draftValue, setDraftValue] = React.useState('');
   const draftIdRef = React.useRef(null);
   /**
@@ -50,11 +50,13 @@ export default function TooltipLayer({ editor }) {
   }, [editor]);
 
   const { activeId, draftId } = editor ? getTooltipState(editor.state) : {};
+  const doc = editor?.state.doc;
   const tooltips = React.useMemo(
-    () => (editor ? collectTooltips(editor.state.doc) : []),
-    // `version` is the subscription: the document is mutable, so it can never
-    // be a dependency itself — every transaction bumps this instead.
-    [editor, version],
+    // The editor instance mutates, but ProseMirror documents are immutable.
+    // Meta/selection transactions still refresh active/draft UI above without
+    // rebuilding every annotation from an unchanged document.
+    () => (editor ? collectTooltips(doc) : []),
+    [editor, doc],
   );
 
   const draft = draftId ? tooltips.find(item => item.id === draftId) : null;

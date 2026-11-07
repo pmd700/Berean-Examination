@@ -9,6 +9,7 @@ import {
 } from './commentLayoutModel';
 import LogicRichHtml from '../logic/LogicRichHtml';
 import TEXT_EDITOR_MACHINERY from './TEXT_EDITOR_MACHINERY';
+import { useIsActiveTab } from '@/lib/WorkspaceTabs';
 
 const EDITING_WIDTH = 264;  // room to actually write in
 const MAX_WIDTH = 280;      // a saved card never grows past this
@@ -24,7 +25,7 @@ function sameIds(left, right) {
   return true;
 }
 
-function scrollViewportHeight(spacer) {
+function scrollViewportOwner(spacer) {
   let owner = scrollOwnerCache.get(spacer);
   if (!owner?.isConnected) {
     owner = null;
@@ -40,6 +41,11 @@ function scrollViewportHeight(spacer) {
     if (owner) scrollOwnerCache.set(spacer, owner);
   }
 
+  return owner;
+}
+
+function scrollViewportHeight(spacer) {
+  const owner = scrollViewportOwner(spacer);
   const ownerHeight = owner?.clientHeight || owner?.getBoundingClientRect?.().height || 0;
   return ownerHeight > 0 ? ownerHeight : Math.max(0, window.innerHeight || 0);
 }
@@ -101,6 +107,7 @@ export function isEmptyBody(html) {
  * them in the same frame as the text they're bolted to.
  */
 export default function CommentSidebar({ editor, anchorRef, tailSpacerRef }) {
+  const isActiveTab = useIsActiveTab();
   const [comments, setComments] = React.useState([]);
   const [activeId, setActiveId] = React.useState(null);
   const [draftId, setDraftId] = React.useState(null);
@@ -119,8 +126,15 @@ export default function CommentSidebar({ editor, anchorRef, tailSpacerRef }) {
 
   React.useEffect(() => {
     if (!editor) return undefined;
+    let previousDoc = null;
     const sync = () => {
-      setComments(collectComments(editor.state.doc));
+      // Selection/meta transactions keep the same immutable ProseMirror doc.
+      // Keep syncing active/draft state without rescanning all written text or
+      // replacing the comment list on every caret movement.
+      if (editor.state.doc !== previousDoc) {
+        previousDoc = editor.state.doc;
+        setComments(collectComments(previousDoc));
+      }
       const { activeId: nextActive, draftId: nextDraft } = getCommentState(editor.state);
       setActiveId(nextActive);
       setDraftId(nextDraft);
@@ -156,6 +170,7 @@ export default function CommentSidebar({ editor, anchorRef, tailSpacerRef }) {
   // handles headings, lists, quotes and images correctly instead of guessing
   // from source-text length.
   React.useLayoutEffect(() => {
+    if (!isActiveTab || comments.length === 0) return undefined;
     const frame = requestAnimationFrame(measureCommentBodies);
     const observer = typeof ResizeObserver === 'undefined'
       ? null
@@ -167,7 +182,7 @@ export default function CommentSidebar({ editor, anchorRef, tailSpacerRef }) {
       observer?.disconnect();
       window.removeEventListener('resize', measureCommentBodies);
     };
-  }, [editingId, expandedBundles, expandedIds, layoutGroups, measureCommentBodies]);
+  }, [isActiveTab, comments.length, editingId, expandedBundles, expandedIds, layoutGroups, measureCommentBodies]);
 
   const toggleExpanded = (id) => {
     setExpandedIds((current) => {
@@ -304,6 +319,23 @@ export default function CommentSidebar({ editor, anchorRef, tailSpacerRef }) {
   // moves — and it covers scrolling of any ancestor pane, window resizes and
   // cards growing as you type, without listening for any of them.
   React.useLayoutEffect(() => {
+    // Most editors have no margin comments. Their natural reading runway only
+    // depends on viewport size, so it needs resize notifications, not a 60 Hz
+    // polling loop. Background tabs keep their editor mounted but must not
+    // poll layout or leave body-portaled comments above the active workspace.
+    if (!editor || !isActiveTab || comments.length === 0) {
+      setTailSpace(tailSpacerRef, 0);
+      if (!editor || !isActiveTab) return undefined;
+      const resize = () => setTailSpace(tailSpacerRef, 0);
+      const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(resize);
+      const owner = tailSpacerRef?.current && scrollViewportOwner(tailSpacerRef.current);
+      if (owner) observer?.observe(owner);
+      window.addEventListener('resize', resize);
+      return () => {
+        observer?.disconnect();
+        window.removeEventListener('resize', resize);
+      };
+    }
     let frame = 0;
     const tick = () => {
       position();
@@ -315,9 +347,9 @@ export default function CommentSidebar({ editor, anchorRef, tailSpacerRef }) {
       cancelAnimationFrame(frame);
       setTailSpace(tailSpacerRef, 0);
     };
-  }, [position, tailSpacerRef]);
+  }, [editor, isActiveTab, comments.length, position, tailSpacerRef]);
 
-  if (!editor || comments.length === 0) return null;
+  if (!editor || comments.length === 0 || !isActiveTab) return null;
 
   const startEditing = (comment) => {
     setEditingId(comment.id);

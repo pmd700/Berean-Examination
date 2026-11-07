@@ -1,14 +1,121 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import CommentSidebar from '@/components/editor/CommentSidebar';
 import { commentKey } from '@/components/editor/CommentExtension';
+import { ActiveTabProvider } from '@/lib/WorkspaceTabs';
+import useCanvasState from '@/components/knowledgeweb/useCanvasState';
 
 let host;
 
 afterEach(() => {
   host?.remove();
   host = null;
+  vi.unstubAllGlobals();
+});
+
+function controlledFrames() {
+  const pending = new Map();
+  let id = 0;
+  vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => { pending.set(++id, callback); return id; });
+  vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(frame => pending.delete(frame));
+  return { pending, named: name => [...pending.values()].filter(callback => callback.name === name) };
+}
+
+function emptyHost() {
+  host = document.createElement('div');
+  document.body.appendChild(host);
+  host.style.overflowY = 'auto';
+  Object.defineProperty(host, 'offsetParent', { configurable: true, get: () => document.body });
+  host.getBoundingClientRect = () => rect({ right: 900, bottom: 600 });
+  const spacer = document.createElement('div');
+  spacer.dataset.scrollPastEnd = 'true'; host.appendChild(spacer);
+  return spacer;
+}
+
+describe('editor idle animation ownership', () => {
+  it('does not rescan unchanged text for selection transactions while active/draft state keeps updating', () => {
+    controlledFrames(); const spacer = emptyHost(), editor = makeEditor();
+    const descendants = vi.spyOn(editor.state.doc, 'descendants');
+    const view = render(<CommentSidebar editor={editor} anchorRef={{ current: host }} tailSpacerRef={{ current: spacer }} />);
+    const sync = editor.on.mock.calls.find(([event]) => event === 'transaction')[1];
+    expect(descendants).toHaveBeenCalledTimes(1);
+    act(() => {
+      for (let i = 0; i < 100; i++) sync();
+    });
+    expect(descendants).toHaveBeenCalledTimes(1);
+    editor.state[commentKey.key] = { activeId: 'comment-1', draftId: null };
+    act(() => sync());
+    expect(screen.getByTestId('card-comment-comment-1').className).toContain('border-violet-500');
+    expect(descendants).toHaveBeenCalledTimes(1);
+
+    // The new editor deliberately shares the same doc object: subscriptions
+    // must initialize independently even when hydrating an existing document.
+    const other = { ...editor, on: vi.fn(), off: vi.fn() };
+    view.rerender(<CommentSidebar editor={other} anchorRef={{ current: host }} tailSpacerRef={{ current: spacer }} />);
+    expect(descendants).toHaveBeenCalledTimes(2);
+    expect(editor.off).toHaveBeenCalledWith('transaction', sync);
+  });
+
+  it('keeps an empty editor resize-responsive without scheduling animation frames', () => {
+    const frames = controlledFrames(), spacer = emptyHost();
+    let viewportHeight = 600;
+    Object.defineProperty(host, 'clientHeight', { configurable: true, get: () => viewportHeight });
+    const observers = [];
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(callback) { this.callback = callback; this.observe = vi.fn(); this.disconnect = vi.fn(); observers.push(this); }
+    });
+    const editor = makeEditor(600, { commentCount: 0 });
+    const view = render(<CommentSidebar editor={editor} anchorRef={{ current: host }} tailSpacerRef={{ current: spacer }} />);
+    expect(frames.pending.size).toBe(0);
+    expect(spacer.style.height).toBe('600px');
+    viewportHeight = 900; fireEvent.resize(window);
+    expect(spacer.style.height).toBe('900px');
+    viewportHeight = 750;
+    act(() => observers.forEach(observer => observer.callback([])));
+    expect(spacer.style.height).toBe('750px');
+    expect(frames.pending.size).toBe(0);
+    view.unmount();
+    expect(observers.every(observer => observer.disconnect.mock.calls.length === 1)).toBe(true);
+  });
+
+  it('runs comment positioning only for the active tab and removes hidden portals', () => {
+    const frames = controlledFrames(), spacer = emptyHost(), editor = makeEditor();
+    const tree = active => <ActiveTabProvider isActive={active}><CommentSidebar editor={editor} anchorRef={{ current: host }} tailSpacerRef={{ current: spacer }} /></ActiveTabProvider>;
+    const view = render(tree(false));
+    expect(frames.named('tick')).toHaveLength(0);
+    expect(screen.queryByTestId('card-comment-comment-1')).toBeNull();
+    view.rerender(tree(true));
+    expect(frames.named('tick')).toHaveLength(1);
+    expect(screen.getByTestId('card-comment-comment-1')).not.toBeNull();
+    view.rerender(tree(false));
+    expect(frames.named('tick')).toHaveLength(0);
+    expect(screen.queryByTestId('card-comment-comment-1')).toBeNull();
+  });
+
+  it('cancels recurring positioning when the final comment is removed', () => {
+    const frames = controlledFrames(), spacer = emptyHost(), editor = makeEditor();
+    const view = render(<CommentSidebar editor={editor} anchorRef={{ current: host }} tailSpacerRef={{ current: spacer }} />);
+    expect(frames.named('tick')).toHaveLength(1);
+    editor.state.doc = { descendants() {} };
+    const sync = editor.on.mock.calls.find(([event]) => event === 'transaction')[1];
+    act(() => sync());
+    expect(frames.named('tick')).toHaveLength(0);
+    expect(screen.queryByTestId('card-comment-comment-1')).toBeNull();
+    view.unmount();
+  });
+
+  it.each(['zoom', 'pan'])('cancels an unfinished canvas %s animation on unmount', kind => {
+    const frames = controlledFrames();
+    const hook = renderHook(() => useCanvasState());
+    act(() => {
+      if (kind === 'zoom') hook.result.current.smoothZoomTo(2, 100, 100);
+      else hook.result.current.smoothPanTo(100, 100, 800, 600, 1);
+    });
+    expect(frames.pending.size).toBe(1);
+    hook.unmount();
+    expect(frames.pending.size).toBe(0);
+  });
 });
 
 function rect({ left = 0, top = 0, right = 0, bottom = 0 } = {}) {

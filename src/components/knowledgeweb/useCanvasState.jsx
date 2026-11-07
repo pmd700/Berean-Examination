@@ -19,6 +19,14 @@ export default function useCanvasState() {
   const zoomRef = useRef(zoom);
   const panRef = useRef(pan);
   const pendingZoomTargetRef = useRef(null);
+  const cancelMotion = useCallback(() => {
+    if (animFrameRef.current !== null) cancelAnimationFrame(animFrameRef.current);
+    animFrameRef.current = null;
+    // A button's queued zoom target is meaningful only while that tween owns
+    // the canvas. A wheel/pan/fit interruption must resume from visible zoom.
+    pendingZoomTargetRef.current = null;
+  }, []);
+  useEffect(() => cancelMotion, [cancelMotion]);
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
   useEffect(() => { panRef.current = pan; }, [pan]);
 
@@ -33,10 +41,7 @@ export default function useCanvasState() {
   // produced by very quick flicks.
   const handleWheel = useCallback((e) => {
     e.preventDefault();
-    if (animFrameRef.current) {
-      cancelAnimationFrame(animFrameRef.current);
-      animFrameRef.current = null;
-    }
+    cancelMotion();
 
     // Distinguish trackpad pan from zoom intent.
     //
@@ -91,7 +96,7 @@ export default function useCanvasState() {
 
       return newZoom;
     });
-  }, []);
+  }, [cancelMotion]);
 
   // Smooth, eased zoom toward an arbitrary pivot point. The pivot is in
   // viewport-pixel coordinates relative to the canvas container origin
@@ -104,10 +109,7 @@ export default function useCanvasState() {
   // Cancels any in-flight pan/zoom animation (they share animFrameRef)
   // so rapidly re-clicking just retargets — no stacked tweens.
   const smoothZoomTo = useCallback((targetZoom, pivotX, pivotY) => {
-    if (animFrameRef.current) {
-      cancelAnimationFrame(animFrameRef.current);
-      animFrameRef.current = null;
-    }
+    cancelMotion();
     const target = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, targetZoom));
     const startZoom = zoomRef.current;
     const startPan = panRef.current;
@@ -143,7 +145,7 @@ export default function useCanvasState() {
       }
     };
     animFrameRef.current = requestAnimationFrame(step);
-  }, []);
+  }, [cancelMotion]);
 
   // Multiplicative variant for + / − buttons: a click multiplies the
   // *prior tween's target* by `factor` (or the current zoom if no tween
@@ -158,10 +160,7 @@ export default function useCanvasState() {
 
   const startPan = useCallback((e) => {
     if (e.button === 1 || (e.button === 0 && e.target.dataset.canvas === 'true')) {
-      if (animFrameRef.current) {
-        cancelAnimationFrame(animFrameRef.current);
-        animFrameRef.current = null;
-      }
+      cancelMotion();
       setIsPanning(true);
       panStart.current = { x: e.clientX, y: e.clientY };
       panOrigin.current = { x: 0, y: 0 };
@@ -170,7 +169,7 @@ export default function useCanvasState() {
         return prev;
       });
     }
-  }, []);
+  }, [cancelMotion]);
 
   const onPanMove = useCallback((e) => {
     if (!isPanning) return;
@@ -215,10 +214,7 @@ export default function useCanvasState() {
    * in the given viewport dimensions.
    */
   const smoothPanTo = useCallback((canvasX, canvasY, viewportWidth, viewportHeight, currentZoom) => {
-    if (animFrameRef.current) {
-      cancelAnimationFrame(animFrameRef.current);
-      animFrameRef.current = null;
-    }
+    cancelMotion();
 
     const targetPanX = viewportWidth / 2 - canvasX * currentZoom;
     const targetPanY = viewportHeight / 2 - canvasY * currentZoom;
@@ -255,7 +251,7 @@ export default function useCanvasState() {
     };
 
     animFrameRef.current = requestAnimationFrame(animate);
-  }, []);
+  }, [cancelMotion]);
 
   /**
    * Set pan and zoom in one step so the given world-space bounding box
@@ -268,10 +264,7 @@ export default function useCanvasState() {
    * empty / degenerate (just centers at zoom 1).
    */
   const fitToBounds = useCallback((bounds, viewportWidth, viewportHeight, padding = 80) => {
-    if (animFrameRef.current) {
-      cancelAnimationFrame(animFrameRef.current);
-      animFrameRef.current = null;
-    }
+    cancelMotion();
     if (
       !bounds ||
       !Number.isFinite(bounds.minX) || !Number.isFinite(bounds.minY) ||
@@ -304,7 +297,7 @@ export default function useCanvasState() {
       x: viewportWidth / 2 - cx * targetZoom,
       y: viewportHeight / 2 - cy * targetZoom,
     });
-  }, []);
+  }, [cancelMotion]);
 
   return {
     pan, setPan,
