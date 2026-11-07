@@ -1,7 +1,8 @@
-import { noteDeepLink, webDeepLink, timegraphDeepLink } from '@/utils';
+import { noteDeepLink, webDeepLink, timegraphDeepLink, spreadsheetDeepLink } from '@/utils';
 import { OPEN_COMMENTARY_TAB_EVENT } from '@/lib/commentaryLink';
 
 export const LIBRARY_LINK_TYPES = Object.freeze([
+  { kind: 'spreadsheet', entity: 'Spreadsheet', label: 'Spreadsheet', fallback: 'Untitled spreadsheet' },
   { kind: 'note', entity: 'MindNote', label: 'Note', fallback: 'Untitled note' },
   { kind: 'web', entity: 'KnowledgeWeb', label: 'Knowledge web', fallback: 'Untitled knowledge web' },
   { kind: 'timeline', entity: 'Timegraph', label: 'Timeline', fallback: 'Untitled timeline' },
@@ -12,7 +13,7 @@ export const LIBRARY_LINK_TYPES = Object.freeze([
  * hrefs already survive the editor's HTML, Markdown, clipboard and save paths. */
 export function libraryLinkHref({ kind, id }) {
   if (!/^[1-9]\d*$/.test(String(id))) throw new Error('Invalid library item id');
-  const build = { note: noteDeepLink, web: webDeepLink, timeline: timegraphDeepLink }[kind];
+  const build = { note: noteDeepLink, web: webDeepLink, timeline: timegraphDeepLink, spreadsheet: spreadsheetDeepLink }[kind];
   if (!build) throw new Error('Unknown library link kind');
   return build(id);
 }
@@ -33,7 +34,7 @@ export function libraryLinkPath(href, base = globalThis.location?.href) {
       path = `${url.pathname}${url.search}${url.hash}`;
     } catch { return null; }
   }
-  return /^\/(?:notes|knowledge-webs|timegraphs)\/(?:[a-z0-9-]*-)?[1-9]\d*(?:[?#][^\s]*)?$/.test(path)
+  return /^\/(?:notes|knowledge-webs|timegraphs|spreadsheets)\/(?:[a-z0-9-]*-)?[1-9]\d*(?:[?#][^\s]*)?$/.test(path)
     || STUDY_COMMENTARY_PATH.test(path)
     ? path : null;
 }

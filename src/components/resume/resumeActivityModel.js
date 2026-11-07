@@ -18,7 +18,7 @@ function trailingRecordId(value) {
  * Legacy KnowledgeWeb query links are included for old stored activities.
  */
 function savedItemIdentity(url) {
-  const deepLink = url.pathname.match(/^\/(notes|knowledge-webs|timegraphs)\/([^/]+)\/?$/);
+  const deepLink = url.pathname.match(/^\/(notes|knowledge-webs|timegraphs|spreadsheets)\/([^/]+)\/?$/);
   if (deepLink) {
     const id = trailingRecordId(deepLink[2]);
     return id ? `${deepLink[1]}:${id}` : null;

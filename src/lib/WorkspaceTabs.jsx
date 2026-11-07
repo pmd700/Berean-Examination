@@ -29,6 +29,7 @@ export const TAB_KINDS = Object.freeze({
   NOTES: 'notes',
   KEYWORDS: 'keywords',
   TIMELINE: 'timeline',
+  SPREADSHEET: 'spreadsheet',
   COURSES: 'courses',
   STATS: 'stats',
   AI_SECOND_BRAIN: 'ai-second-brain',
@@ -63,6 +64,7 @@ export const NEW_TAB_OPTIONS = [
     hint: 'Create or choose one from New tab',
     path: NEW_TAB_PATH,
   },
+  { kind: TAB_KINDS.SPREADSHEET, label: 'Spreadsheet', hint: 'Analyze data in a workbook', path: NEW_TAB_PATH },
   {
     kind: TAB_KINDS.COURSES,
     label: 'Courses',
@@ -90,6 +92,7 @@ const DEFAULT_TITLES = {
   [TAB_KINDS.NOTES]: 'Notes',
   [TAB_KINDS.KEYWORDS]: 'Keywords',
   [TAB_KINDS.TIMELINE]: 'Timeline',
+  [TAB_KINDS.SPREADSHEET]: 'Spreadsheet',
   [TAB_KINDS.COURSES]: 'Courses',
   [TAB_KINDS.STATS]: 'Stats',
   [TAB_KINDS.AI_SECOND_BRAIN]: 'AI Second Brain',
@@ -121,6 +124,7 @@ export function makeTab(kind, overrides = {}) {
 export function kindForPath(path) {
   path = normalizeWorkspacePath(path);
   if (path.startsWith(NEW_TAB_PATH)) return TAB_KINDS.HOME;
+  if (path.startsWith('/spreadsheets/') || path.startsWith('/Spreadsheets')) return TAB_KINDS.SPREADSHEET;
   if (path.startsWith('/timegraphs/')) return TAB_KINDS.TIMELINE;
   if (path.startsWith('/notes/')) return TAB_KINDS.NOTES;
   if (path.startsWith('/knowledge-webs/')) return TAB_KINDS.KNOWLEDGE_WEB;
@@ -241,6 +245,13 @@ export function useWorkspaceTabs() {
 
 export function useOptionalWorkspaceTabs() {
   return React.useContext(WorkspaceTabsContext);
+}
+
+/** Optional owning-tab metadata for editors also rendered in isolated previews. */
+export function useOptionalCurrentWorkspaceTab() {
+  const tabId = React.useContext(TabIdContext);
+  const workspace = React.useContext(WorkspaceTabsContext);
+  return workspace?.tabs.find(tab => tab.id === tabId) || null;
 }
 
 

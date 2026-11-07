@@ -16,6 +16,7 @@ const EXPORT_ENTITY_TYPES = new Set([
   'KnowledgeWeb',
   'MindNote',
   'Timegraph',
+  'Spreadsheet',
   'WebCard',
   'WebConnection',
   'CanvasObject',

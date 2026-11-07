@@ -137,6 +137,7 @@ export function searchLocalLibrary(collections, rawQuery, limit = 50) {
   const webs = Array.isArray(collections?.webs) ? collections.webs : [];
   const notes = Array.isArray(collections?.notes) ? collections.notes : [];
   const timegraphs = Array.isArray(collections?.timegraphs) ? collections.timegraphs : [];
+  const spreadsheets = Array.isArray(collections?.spreadsheets) ? collections.spreadsheets : [];
   const results = [];
 
   for (const chapter of chapters) {
@@ -272,6 +273,23 @@ export function searchLocalLibrary(collections, rawQuery, limit = 50) {
         targetId: event.id,
         workspaceTitle: graphTitle,
       });
+    }
+  }
+
+  for (const record of spreadsheets) {
+    const title = record.title || 'Untitled spreadsheet';
+    const href = savedItemPath('spreadsheets', record.id, record.title);
+    addResult(results, { record, type: 'Spreadsheet', title, href, phrase, terms });
+    for (const sheet of record.workbook?.sheets || []) {
+      for (const [address, cell] of Object.entries(sheet.cells || {})) {
+        addResult(results, {
+          record, id: `${record.id}:${sheet.id}:${address}`, type: 'Spreadsheet Cell',
+          title: `${title} · ${sheet.name}!${address}`,
+          fields: [{ name: 'cell', value: [cell.v, cell.f, cell.note, cell.link] }],
+          href: `${href}?sheet=${encodeURIComponent(sheet.id)}&cell=${encodeURIComponent(address)}`,
+          phrase, terms, targetId: address, workspaceTitle: title,
+        });
+      }
     }
   }
 

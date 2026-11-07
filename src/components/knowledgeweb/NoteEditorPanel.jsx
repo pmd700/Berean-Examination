@@ -1,3 +1,4 @@
+import BackToMenu from '@/components/navigation/BackToMenu';
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
 import { desktopClient } from '@/api/desktopClient';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -33,6 +34,7 @@ import {
 } from '../notes/bookModel';
 import { toast } from 'sonner';
 import { confirmDialog } from '@/components/ui/confirm-dialog';
+import { isBlankUntitledNote } from '../notes/isBlankUntitledNote';
 import { startFieldSpotlight } from '@/lib/spotlightMotion';
 import { toPlainSearchText } from '@/lib/localBrainSearch';
 import { useIsActiveTab } from '@/lib/WorkspaceTabs';
@@ -382,7 +384,7 @@ export default function NoteEditorPanel({
 
   const handleDeletePages = useCallback(async (indices) => {
     if (!indices?.length) return;
-    const ok = await confirmDialog({
+    const ok = isBlankUntitledNote({ title, content }) || await confirmDialog({
       title: indices.length === 1
         ? `Delete page ${indices[0] + 1}?`
         : `Delete ${indices.length} pages?`,
@@ -496,6 +498,7 @@ export default function NoteEditorPanel({
     });
     if (!ok) return;
     try {
+      await flushSave();
       await desktopClient.entities.MindNote.delete(note.id);
       onNoteDeleted?.(note.id);
       toast.success('Note deleted');
@@ -542,6 +545,7 @@ export default function NoteEditorPanel({
     >
       {/* Quiet top bar — save status, page controls, delete */}
       <div className="bex-note-toolbar flex items-center justify-between gap-2 px-4 py-2.5">
+        <BackToMenu />
         <Button
           variant="ghost"
           size="sm"

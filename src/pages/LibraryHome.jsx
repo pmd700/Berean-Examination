@@ -22,6 +22,7 @@ import {
   NotebookPen,
   Pencil,
   Tag,
+  Table2,
   Trash2,
   X,
 } from 'lucide-react';
@@ -45,6 +46,7 @@ import {
   noteDeepLink,
   parseIdFromParam,
   timegraphDeepLink,
+  spreadsheetDeepLink,
   webDeepLink,
 } from '@/utils';
 import {
@@ -70,6 +72,8 @@ import {
   sanitizeFileName,
 } from '@/components/knowledgeweb/bereanFileFormat';
 import { buildCurrentNoteExport, waitForNoteExportSaves } from '@/lib/exportNote';
+
+import { createWorkbook } from '@/lib/spreadsheet/model';
 
 const CATEGORIES = Object.freeze({
   web: {
@@ -103,12 +107,14 @@ const CATEGORIES = Object.freeze({
     glow: 'rgba(45, 212, 191, 0.2)',
   },
 
+  spreadsheet: { kind: TAB_KINDS.SPREADSHEET, label: 'Spreadsheet', plural: 'Spreadsheets', shortcut: 'S', prompt: 'Analyze your evidence', icon: Table2, accent: '#54d6ae', glow: 'rgba(52,211,153,0.20)' },
 });
 
 const CATEGORY_BY_SHORTCUT = Object.freeze({
   w: 'web',
   n: 'note',
   t: 'timeline',
+  s: 'spreadsheet',
 });
 
 function isEditableTarget(target) {
@@ -161,9 +167,9 @@ function itemOrderScope(category, folderId = null) {
 
 function sameWorkspaceTarget(tab, kind, path) {
   if (!tab || tab.kind !== kind) return false;
-  if ([TAB_KINDS.KNOWLEDGE_WEB, TAB_KINDS.NOTES, TAB_KINDS.TIMELINE].includes(kind)) {
-    const left = parseIdFromParam(tab.path);
-    const right = parseIdFromParam(path);
+  if ([TAB_KINDS.KNOWLEDGE_WEB, TAB_KINDS.NOTES, TAB_KINDS.TIMELINE, TAB_KINDS.SPREADSHEET].includes(kind)) {
+    const left = parseIdFromParam(tab.path.split(/[?#]/)[0]);
+    const right = parseIdFromParam(path.split(/[?#]/)[0]);
     return left != null && right != null && String(left) === String(right);
   }
   return tab.path === path;
@@ -173,6 +179,7 @@ function tabMatchesLibraryItem(tab, category, item) {
   if (!tab || !item) return false;
   if (category === 'web') return sameWorkspaceTarget(tab, TAB_KINDS.KNOWLEDGE_WEB, webDeepLink(item.id, item.title));
   if (category === 'note') return sameWorkspaceTarget(tab, TAB_KINDS.NOTES, noteDeepLink(item.id, item.title));
+  if (category === 'spreadsheet') return sameWorkspaceTarget(tab, TAB_KINDS.SPREADSHEET, spreadsheetDeepLink(item.id, item.title));
   if (category === 'timeline') return sameWorkspaceTarget(tab, TAB_KINDS.TIMELINE, timegraphDeepLink(item.id, item.title));
   return false;
 }
@@ -397,6 +404,7 @@ function plainItemTitle(category, item) {
   if (category === 'web') return item.title || 'Untitled Web';
   if (category === 'note') return item.title || 'Untitled Note';
   if (category === 'timeline') return item.title || 'Unnamed timeline';
+  if (category === 'spreadsheet') return item.title || 'Untitled spreadsheet';
   return item.title || `${item.book || 'Bible Study'} ${item.chapter_number || ''}`.trim();
 }
 
@@ -747,6 +755,7 @@ export default function LibraryHome() {
   const { tabs, updateTab, selectTab, closeTab } = useWorkspaceTabs();
   const library = useWebLibrary();
   const [timelines, setTimelines] = React.useState([]);
+  const [spreadsheets, setSpreadsheets] = React.useState([]);
   const [loadingSecondary, setLoadingSecondary] = React.useState(true);
   const [creating, setCreating] = React.useState(null);
   const [folderRequest, setFolderRequest] = React.useState(null);
@@ -776,7 +785,8 @@ export default function LibraryHome() {
 
   const refreshSecondary = React.useCallback(async () => {
     try {
-      const graphs = await listTimegraphs().catch(() => []);
+      const [graphs, workbooks] = await Promise.all([listTimegraphs().catch(() => []), (desktopClient.entities.Spreadsheet?.list?.('-updated_date') || Promise.resolve([])).catch(() => [])]);
+      setSpreadsheets(Array.isArray(workbooks) ? workbooks : []);
       setTimelines(Array.isArray(graphs) ? graphs : []);
     } finally {
       setLoadingSecondary(false);
@@ -825,6 +835,8 @@ export default function LibraryHome() {
       adoptCurrentTab(TAB_KINDS.KNOWLEDGE_WEB, webDeepLink(item.id, titleOverride || item.title), titleOverride || item.title || 'Knowledge Web', { allowDuplicate: true });
     } else if (category === 'note') {
       adoptCurrentTab(TAB_KINDS.NOTES, noteDeepLink(item.id, item.title), item.title || 'Untitled Note', { allowDuplicate: true });
+    } else if (category === 'spreadsheet') {
+      adoptCurrentTab(TAB_KINDS.SPREADSHEET, spreadsheetDeepLink(item.id, item.title), item.title || 'Untitled spreadsheet', { allowDuplicate: true });
     } else if (category === 'timeline') {
       adoptCurrentTab(TAB_KINDS.TIMELINE, timegraphDeepLink(item.id, item.title), item.title || 'Unnamed timeline', { allowDuplicate: true });
 
@@ -841,6 +853,10 @@ export default function LibraryHome() {
       } else if (category === 'note') {
         const record = await library.createNote();
         if (record) openItem(category, record);
+      } else if (category === 'spreadsheet') {
+        const record = await desktopClient.entities.Spreadsheet.create({ title: 'Untitled spreadsheet', workbook: createWorkbook() });
+        setSpreadsheets(current => [record, ...current]);
+        openItem(category, record);
       } else if (category === 'timeline') {
         const record = await createTimegraph({ title: '' });
         setTimelines((current) => [record, ...current]);
@@ -903,6 +919,11 @@ export default function LibraryHome() {
       // autosave in another mounted tab, even after that save has completed.
       return buildCurrentNoteExport(item.id);
     }
+    if (category === 'spreadsheet') {
+      const record = await desktopClient.entities.Spreadsheet.get(item.id);
+      const { exportXlsx } = await import('@/lib/spreadsheet/files');
+      return { fileName: `${sanitizeFileName(record.title || 'spreadsheet')}.xlsx`, content: await exportXlsx(record.workbook), type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
+    }
     if (category === 'timeline') {
       return {
         fileName: exportFileName(item.title, 'json', EXPORT_SCOPES.ALL),
@@ -923,7 +944,8 @@ export default function LibraryHome() {
     web: library.webs,
     note: library.notes,
     timeline: timelines,
-  }), [library.notes, library.webs, timelines]);
+    spreadsheet: spreadsheets,
+  }), [library.notes, library.webs, timelines, spreadsheets]);
 
   const selectedRecords = React.useMemo(() => Array.from(selectedItems).flatMap((key) => {
     const [category, rawId] = key.split(':');
@@ -952,6 +974,10 @@ export default function LibraryHome() {
   const renameItem = async (category, item, name) => {
     if (category === 'web') await library.renameWeb(item.id, name);
     else if (category === 'note') await library.renameNote(item.id, name);
+    else if (category === 'spreadsheet') {
+      const updated = await desktopClient.entities.Spreadsheet.update(item.id, { title: name });
+      setSpreadsheets(current => current.map(entry => entry.id === item.id ? { ...entry, ...updated } : entry));
+    }
     else if (category === 'timeline') {
       const updated = await renameTimegraph(item.id, name);
       setTimelines((current) => current.map((graph) => graph.id === item.id ? { ...graph, ...updated } : graph));
@@ -970,7 +996,7 @@ export default function LibraryHome() {
           ? noteDeepLink(renameRequest.item.id, name)
           : renameRequest.category === 'timeline'
             ? timegraphDeepLink(renameRequest.item.id, name)
-            : null;
+            : renameRequest.category === 'spreadsheet' ? spreadsheetDeepLink(renameRequest.item.id, name) : null;
       tabs.filter((tab) => tabMatchesLibraryItem(tab, renameRequest.category, renameRequest.item)).forEach((tab) => {
         updateTab(tab.id, { title: name, ...(pathForRenamedItem ? { path: pathForRenamedItem } : {}) });
       });
@@ -985,6 +1011,10 @@ export default function LibraryHome() {
   const deleteItemRecord = async (category, item) => {
     if (category === 'web') await library.deleteWeb(item.id);
     else if (category === 'note') await library.deleteNote(item.id);
+    else if (category === 'spreadsheet') {
+      await desktopClient.entities.Spreadsheet.delete(item.id);
+      setSpreadsheets(current => current.filter(entry => entry.id !== item.id));
+    }
     else if (category === 'timeline') {
       await deleteTimegraph(item.id);
       setTimelines((current) => current.filter((graph) => graph.id !== item.id));
@@ -1098,6 +1128,7 @@ export default function LibraryHome() {
     try {
       await library.deleteFolder(folder.id);
       setTimelines((current) => current.map((item) => item.folder_id === folder.id ? { ...item, folder_id: null } : item));
+      setSpreadsheets(current => current.map(item => item.folder_id === folder.id ? { ...item, folder_id: null } : item));
     } catch (error) {
       toast.error(error?.message || 'BEX could not delete that folder.');
     }
@@ -1132,6 +1163,9 @@ export default function LibraryHome() {
         await library.moveWebToFolder(item.id, target);
       } else if (category === 'note') {
         await library.moveNoteToFolder(item.id, target);
+      } else if (category === 'spreadsheet') {
+        const updated = await desktopClient.entities.Spreadsheet.update(item.id, { folder_id: target });
+        setSpreadsheets(current => current.map(entry => String(entry.id) === String(item.id) ? { ...entry, ...updated } : entry));
       } else if (category === 'timeline') {
         const updated = await moveTimegraphToFolder(item.id, target);
         setTimelines((current) => current.map((entry) => (
@@ -1180,12 +1214,12 @@ export default function LibraryHome() {
       </header>
 
       <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 sm:px-5 sm:py-5">
-        <div className="bex-library-columns mx-auto grid max-w-[1780px] grid-cols-1 items-start gap-4 md:grid-cols-3">
+        <div className="bex-library-columns mx-auto grid max-w-[2100px] grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-4">
           {Object.keys(CATEGORIES).map((category) => (
             <CategoryColumn
               key={category}
               category={category}
-              items={category === 'web' ? library.webs : category === 'note' ? library.notes : timelines}
+              items={category === 'web' ? library.webs : category === 'note' ? library.notes : category === 'spreadsheet' ? spreadsheets : timelines}
               folders={libraryFoldersForCategory(library.folders, category)}
               busy={creating === category}
               onCreate={() => createItem(category)}

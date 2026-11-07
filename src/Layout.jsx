@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/AuthContext';
 
 // Pages that own their full viewport and must not have bottom padding
 // injected beneath them (they use overflow-hidden / fixed canvases).
-const FULL_SCREEN_PAGES = new Set(['KnowledgeWeb', 'ChapterArt']);
+const FULL_SCREEN_PAGES = new Set(['KnowledgeWeb', 'ChapterArt', 'Spreadsheets']);
 
 export default function Layout({ children, currentPageName, fullBleed = false }) {
   const { user } = useAuth();

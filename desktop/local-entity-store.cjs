@@ -2,6 +2,7 @@
 
 const { separateApiStudyRecord } = require('./api-study-record.cjs');
 const { validateStudyCanvasRecord } = require('./study-canvas-record.cjs');
+const { encodeSpreadsheetPayload, decodeSpreadsheetPayload } = require('./spreadsheet-storage.cjs');
 
 const { MAX_IMAGE_BYTES, parseMediaUrl } = require('./local-media.cjs');
 
@@ -130,6 +131,16 @@ const ENTITY_CONFIG = Object.freeze({
     containerField: 'folder_id',
     containerTable: 'local_web_folders',
     table: 'local_timegraphs',
+  }),
+  Spreadsheet: Object.freeze({
+    maxBytes: MAX_VERSION_BYTES,
+    listOmitFields: Object.freeze(['workbook']),
+    snapshotFullPayload: true,
+    containerField: 'folder_id',
+    containerTable: 'local_web_folders',
+    newAtTop: true,
+    orderField: 'sort_order',
+    table: 'local_spreadsheets',
   }),
   TextHighlight: Object.freeze({
     immutableFields: Object.freeze(['book', 'chapter_number', 'version']),
@@ -315,6 +326,45 @@ class LocalEntityStore {
   }
 
   validateConfiguredPayload(config, payload, { defaultOrdering = false, nowMs, existingId = null } = {}) {
+    if (config.table === 'local_spreadsheets') {
+      if (typeof payload.title !== 'string' || payload.title.length > 500
+        || !isPlainObject(payload.workbook) || !Array.isArray(payload.workbook.sheets)
+        || payload.workbook.sheets.length < 1 || payload.workbook.sheets.length > 1024
+        || payload.workbook.sheets.some(sheet => !isPlainObject(sheet))) {
+        throw codedError('BEX_ENTITY_INVALID', 'The spreadsheet needs a title and a valid workbook.');
+      }
+      const sheetIds = new Set();
+      for (const sheet of payload.workbook.sheets) {
+        if (typeof sheet.id !== 'string' || !sheet.id || sheet.id.length > 120 || sheetIds.has(sheet.id)
+          || typeof sheet.name !== 'string' || !sheet.name.trim() || sheet.name.length > 200
+          || !Number.isSafeInteger(sheet.rowCount) || sheet.rowCount < 1 || sheet.rowCount > 1048576
+          || !Number.isSafeInteger(sheet.columnCount) || sheet.columnCount < 1 || sheet.columnCount > 16384
+          || !isPlainObject(sheet.cells)) {
+          throw codedError('BEX_ENTITY_INVALID', 'The worksheet identity, dimensions or cells are invalid.');
+        }
+        sheetIds.add(sheet.id);
+        for (const [address, cell] of Object.entries(sheet.cells)) {
+          const match = /^([A-Z]{1,3})([1-9]\d{0,6})$/.exec(address);
+          const column = match ? [...match[1]].reduce((value, letter) => value * 26 + letter.charCodeAt(0) - 64, 0) : 0;
+          if (!match || column > sheet.columnCount || Number(match[2]) > sheet.rowCount
+            || !isPlainObject(cell)
+            || (cell.v != null && !['string', 'number', 'boolean'].includes(typeof cell.v))
+            || (cell.f !== undefined && typeof cell.f !== 'string')) {
+            throw codedError('BEX_ENTITY_INVALID', 'The worksheet contains an invalid cell.');
+          }
+        }
+        for (const [field, maximum] of [['columnWidths', sheet.columnCount], ['rowHeights', sheet.rowCount]]) {
+          if (sheet[field] === undefined) continue;
+          if (!isPlainObject(sheet[field]) || Object.entries(sheet[field]).some(([key, size]) => !/^\d+$/.test(key)
+            || Number(key) >= maximum || typeof size !== 'number' || size < 0 || size > 10000)) {
+            throw codedError('BEX_ENTITY_INVALID', 'The worksheet dimensions are invalid.');
+          }
+        }
+      }
+      if (payload.workbook.activeSheetId != null && !sheetIds.has(payload.workbook.activeSheetId)) {
+        throw codedError('BEX_ENTITY_INVALID', 'The active worksheet no longer exists.');
+      }
+    }
     if (config.table === 'local_study_canvas_objects' || config.table === 'local_study_connections') {
       validateStudyCanvasRecord(config.table === 'local_study_connections' ? 'StudyConnection' : 'StudyCanvasObject', payload,
         (type, id) => !!this.database.prepare(`SELECT id FROM ${requireEntityConfig(type).table} WHERE id = ?`).get(id));
@@ -1351,7 +1401,7 @@ class LocalEntityStore {
   writeExistingRow(entityType, config, row, payload, timestamp) {
     const normalizedId = requireEntityId(row.id);
     const encryptedPayload = this.privacyVault.encryptValue(
-      payload,
+      entityType === 'Spreadsheet' ? encodeSpreadsheetPayload(payload) : payload,
       entityPurpose(entityType, normalizedId),
     );
     this.database.prepare(`
@@ -1367,12 +1417,13 @@ class LocalEntityStore {
     });
   }
 
-  decodeRow(entityType, row, { readOnly = false } = {}) {
+  decodeRow(entityType, row, { readOnly = false, omitWorkbook = false } = {}) {
     const config = requireEntityConfig(entityType);
     let payload = this.privacyVault.decryptValue(
       row.encrypted_payload,
       entityPurpose(entityType, Number(row.id)),
     );
+    if (entityType === 'Spreadsheet') payload = decodeSpreadsheetPayload(payload, { omitWorkbook });
     if (entityType === 'StudyChapter') {
       const separated = separateApiStudyRecord(payload);
       if (JSON.stringify(separated) !== JSON.stringify(payload)) {
@@ -1442,7 +1493,7 @@ class LocalEntityStore {
       `).get(entityType);
       const entityId = Number(sequence.last_id);
       const encryptedPayload = this.privacyVault.encryptValue(
-        payload,
+        entityType === 'Spreadsheet' ? encodeSpreadsheetPayload(payload) : payload,
         entityPurpose(entityType, entityId),
       );
       if (config.scopeField) {
@@ -1504,7 +1555,7 @@ class LocalEntityStore {
           if (records.length + rows.length > 50000) throw codedError('BEX_ENTITY_SNAPSHOT_TOO_LARGE', 'The complete library snapshot exceeds its record limit.');
           for (const row of rows) {
             const record = { ...this.decodeRow(type, row, { readOnly: true }) };
-            for (const field of config.listOmitFields || []) delete record[field];
+            if (!config.snapshotFullPayload) for (const field of config.listOmitFields || []) delete record[field];
             byteLength += Buffer.byteLength(JSON.stringify(record), 'utf8');
             if (byteLength > 128 * 1024 * 1024) throw codedError('BEX_ENTITY_SNAPSHOT_TOO_LARGE', 'The complete library snapshot exceeds 128 MB.');
             records.push(record);
@@ -1562,7 +1613,7 @@ class LocalEntityStore {
         FROM ${config.table}
       `).all();
     const records = rows
-      .map((row) => this.decodeRow(entityType, row))
+      .map((row) => this.decodeRow(entityType, row, { omitWorkbook: entityType === 'Spreadsheet' }))
       .filter((record) => Object.entries(filter).every(
         ([key, expected]) => valueMatches(record[key], expected),
       ))
@@ -1640,7 +1691,7 @@ class LocalEntityStore {
     try {
       const timestamp = new Date(this.now()).toISOString();
       if (entityType === 'WebFolder') {
-        for (const containedType of ['KnowledgeWeb', 'MindNote', 'Timegraph', 'StudyChapter']) {
+        for (const containedType of ['KnowledgeWeb', 'MindNote', 'Timegraph', 'StudyChapter', 'Spreadsheet']) {
           const containedConfig = requireEntityConfig(containedType);
           for (const row of this.allRows(containedConfig)) {
             const current = this.decodeRow(containedType, row);

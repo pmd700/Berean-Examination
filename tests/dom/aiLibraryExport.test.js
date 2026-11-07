@@ -7,8 +7,8 @@ import { listAllEntityRecords } from '@/lib/allLocalEntityRecords';
 import { commentaryLinkHref } from '@/lib/commentaryLink';
 import { encryptJson, encryptString } from '@/lib/webCrypto';
 
-const empty = () => ({ notes: [], webs: [], cards: [], connections: [], objects: [], timelines: [], commentaries: [], studies: [], keywords: [], drawings: [], mindLinks: [], folders: [], studyObjects: [], studyConnections: [] });
-const entityTypes = { MindNote: 'notes', KnowledgeWeb: 'webs', Timegraph: 'timelines', Keyword: 'keywords', Annotation: 'commentaries', StudyChapter: 'studies', WebCard: 'cards', WebConnection: 'connections', CanvasObject: 'objects', Drawing: 'drawings', MindLink: 'mindLinks', WebFolder: 'folders', StudyCanvasObject: 'studyObjects', StudyConnection: 'studyConnections' };
+const empty = () => ({ spreadsheets: [], notes: [], webs: [], cards: [], connections: [], objects: [], timelines: [], commentaries: [], studies: [], keywords: [], drawings: [], mindLinks: [], folders: [], studyObjects: [], studyConnections: [] });
+const entityTypes = { Spreadsheet: 'spreadsheets', MindNote: 'notes', KnowledgeWeb: 'webs', Timegraph: 'timelines', Keyword: 'keywords', Annotation: 'commentaries', StudyChapter: 'studies', WebCard: 'cards', WebConnection: 'connections', CanvasObject: 'objects', Drawing: 'drawings', MindLink: 'mindLinks', WebFolder: 'folders', StudyCanvasObject: 'studyObjects', StudyConnection: 'studyConnections' };
 const entities = snapshot => Object.fromEntries(Object.entries(entityTypes).map(([type, key]) => [type, { listPage: vi.fn(async ({ cursor, limit }) => {
   const records = snapshot[key].filter(row => Number(row.id) > (cursor || 0)).slice(0, limit);
   return { records, nextCursor: records.length === limit ? records.at(-1).id : null };
@@ -150,7 +150,7 @@ describe('complete and current snapshot', () => {
     window.bexDesktop = { isDesktop: true, readLocalEntitySnapshot };
     const result = await readAiLibrarySnapshot();
     expect(result.notes[0].content).toBe('ATOMIC_WRITING.');
-    expect(readLocalEntitySnapshot.mock.calls[0][0]).toHaveLength(14);
+    expect(readLocalEntitySnapshot.mock.calls[0][0]).toHaveLength(15);
     readLocalEntitySnapshot.mockResolvedValue({ ok: true, snapshot: { MindNote: [] } });
     await expect(readAiLibrarySnapshot()).rejects.toThrow('incomplete');
   });

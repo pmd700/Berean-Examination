@@ -15,10 +15,15 @@ export function localLinkReference(href) {
     const target = parseCommentaryLinkTarget(path);
     return target ? `commentary:${target.annotationId}` : null;
   }
-  const match = /^\/(notes|knowledge-webs|timegraphs)\/(?:[a-z0-9-]*-)?(\d+)(?:[?#]|$)/.exec(path);
+  const match = /^\/(notes|knowledge-webs|timegraphs|spreadsheets)\/(?:[a-z0-9-]*-)?(\d+)(?:[?#]|$)/.exec(path);
   if (!match) return null;
-  const prefix = { notes: 'note', 'knowledge-webs': 'web', timegraphs: 'timeline' }[match[1]];
-  const page = new URL(path, 'https://bex.local').searchParams.get('page');
+  const prefix = { notes: 'note', 'knowledge-webs': 'web', timegraphs: 'timeline', spreadsheets: 'spreadsheet' }[match[1]];
+  const params = new URL(path, 'https://bex.local').searchParams;
+  const page = params.get('page');
+  if (prefix === 'spreadsheet' && params.get('sheet')) {
+    const base = `${prefix}:${match[2]}/sheet:${params.get('sheet')}`;
+    return /^[A-Z]+[1-9]\d*$/.test(params.get('cell') || '') ? `${base}/cell:${params.get('cell')}` : base;
+  }
   return `${prefix}:${match[2]}${prefix === 'note' && /^[1-9]\d*$/.test(page || '') ? `/page:${page}` : ''}`;
 }
 

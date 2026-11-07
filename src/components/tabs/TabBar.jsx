@@ -1,7 +1,7 @@
 import React from 'react';
 import { AnimatePresence, motion, Reorder } from 'framer-motion';
 import {
-  BarChart3, BookOpenText, Brain, BookOpen, Copy, GraduationCap, LayoutGrid, NotebookPen, Plus, Share2, Tag, X,
+  BarChart3, BookOpenText, Brain, BookOpen, Copy, GraduationCap, LayoutGrid, NotebookPen, Table2, Plus, Share2, Tag, X,
 } from 'lucide-react';
 import { useWorkspaceTabs, NEW_TAB_PATH, TAB_KINDS, formatTabTitle } from '@/lib/WorkspaceTabs';
 import { requestTooltipShortcut } from '@/lib/tooltipShortcut';
@@ -15,6 +15,7 @@ const KIND_ICONS = {
   [TAB_KINDS.NOTES]: NotebookPen,
   [TAB_KINDS.KEYWORDS]: Tag,
   [TAB_KINDS.TIMELINE]: TimelineGlyph,
+  [TAB_KINDS.SPREADSHEET]: Table2,
   [TAB_KINDS.COURSES]: GraduationCap,
   [TAB_KINDS.STATS]: BarChart3,
   [TAB_KINDS.AI_SECOND_BRAIN]: Brain,

@@ -12,6 +12,7 @@ const mainPageKey = mainPage ?? Object.keys(Pages)[0];
 const MainPage = mainPageKey ? Pages[mainPageKey] : null;
 const KnowledgeWebPage = Pages.KnowledgeWeb;
 const TimelinesPage = Pages.Timelines;
+const SpreadsheetsPage = Pages.Spreadsheets;
 
 /**
  * The route table, resolved against a tab's own path rather than the browser's.
@@ -36,6 +37,7 @@ function TabRoutes({ path }) {
       {TimelinesPage && (
         <Route path="/timegraphs/:slugId" element={<TimelinesPage />} />
       )}
+      {SpreadsheetsPage && <Route path="/spreadsheets/:slugId" element={<SpreadsheetsPage />} />}
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );
@@ -111,6 +113,7 @@ export default function TabWorkspace() {
         const isDeepLink = browserPath.startsWith('/knowledge-webs/')
           || browserPath.startsWith('/notes/')
           || browserPath.startsWith('/timegraphs/')
+          || browserPath.startsWith('/spreadsheets/')
           || browserPath.startsWith('/Study');
         updateTab(activeTab.id, {
           path: browserPath,

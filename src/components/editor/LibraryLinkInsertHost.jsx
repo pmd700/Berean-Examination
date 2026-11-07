@@ -1,6 +1,6 @@
 import React from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { Search, X, FileText, Network, CalendarRange, Lock } from 'lucide-react';
+import { Search, X, FileText, Network, CalendarRange, Table2, Lock } from 'lucide-react';
 import { desktopClient } from '@/api/desktopClient';
 import { listAllEntityRecords } from '@/lib/allLocalEntityRecords';
 import { usePrivateWeb } from '@/lib/PrivateWebContext';
@@ -8,7 +8,7 @@ import { decryptString } from '@/lib/webCrypto';
 import { LIBRARY_LINK_TYPES, libraryLinkHref } from '@/lib/libraryLinks';
 import { getSlashState, closeSlashPanel } from './slashCommands';
 
-const ICONS = { note: FileText, web: Network, timeline: CalendarRange };
+const ICONS = { note: FileText, web: Network, timeline: CalendarRange, spreadsheet: Table2 };
 
 function LibraryLinkPicker({ onPick, onClose, onRestoreFocus }) {
   const { getKey } = usePrivateWeb();
@@ -82,7 +82,7 @@ function LibraryLinkPicker({ onPick, onClose, onRestoreFocus }) {
             <Dialog.Title className="font-semibold">Link to your library</Dialog.Title>
             <Dialog.Close className="rounded p-1 text-ink-soft hover:bg-elevated" aria-label="Close link picker"><X className="h-4 w-4" /></Dialog.Close>
           </div>
-          <Dialog.Description className="px-4 pt-1 text-sm text-ink-soft">Choose a note, knowledge web, or timeline.</Dialog.Description>
+          <Dialog.Description className="px-4 pt-1 text-sm text-ink-soft">Choose a note, knowledge web, timeline, or spreadsheet.</Dialog.Description>
           <div className="mx-4 my-3 flex items-center gap-2 rounded-lg border border-line bg-elevated px-3 py-2">
             <Search className="h-4 w-4 shrink-0 text-ink-soft" />
             <input ref={searchRef} value={query} onChange={event => { setQuery(event.target.value); setIndex(0); }}

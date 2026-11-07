@@ -73,6 +73,7 @@ const LocalApp = () => {
 
 /** Layout only needs to know whether the active page owns the full viewport. */
 function pageNameForPath(path = '') {
+  if (path.startsWith('/spreadsheets/')) return 'Spreadsheets';
   if (path.startsWith('/knowledge-webs/') || path.startsWith('/notes/')) return 'KnowledgeWeb';
   const match = path.replace(/^\//, '').split(/[/?]/)[0];
   return match || 'Study';

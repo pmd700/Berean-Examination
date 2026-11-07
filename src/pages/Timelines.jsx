@@ -1,3 +1,4 @@
+import BackToMenu from '@/components/navigation/BackToMenu';
 import React from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, Loader2 } from 'lucide-react';
@@ -180,6 +181,7 @@ export default function Timelines() {
           className="flex items-center gap-2 px-3 py-2 shrink-0"
           style={{ borderBottom: '1px solid rgb(var(--line))', background: 'rgb(var(--surface))' }}
         >
+          <BackToMenu />
           <button
             type="button"
             className="bex-tg-button"

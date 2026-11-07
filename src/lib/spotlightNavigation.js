@@ -41,7 +41,7 @@ export function clearSpotlightPath(path, targetParams = []) {
  */
 export function spotlightWorkspaceKey(path) {
   const url = asUrl(path);
-  const deepLink = url.pathname.match(/^\/(knowledge-webs|notes|timegraphs)\/(.+)$/);
+  const deepLink = url.pathname.match(/^\/(knowledge-webs|notes|timegraphs|spreadsheets)\/(.+)$/);
   if (deepLink) {
     const id = deepLink[2].match(/(\d+)\s*$/)?.[1] || deepLink[2];
     return `/${deepLink[1]}/${id}`;

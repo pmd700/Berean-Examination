@@ -32,6 +32,15 @@ export function timegraphDeepLink(id: number | string, title?: string | null): s
     return slug ? `/timegraphs/${slug}-${id}` : `/timegraphs/${id}`;
 }
 
+export function spreadsheetDeepLink(id: number | string, title?: string | null, target?: { sheet?: string; cell?: string }): string {
+    const slug = slugify(title);
+    const base = slug ? `/spreadsheets/${slug}-${id}` : `/spreadsheets/${id}`;
+    const params = new URLSearchParams();
+    if (target?.sheet) params.set('sheet', target.sheet);
+    if (target?.cell) params.set('cell', target.cell);
+    return base + (params.size ? `?${params}` : '');
+}
+
 // Extracts the trailing numeric id from a route param, accepting both the
 // pretty form ("my-web-title-123") and the bare id ("123"). Returns null
 // when no numeric id can be found.

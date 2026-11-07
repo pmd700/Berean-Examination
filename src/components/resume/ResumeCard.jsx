@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
   ArrowRight, X, BookOpen, Tag, MessageSquare,
-  Shield, Image, Settings, Users, UserPlus, Ban, Megaphone, Network, MapPin, NotebookPen } from
+  Shield, Image, Settings, Users, UserPlus, Ban, Megaphone, Network, MapPin, NotebookPen, Table2 } from
 'lucide-react';
 import { createPageUrl } from '@/utils';
 import { useWorkspaceTabs } from '@/lib/WorkspaceTabs';
@@ -24,6 +24,7 @@ const ICON_MAP = {
   updates: Megaphone,
   knowledge_web: Network,
   mind_note: NotebookPen,
+  spreadsheet: Table2,
   note: NotebookPen,
   geography: MapPin,
   map: MapPin,
@@ -40,6 +41,7 @@ const PROMPT_BY_TYPE = {
   knowledge_web: 'Want to get back to your knowledge web?',
   knowledge_web_private: 'Want to get back to working on your encrypted web?',
   mind_note: 'Want to get back to your note?',
+  spreadsheet: 'Want to get back to your spreadsheet?',
   chapter_art: 'Want to get back to your chapter art?',
   admin_updates: 'Want to get back to that update push?',
   geography: 'Want to get back to your map workflow?',

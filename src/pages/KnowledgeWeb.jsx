@@ -1,3 +1,5 @@
+import BackToMenu from '@/components/navigation/BackToMenu';
+import { canvasDeleteSelection } from '@/components/knowledgeweb/canvasDeleteSelection';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { flushSync } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -517,34 +519,25 @@ export default function KnowledgeWeb() {
       }
 
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        // Priority: multi-selected cards > single selected card > selected
-        // canvas object (point/text/image/timeline) > selected connection.
+        // Delete the entire marquee group, including routing points.
+        // Otherwise retain single card > object > connection priority.
         // Backspace inside form fields is already filtered above.
-        if (selectedCardIds && selectedCardIds.length > 0) {
-          e.preventDefault();
-          const ids = [...selectedCardIds];
-          if (ids.length > BULK_DELETE_CONFIRM_THRESHOLD) {
-            setPendingBulkDelete({ ids });
-          } else {
-            ids.forEach((id) => deleteCardRef.current?.(id));
-          }
-          return;
+        const selection = canvasDeleteSelection({
+          cardIds: selectedCardIds, pointIds: selectedPointIds,
+          cardId: selectedCardId, objectId: selectedObjectId,
+          connectionId: selectedConnectionId,
+        });
+        if (!selection) return;
+        e.preventDefault();
+        if (selection.connectionId != null) {
+          deleteConnectionRef.current?.(selection.connectionId);
+        } else if (selection.cardIds.length > BULK_DELETE_CONFIRM_THRESHOLD) {
+          setPendingBulkDelete({ ids: selection.cardIds, pointIds: selection.objectIds });
+        } else {
+          selection.cardIds.forEach(id => deleteCardRef.current?.(id));
+          selection.objectIds.forEach(id => deleteCanvasObjectRef.current?.(id));
         }
-        if (selectedCardId !== null && selectedCardId !== undefined) {
-          e.preventDefault();
-          deleteCardRef.current?.(selectedCardId);
-          return;
-        }
-        if (selectedObjectId !== null && selectedObjectId !== undefined) {
-          e.preventDefault();
-          deleteCanvasObjectRef.current?.(selectedObjectId);
-          return;
-        }
-        if (selectedConnectionId) {
-          e.preventDefault();
-          deleteConnectionRef.current?.(selectedConnectionId);
-          return;
-        }
+        return;
       }
       if (e.key === 'Escape') {
         setMode('hand');
@@ -554,7 +547,7 @@ export default function KnowledgeWeb() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedConnectionId, selectedCardIds, selectedCardId, selectedObjectId]);
+  }, [selectedConnectionId, selectedCardIds, selectedPointIds, selectedCardId, selectedObjectId]);
 
   const { filteredCards, filteredConnections } = useFilteredGraph(cards, connections, filters, focusState);
 
@@ -1998,6 +1991,7 @@ export default function KnowledgeWeb() {
       setConnections(prev => [...prev, created]);
     }
     setCanvasObjects(prev => prev.filter(o => o.id !== objId));
+    setSelectedPointIds(prev => prev.filter(id => id !== objId));
     setSelectedObjectId(null);
     flashSave();
   };
@@ -4210,6 +4204,7 @@ export default function KnowledgeWeb() {
           }`}
           style={activeNoteId ? undefined : { backgroundColor: '#1a1f2e' }}
         >
+          <BackToMenu />
           {activeWebId && (
             <InlineWebTitle
               title={activeWebDisplayTitle}
@@ -4533,9 +4528,10 @@ export default function KnowledgeWeb() {
                 <button
                   type="button"
                   onClick={() => {
-                    const ids = pendingBulkDelete.ids;
+                    const { ids, pointIds = [] } = pendingBulkDelete;
                     setPendingBulkDelete(null);
                     ids.forEach((id) => deleteCard(id));
+                    pointIds.forEach((id) => deleteCanvasObject(id));
                   }}
                   className="flex-1 h-10 rounded bg-red-600 hover:bg-red-500 text-white text-sm font-medium transition-colors"
                   data-testid="button-bulk-delete-confirm"

@@ -1,0 +1,276 @@
+# Berean Examination (BEX) — start here
+
+Updated 2026-11-06. For an AI entering this repository: read this file and `context.md`, inspect applicable AGENTS.md instructions, then inspect current code before editing. These two files replace the former 25 Markdown documents; their historical originals remain in Git commit `23d4bac`.
+
+## What this application is
+
+BEX is a local-first React 18 / Vite / Electron Bible-study application: notes and multi-page notebooks, Knowledge Web canvases, timelines, Scripture search/reading, highlights and personal commentaries, keywords, encrypted attachments, AI-readable export, and a separate Course Studio. The desktop main process owns encrypted SQLite and protected local files through a narrow IPC bridge; normal offline study does not require a hosted database or login. Optional online Scripture providers are separate from the dormant AI provider code.
+
+Repository: https://github.com/pmd700/Berean-Examination (private; GitHub access is needed to clone).
+Current local checkout: `/Users/davidmartinez/Desktop/BEX`.
+Current personal library: `/Users/davidmartinez/Desktop/Vault` (not a repository dependency and not uploaded by Git).
+
+## Run on a Mac
+
+Prerequisites:
+
+- Git, authenticated for this private repository if cloning; an existing copied checkout also works.
+- Node.js 24 LTS and its bundled npm; this checkout was verified with Node 24.7.0 / npm 11.5.2, while Electron supplies its own separate Node runtime.
+- Network access for the initial dependency download, including Electron's platform-specific binary; normal local use does not need network afterward.
+- Do not copy `node_modules` from another OS or CPU architecture; install it on the destination Mac.
+
+Install Node using its official macOS installer from https://nodejs.org/ if absent; Git may be installed through Apple's Command Line Tools (`xcode-select --install`) if absent. Full Xcode, Homebrew, Python, a separate SQLite server, Docker and cloud database credentials are not required by the normal launch path. Additional native build tooling is only relevant if dependency installation explicitly needs it.
+
+From an existing checkout:
+
+```sh
+cd /Users/davidmartinez/Desktop/BEX
+node --version
+npm --version
+npm ci
+npm run desktop:dev
+```
+
+For another Mac (choose your own clone location):
+
+```sh
+git clone https://github.com/pmd700/Berean-Examination.git
+cd Berean-Examination
+npm ci
+npm run desktop:dev
+```
+
+`npm ci` installs the exact `package-lock.json` dependency versions, including Electron, React, Vite, TipTap, Tailwind, PDF/media helpers and test tools; do not install these individually. It replaces the local dependency folder, so close BEX before reinstalling dependencies. Keep the lockfile and use `npm ci` rather than upgrading packages just to launch.
+
+`desktop:dev` launches Electron, chooses a free loopback port and starts Vite itself; one terminal is sufficient. `npm run dev` by itself starts only the browser frontend and cannot replace the desktop bridge needed for protected records.
+
+For the production renderer build:
+
+```sh
+npm run build
+npm run desktop:built
+```
+
+Built mode serves `dist` through Electron's own local server, without a separate Vite process. Both the main app and Course Studio renderer are built. These commands run from source; there is no verified turnkey DMG packaging command in package.json. A fresh-Mac end-to-end installation still requires separate verification.
+
+Course Studio uses its separate desktop entry point:
+
+```sh
+npm run course:studio
+# Or after npm run build:
+npm run course:studio:built
+```
+
+Do not run a second copy against an already-open personal Vault just to verify startup; use disposable test libraries instead.
+
+## First launch and moving Macs
+
+The local library chooser, machine-bound offline activation, owner setup/unlock and optional privacy PIN/recovery are distinct steps. A new Mac may need David-issued activation; source access does not bypass activation. Select the complete transferred Vault through the app rather than creating a new empty library by accident. Git does not contain private notes or decrypting credentials. Preserve recovery material and use BEX's supported unlock/restore flow; copying the Vault alone does not prove cross-Mac key portability. Never copy or replace a live SQLite database while BEX is running.
+
+Default offline startup does not require a `.env` file, Auth0, Neon, PostgreSQL, Replit or a cloud AI key. Optional API.Bible keys belong in the existing protected desktop setup, never in renderer source or Git. Preserve `.gitignore` exclusions for `.env*`, `node_modules`, `dist`, logs and machine-local files.
+
+If Electron is missing, finish `npm ci` including its binary download; do not disable install scripts. If built mode says assets are missing, run `npm run build`. Frontend refresh does not reload changed main-process/preload code; close and relaunch Electron after desktop code changes, allowing pending saves and close-time backups to finish.
+
+## Architecture map
+
+- `desktop/main.cjs`, `desktop/preload.cjs`: Electron lifecycle, local services, trusted IPC and sandboxed bridge.
+- `desktop/database.cjs`, `desktop/local-entity-store.cjs`, privacy/owner/activation modules: SQLite, records and protection.
+- `src/api/desktopClient.js`: renderer gateway to local entities, preferences and media.
+- `src/pages/KnowledgeWeb.jsx`, `src/components/knowledgeweb/`: webs, notes, card editor and canvases.
+- `src/components/editor/TEXT_EDITOR_MACHINERY.jsx`: shared TipTap editor; reuse it rather than building parallel editors.
+- `src/components/editor/FootnoteExtension.js`, `FootnoteComposer.jsx`, `src/components/notes/PageFoot.jsx`: footnote identity, creation and inline editing.
+- `src/components/notes/`: books/pages, page index/navigation, exports and view-only zoom.
+- `src/pages/Study.jsx`, `src/components/study/`, `src/components/scripture/`: Scripture, commentary, selection and study canvas.
+- `src/components/timegraph/`, `src/lib/timegraph/`: timeline display, editing, dates and export.
+- `src/lib/aiLibraryExport.js`: single-file AI export; retain stable record IDs, commentary IDs, edition identities and explicit connections.
+- `src/lib/WorkspaceTabs*`, pending-save and refresh helpers: tab identity, session restoration and save-aware full refresh.
+- `src/components/attachments/`, `desktop/local-attachments.cjs`: protected imports and local viewers.
+- `src/components/licenses/`, `tools/vite-license-assets.mjs`: dedicated Sources & Licenses page and bundled notices.
+- `desktop/course-studio-main.cjs`, `src/studio/`, course modules: separate authoring entry point, signed packages and local playback.
+- `src/ai-spine/`: dormant future optional AI interfaces; do not make them a core offline dependency.
+- `shared/sync/`: incomplete, unwired synchronization groundwork, not a functioning mobile backend.
+
+## Change and data safeguards
+
+Keep renderer sandbox/context isolation, IPC origin checks, encrypted storage, save barriers, version attribution and canonical IDs intact. Prefer scoped changes and reuse shared systems. Footnote creation uses Cmd/Ctrl+Shift+F; existing footnotes edit inline. Within an open Knowledge Web card Escape saves and exits the card, while refresh restores the card and its mode. In Study, Cmd/Ctrl+F is page find; shifted find is global outside text editors. Study marquee must not swallow Scripture text selection; standalone notes permit broader marquee selection.
+
+Study connections persist canonical verse references, annotation IDs and saved object IDs; a temporarily absent verse hides its connection without deleting it. Notes persist rich HTML, footnotes and page boundaries; exports must include hidden dropdown content. Avoid storing retrieved licensed Scripture bodies in personal records when that edition's path is ephemeral.
+
+Vault backup database files may have matching `.media` companions; keep them together. Regular backup retention is three newest plus daily seven / weekly four / monthly six overlapping periods, with protected restore targets and archives excluded from pruning. Deduplication applies to immutable backup media, not live files. The historical recovery archive `Backups/Archives/Before-storage-optimization-2026-10-19.tar.xz` must not be casually deleted; extract recovery material outside the active Vault and use normal Restore. The reported 211 MB measurement is historical, not current size.
+
+Apple emoji compatibility uses the local system font, converted/cached outside Vault when native rendering paints blank; never commit or distribute Apple's generated font bytes or disable OS security. Windows/Linux retain bundled Noto. `node tools/prepare-native-emoji-cache.cjs` prepares the ignored old-preload development fallback when needed.
+
+## Verify changes
+
+Use the focused checks appropriate to the change; see package.json and tests/tools for the full list.
+
+```sh
+npm run build
+npm run lint
+npm run typecheck
+npm run test:dom
+```
+
+The repository has a historical lint/typecheck/test backlog; report actual failures instead of claiming the whole baseline is clean. For fast focused editor coverage:
+
+```sh
+npx vitest run --config vitest.config.js tests/dom/annotationComposers.test.jsx tests/dom/sharedFootnotes.test.jsx tests/dom/noteZoom.test.jsx tests/dom/bookPages.test.jsx
+node --test tests/backupStorage.test.cjs tests/emojiFont.test.cjs tests/softwareLicenses.test.mjs
+```
+
+Native proofs include `npm run study:proof`, `npm run backup:proof`, `npm run attachment:proof`, `node tools/run-footnote-creation-proof.cjs`, `node tools/run-footnote-alignment-proof.cjs`, `node tools/run-section-hit-priority-proof.cjs` and `node tools/run-emoji-rendering-proof.cjs`. They require a real Electron-capable Mac session; test with synthetic/disposable libraries. Existing pure Node/TS tests also use `cd tests && node --import tsx --test`, with their own JSX config. Passing DOM tests or a build does not prove OS-level rendering or cross-Mac installation.
+
+## Dependencies, assets and notices
+
+Do not delete Bible `.txt` data, JSON assets, fonts, license texts or tools/license-sources just because old Markdown notes were removed. `npm run bibles:import` regenerates approved chapter assets from source_data into attached_assets/bibles; keep checksums and edition attribution. NASB 1995's API edition is `b8ee27bcd1cae43a-01`; it must not be confused with NASB 2020 or used to restore retired downloaded text. Inspect `shared/removedTranslations.ts` and the provider gates before changing availability.
+
+The license plugin generates `dist/licenses/manifest.json`, the separate complete `LICENSES.chromium.html`, and `npm-original-notices.txt` from installed packages and pinned supplemental texts. Include them with releases. Never inline the huge Chromium file or move notices onto working screens. Electron 43.2.0 / bundled Node 24.18.0 are the current notice baseline; update tools/license-sources/provenance.json and pinned sources when upgrading Electron or the build will intentionally fail. Squirrel.Mac is MIT; Mantle carries MIT plus a separate Proton notice; current OpenSSL is Apache-2.0; FFmpeg uses the supplied LGPL notice with matching Electron source references. The generated manifest flags GPL alternatives and other review issues; retain full originals, not just grouped labels.
+
+PDF assets and notices are emitted by tools/vite-pdf-assets.mjs from the pinned installed React-PDF/PDF.js packages; no CDN is needed. Emoji's Unicode license and Noto OFL.txt remain beside their assets. Original MAM attribution and source provenance from the removed Markdown files are preserved verbatim below; preserve this appendix with redistribution of the corresponding data.
+
+## Spreadsheet modality (November 6, 2026)
+
+Home has a fourth **Spreadsheets** column; Create spreadsheet or the Home `S` shortcut opens an encrypted workbook. Fully restart Electron after this update so migration 17 and the Spreadsheet entity service load. Existing user data is not converted or rewritten by this additive table migration.
+
+The custom virtualized grid starts with 1,200 available rows, stores only occupied/formatted cells, and supports multiple sheets, keyboard editing, formula bar, rectangular selection, undo/redo, copy/paste, fill-down, formulas, relative/absolute and cross-sheet references, column and row resizing, common formatting, merges, filter/sort, frozen panes, dropdowns, simple greater-than conditional rules, bar charts and group-and-sum summary sheets. Unsupported formulas return explicit errors; no formula uses JavaScript eval.
+
+November 6 calculation upgrade: 108 supported function names (including legacy aliases) cover SUM/AVERAGE/COUNT/COUNTA/COUNTBLANK, single/multiple-criteria COUNTIF(S)/SUMIF(S)/AVERAGEIF(S)/MINIFS/MAXIFS, SUMPRODUCT, statistical summaries, rounding/math, lazy IF/IFS/SWITCH/CHOOSE and error handling, text functions, INDEX/MATCH/XMATCH/XLOOKUP/VLOOKUP/HLOOKUP. `src/lib/spreadsheet/formulaFunctions.js` is the exact supported-function/arity list. Excel table references such as `Claims[Origin]`, column spans, headers/totals/this-row selectors and workbook/sheet-local defined names resolve against live cells. Typed appends directly below a table extend its range. Existing BEX imports recover missing reference metadata from their retained source ZIP when reopened, preserving edits; the next workbook edit persists that metadata. XLSX export writes native table definitions, names, fresh calculation results and modern-function namespace markers. Verified against all 1,077 formulas in the supplied six-sheet research workbook, edited dependencies, native Chromium round trips, and 116 independent compatible calculation cases. These checks left the supplied file and personal Vault unchanged. Formula ranges are capped at 100,000 cells, dependency depth at 256, and evaluation visits at one million per root. Whole-column references, general dynamic-array spilling, binary lookup search modes, VBA and complete Excel parity remain unsupported.
+
+Import accepts `.xlsx`, `.xlsm`, `.csv` and `.tsv`; the UI offers Excel/CSV imports. Files parse locally using existing JSZip and XML APIs; no new runtime dependency or remote processing was added. XLSX exports are genuine OOXML and have been independently opened with openpyxl, not just this app's own importer. CSV exports the current sheet's values only. Limits: 20 MB input, 64 MB expanded Excel package, 250,000 imported populated cells, 32 MB decoded persisted workbook, 100,000 cells per clipboard/range operation. These are explicit guardrails, not Excel-scale parity claims.
+
+Storage: `local_spreadsheets` uses the existing authenticated encrypted entity store, compressing sparse JSON with bounded deflate before encryption. Lists omit workbook payloads, get/snapshots include them, and whole-database backups include the new table. A synthetic 1,024-row / 3,072-cell workbook used 116,929 raw JSON bytes and 23,278 encrypted stored bytes in the tested fixture; this ratio varies by content. Original imported XLSX bytes are retained once as sourceXlsx to preserve unknown chart/image/macro parts; they intentionally add space for round-trip fidelity. Never include that binary field in AI export.
+
+Links use `/spreadsheets/<slug-id>?sheet=<stable-sheet-id>&cell=A1`; slash Link, global search, resume identity and single-file AI export recognize spreadsheets. Cells can hold notes and links to BEX items/Scripture. Workspace-tab metadata remembers the selected sheet/cell, scroll and zoom. Cross-modality live spreadsheet embeds are not implemented yet.
+
+Compatibility boundaries: **Excel VBA does not execute in BEX**; `.xlsm` macro blobs are retained for export, not interpreted. No full Excel/Google Sheets parity or perfect import of every workbook is claimed. Original charts/drawings/pivot parts may be retained but are not rendered/recalculated; BEX charts remain BEX metadata rather than native Excel charts. Existing imported objects can become stale after structural edits. BEX notes/dropdowns/conditional-rule/chart definitions also have custom XML metadata for BEX round trips; supported lists/rules/comments receive native OOXML where implemented. Advanced import limitations appear in the import report. A summary sheet is a basic grouped aggregation, not a full interactive pivot-table engine. Legacy `.xls`, collaboration, VBA automation, advanced chart types and general scripting remain future work.
+
+Implementation: `src/pages/Spreadsheets.jsx`, `src/components/spreadsheet/SpreadsheetEditor.jsx` and `spreadsheet.css`, `src/lib/spreadsheet/{model,formulas,files}.js`, `desktop/spreadsheet-storage.cjs`, migration 17 and generic entity integration. Before export/reload, the shared pending-save barrier commits inline drafts and awaits Vault writes; failed writes retain dirty data and block refresh. Tests use disposable libraries and synthetic workbooks; the personal Vault was not accessed during development.
+
+November 6 interaction upgrades: drag a selection by its edge to move contents and formatting with an opaque preview (Escape cancels and Undo restores); references to moved cells follow their identities across sheets. Moves that split a formula range or merged cell reject atomically. Clipboard snapshots include blank rectangle geometry so pasting blank cells clears prior contents and formatting. Long text defaults to Overflow; Text offers Overflow/Wrap/Clip, with automatic row growth for wrapped text. Horizontal/vertical alignment, border sides/widths (1–4 px), 40 preset colors and popup comments persist in Vault and supported Excel/BEX exports. Tooltips appear after 180ms. Header/frozen positioning uses native CSS sticky layers rather than React scroll offsets; selection tint is a subtle overlay preserving the original fill and text.
+
+Verification:
+
+```sh
+npx vitest run --config vitest.config.js tests/dom/spreadsheetEditor.test.jsx tests/dom/spreadsheetModel.test.js tests/dom/spreadsheetIntegration.test.jsx tests/dom/spreadsheetLibrary.test.jsx
+node --test tests/spreadsheetStorage.test.cjs
+node tools/run-spreadsheet-proof.cjs
+npm run build
+```
+
+## Known unfinished work
+
+- iPhone 14 Plus / user-reported iOS 27.0.1 / Lockdown off: separate installable PWA, one logical whole Vault, offline replicas and encrypted cloud mailbox are approved goals, not delivered features.
+- No live sync relay, device pairing or actual-device proof is established; Cloudflare was a candidate, not a deployed guarantee of cost or capacity.
+- Sync must inventory every entity/file type, dependency, attachment, conflict and deletion and prove disposable two-client round trips before touching real data.
+- Historical backup archives, courses and Bible assets require explicit handling; never silently omit them under a claim of whole-Vault sync.
+- Course distribution/signing and desktop packaging require checking actual implementation and acceptance tests; old plans are not proof of release readiness.
+- Clean-Mac activation/unlock/Vault portability and a packaged DMG still need explicit verification.
+
+## Preserved source notices and provenance
+
+### Original: data/sources/mam-parsed/LICENSE.md
+
+We here repeat, in English & Hebrew, the licence & attribution information
+from the MAM Google spreadsheet.
+This information applies equally to the data in this GitHub repository.
+So, in the text below, ignore any references to "in this spreadsheet" (English)
+or שבגליון הנתונים הזה (Hebrew).
+
+----
+License:
+
+"Miqra according to the Masorah" as found in this spreadsheet was prepared by Seth (Avi) Kadish
+from materials that he originally developed at Hebrew Wikisource,
+with major technical assistance from Erel Segal-Halevi and Benjamin Denckla.
+All of the material is available under the CC-BY-SA 4.0 license, which is found at the following link:
+
+[CC-BY-SA 4.0 Unported](https://creativecommons.org/licenses/by-sa/4.0/)
+
+Attribution:
+
+Attribution in English and all languages other than Hebrew shall be to "Hebrew Wikisource" (or an equivalent translation) with a direct link to the following page:
+
+[Miqra according to the Masorah](https://en.wikisource.org/wiki/User:Dovi/Miqra_according_to_the_Masorah#beginning)
+
+<!-- No non-Dovi equivalent currently exists for this page on en.wikisource.org. -->
+
+----
+רשיון:
+
+"מקרא על פי המסורה" שבגליון הנתונים הזה הוכן ע"י אבי קדיש, על בסיס חומר קיים מהפרויקט שכבר הכין באתר ויקיטקסט, ובעזרת תמיכה טכנית מכרעת מאת אראל סגל-הלוי ובנימין דנקלה. כל החומר מוגש תחת הרשיון Creative Commons ייחוס-שיתוף זהה 3.0, שנמצא בקישור הבא:
+
+[ייחוס-שיתוף זהה 3.0 לא מותאם](https://creativecommons.org/licenses/by-sa/4.0/deed.he)
+
+ייחוס:
+
+הייחוס בעברית יהיה ל"ויקיטקסט" ביחד עם קישור ישיר לדף שבקישור הבא:
+
+[מקרא על פי המסורה](https://he.wikisource.org/wiki/%D7%9E%D7%A7%D7%A8%D7%90_%D7%A2%D7%9C_%D7%A4%D7%99_%D7%94%D7%9E%D7%A1%D7%95%D7%A8%D7%94#%D7%A8%D7%90%D7%A9)
+
+
+### Original: data/sources/mam-parsed/plain/provenance.md
+
+<!-- Initially generated by GitHub Copilot. -->
+# Provenance
+
+This directory contains generated MAM-parsed plain JSON artifacts.
+These files were generated by the MAM-parsed parsing pipeline.
+See the repository README and doc-under-readme/reading-mam-parsed-plain.md for format and generation context.
+Payload files in this directory remain in their native JSON format, so provenance is recorded here rather than inside each file.
+
+### Original: data/sources/mam-parsed/plus/provenance.md
+
+<!-- Initially generated by GitHub Copilot. -->
+# Provenance
+
+This directory contains generated MAM-parsed plus JSON artifacts.
+These files were generated by the MAM-parsed parsing pipeline.
+See the repository README and doc-under-readme/reading-mam-parsed-plus.md for format and generation context.
+Payload files in this directory remain in their native JSON format, so provenance is recorded here rather than inside each file.
+
+### Original: data/sources/mam-parsed/py-examples/provenance.md
+
+<!-- Initially generated by GitHub Copilot. -->
+# Provenance
+
+The support files in this directory (`mb_misc/`) are vendored copies generated
+by `MAM-basics/py/py_misc/mam_parsed_copy_py_files.py` in the MAM-basics sibling repo.
+They are overwritten on each run of `parse_go`.
+
+**Not vendored — do not overwrite:**
+
+- `main_tmpl_survey_toy_example.py` — maintained directly in this repo (MAM-parsed);
+  it is *not* copied from MAM-basics.
+
+
+### Original: src/styles/fonts/README.md
+
+# Emoji fallback
+
+Unmodified Noto Color Emoji COLRv1 font, downloaded October 17, 2026 from
+https://github.com/googlefonts/noto-emoji/blob/main/2D/fonts/Noto-COLRv1.ttf.
+Distributed under SIL OFL 1.1; see OFL.txt for the complete license.
+
+Placed after the existing named text fonts. macOS prefers Apple Color Emoji;
+Windows/Linux prefer this bundled fallback. Unicode text, editing, copying and
+exports are unchanged.
+
+SHA-256: `b8e25ea68db82f9e4d0aee921f4420be2be39887bd5c893a2ad98710531f9d0c`
+
+
+### Original: source_data/bibles/README.md
+
+# Local Bible source library
+
+Run `npm run bibles:import` from the project root after replacing or adding an approved source file. The importer writes deterministic, chapter-indexed app assets to `attached_assets/bibles`, records SHA-256 checksums, and stops if a complete edition does not contain the expected chapters and verses.
+
+The current sources were downloaded from Bible Hub's official downloads page and its linked official text sites. Do not replace a source with scraped webpage text.
+
+- General downloads: https://biblehub.com/downloads.htm
+- Berean Bible terms: https://berean.bible/terms.htm
+- World English Bible status and trademark guidance: https://worldenglish.bible/
+- Public-domain source catalog: https://ebible.org/Scriptures/copyright.php
+
+`JPS` is the source file's combined JPS Tanakh 1917 Old Testament and Weymouth New Testament, not a JPS New Testament. `BGB` and `BIB` are New Testament-only Word sources. Their embedded full-text software/app licensing notice and attribution must remain represented on BEX's Sources & Licenses page.
+
+

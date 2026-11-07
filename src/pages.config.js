@@ -62,6 +62,7 @@ import SourcesLicenses from './pages/SourcesLicenses';
 import Stats from './pages/Stats';
 import Study from './pages/Study';
 import Timelines from './pages/Timelines';
+import Spreadsheets from './pages/Spreadsheets';
 import __Layout from './Layout.jsx';
 
 
@@ -81,6 +82,7 @@ export const PAGES = {
     "Stats": Stats,
     "Study": Study,
     "Timelines": Timelines,
+    "Spreadsheets": Spreadsheets,
 }
 
 export const pagesConfig = {

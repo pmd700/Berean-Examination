@@ -6,6 +6,7 @@ import {
   Key,
   MessageSquare,
   Network,
+  Table2,
   Search,
 } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -25,6 +26,7 @@ const FOCUS_LIBRARY_SEARCH_EVENT = 'bex:focus-library-search';
 
 function ResultIcon({ type }) {
   const className = 'h-4 w-4';
+  if (type === 'Spreadsheet' || type === 'Spreadsheet Cell') return <Table2 className={className} />;
   if (type === 'Note') return <FileText className={className} />;
   if (type === 'Timeline' || type === 'Timeline Event') return <Clock3 className={className} />;
   if (type === 'Knowledge Web' || type === 'Web Card') return <Network className={className} />;
@@ -78,9 +80,10 @@ function useSpotlightEngine(enabled) {
       platformEntities.KnowledgeWeb.list('-updated_date'),
       platformEntities.MindNote.list('-updated_date'),
       platformEntities.Timegraph.list('-updated_date'),
+      (platformEntities.Spreadsheet?.list?.('-updated_date') || Promise.resolve([])).then(rows => Promise.all(rows.map(record => platformEntities.Spreadsheet.get(record.id)))),
     ])
-      .then(([chapters, annotations, keywords, cards, webs, notes, timegraphs]) => {
-        if (!cancelled) setRecords({ chapters, annotations, keywords, cards, webs, notes, timegraphs });
+      .then(([chapters, annotations, keywords, cards, webs, notes, timegraphs, spreadsheets]) => {
+        if (!cancelled) setRecords({ chapters, annotations, keywords, cards, webs, notes, timegraphs, spreadsheets });
       })
       .catch((loadError) => {
         console.error('[GlobalSearch] Local library search failed:', loadError);
@@ -296,7 +299,7 @@ export function LibrarySpotlightSearch({ className = '' }) {
           }}
           onFocus={() => setExpanded(true)}
           onKeyDown={handleKeyDown}
-          placeholder="Search every note, card, and timeline…"
+          placeholder="Search notes, cards, timelines, and spreadsheets…"
           aria-label="Search your BEX library"
           aria-expanded={showSuggestions}
           className="min-w-0 flex-1 border-0 bg-transparent text-sm text-slate-100 outline-none placeholder:text-slate-600"
@@ -403,7 +406,7 @@ export default function GlobalSearch() {
             value={engine.query}
             onChange={(event) => engine.setQuery(event.target.value)}
             onKeyDown={handleInputKeyDown}
-            placeholder="Search every note, card, and timeline…"
+            placeholder="Search notes, cards, timelines, and spreadsheets…"
             aria-label="Search your BEX library"
             className="h-full min-w-0 flex-1 border-0 bg-transparent text-lg text-ink outline-none placeholder:text-ink-faint"
             autoFocus

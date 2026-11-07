@@ -8,11 +8,12 @@ import { splitBookPages, getPageBody, getPageTitle } from '@/components/notes/bo
 import { commentaryLinkHref, commentaryPassage, commentaryVersionLabel } from './commentaryLink';
 import { getStudyExportRightsNotice, isStudyMaterialExportAllowed } from './bibleStudyExportPolicy';
 import { normalizeTimePoint, formatTimePoint, toYearValue, MIN_YEAR, MAX_YEAR, daysInMonth } from './timegraph/timegraphDate';
-import { noteDeepLink, webDeepLink, timegraphDeepLink } from '@/utils';
+import { noteDeepLink, webDeepLink, timegraphDeepLink, spreadsheetDeepLink } from '@/utils';
 import { mediaReference, referenceAnchor, referenceLink, richTextToAiMarkdown } from './aiExportMarkdown';
 import { knowledgeWebReferenceResolver } from './knowledgeWebReferences';
 
 const COLLECTIONS = Object.freeze({
+  spreadsheets: 'Spreadsheet',
   notes: 'MindNote', webs: 'KnowledgeWeb', timelines: 'Timegraph', keywords: 'Keyword',
   commentaries: 'Annotation', studies: 'StudyChapter', cards: 'WebCard', connections: 'WebConnection',
   objects: 'CanvasObject', drawings: 'Drawing', mindLinks: 'MindLink', folders: 'WebFolder',
@@ -60,7 +61,8 @@ export async function readAiLibrarySnapshot({ entities = desktopClient.entities,
   let completed = 0;
   const results = await Promise.allSettled(entries.map(async ([key, type]) => {
     checkCanceled(signal);
-    const rows = await listAllEntityRecords(entities[type], { sort: 'id', signal });
+    let rows = await listAllEntityRecords(entities[type], { sort: 'id', signal });
+    if (type === 'Spreadsheet') rows = await Promise.all(rows.map(row => row.workbook ? row : entities[type].get(row.id)));
     checkCanceled(signal);
     onProgress?.(`Reading library (${++completed}/${entries.length})`);
     return [key, rows];
@@ -72,6 +74,7 @@ export async function readAiLibrarySnapshot({ entities = desktopClient.entities,
 
 export function aiExportCounts(snapshot) {
   return {
+    spreadsheets: list(snapshot.spreadsheets).length,
     notes: list(snapshot.notes).length,
     pages: list(snapshot.notes).reduce((total, note) => total + splitBookPages(note.content).length, 0),
     webs: list(snapshot.webs).length,
@@ -153,6 +156,14 @@ function* aiLibraryMarkdownSteps(snapshot, { exportedAt = new Date().toISOString
     yield;
     register(`timeline:${timeline.id}`, timeline.title || 'Untitled timeline', timegraphDeepLink(timeline.id));
     list(timeline.events).forEach((event, index) => register(eventReference(timeline, event, index), event.title || 'Untitled event', timegraphDeepLink(timeline.id)));
+  }
+  for (const record of list(snapshot.spreadsheets)) {
+    yield;
+    register(`spreadsheet:${record.id}`, record.title || 'Untitled spreadsheet', spreadsheetDeepLink(record.id));
+    for (const sheet of record.workbook?.sheets || []) {
+      register(`spreadsheet:${record.id}/sheet:${sheet.id}`, sheet.name, spreadsheetDeepLink(record.id, null, { sheet: sheet.id }));
+      for (const address of Object.keys(sheet.cells || {})) register(`spreadsheet:${record.id}/sheet:${sheet.id}/cell:${address}`, `${sheet.name}!${address}`, spreadsheetDeepLink(record.id, null, { sheet: sheet.id, cell: address }));
+    }
   }
   for (const keyword of list(snapshot.keywords)) register(`keyword:${keyword.id}`, keyword.title || 'Keyword', `/Keywords?keyword=${keyword.id}`);
   for (const annotation of list(snapshot.commentaries)) register(`commentary:${annotation.id}`, commentaryPassage(annotation), commentaryHref(annotation));
@@ -275,6 +286,26 @@ function* aiLibraryMarkdownSteps(snapshot, { exportedAt = new Date().toISOString
     }
   }
   sections.push(timelines.join('\n\n'));
+
+  onProgress?.('Converting spreadsheets');
+  const spreadsheets = ['## Spreadsheets', 'Cells are identified by workbook ID, stable sheet ID and address. Formulas are recorded explicitly; a cached value is not proof of recalculation. Empty cells are omitted.'];
+  for (const record of list(snapshot.spreadsheets)) {
+    yield;
+    const id = `spreadsheet:${record.id}`;
+    spreadsheets.push(heading(id, record.title || 'Untitled spreadsheet'), recordMetadata(record));
+    for (const sheet of record.workbook?.sheets || []) {
+      const sheetId = `${id}/sheet:${sheet.id}`;
+      spreadsheets.push(heading(sheetId, sheet.name, 4));
+      for (const [address, cell] of Object.entries(sheet.cells || {})) {
+        yield;
+        const cellId = `${sheetId}/cell:${address}`;
+        spreadsheets.push(heading(cellId, `${sheet.name}!${address}`, 5), metadata('Value (stored)', cell.v), metadata('Formula', cell.f ? `=${cell.f}` : null), metadata('Note', cell.note), metadata('Link', cell.link));
+        if (cell.link) body(`<a href="${String(cell.link).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}">${address}</a>`, cellId);
+      }
+    }
+    for (const warning of record.workbook?.importWarnings || []) warnings.push(`${id}: ${warning}`);
+  }
+  sections.push(spreadsheets.join('\n\n'));
 
   onProgress?.('Converting Bible commentaries and keywords');
   const commentaries = ['## Bible commentaries'];

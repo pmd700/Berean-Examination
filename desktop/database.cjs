@@ -463,6 +463,19 @@ const MIGRATIONS = Object.freeze([
       ) STRICT;
     `,
   }),
+  Object.freeze({
+    version: 17,
+    name: 'encrypted_spreadsheets',
+    sql: `
+      CREATE TABLE local_spreadsheets (
+        id INTEGER PRIMARY KEY NOT NULL CHECK (id > 0),
+        encrypted_payload BLOB NOT NULL CHECK (length(encrypted_payload) > 29),
+        created_at TEXT NOT NULL CHECK (length(created_at) > 0),
+        updated_at TEXT NOT NULL CHECK (length(updated_at) > 0)
+      ) STRICT;
+      CREATE INDEX local_spreadsheets_updated_at ON local_spreadsheets(updated_at DESC);
+    `,
+  }),
 ]);
 
 let activeDatabase = null;

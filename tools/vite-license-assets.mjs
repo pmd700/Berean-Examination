@@ -126,7 +126,7 @@ export function collectLicenseAssets({ root = defaultRoot, moduleIds = [] } = {}
   const electronRoot = path.join(root, 'node_modules/electron');
   const version = readJson(path.join(electronRoot, 'package.json')).version;
   const binaryVersion = read(path.join(electronRoot, 'dist/version')).trim();
-  if (version !== binaryVersion || version !== provenance.electronVersion) throw new Error('Electron changed: refresh pinned runtime license sources before building. See docs/SOFTWARE_LICENSES.md.');
+  if (version !== binaryVersion || version !== provenance.electronVersion) throw new Error('Electron changed: refresh pinned runtime license sources before building. See read.me (Dependencies, assets and notices).');
   const chromiumFile = fs.readFileSync(path.join(electronRoot, 'dist/LICENSES.chromium.html'));
   const credits = parse(chromiumFile.toString('utf8'));
   const productText = name => {

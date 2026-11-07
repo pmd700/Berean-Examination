@@ -2,6 +2,7 @@ export const LIBRARY_FOLDER_CATEGORIES = Object.freeze([
   'web',
   'note',
   'timeline',
+  'spreadsheet',
   'study',
 ]);
 
