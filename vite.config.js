@@ -7,6 +7,8 @@ import { licenseAssetsPlugin } from './tools/vite-license-assets.mjs'
 export default defineConfig({
   plugins: [react(), pdfAssetsPlugin(), licenseAssetsPlugin()],
   build: {
+    // Build-only metadata for repeatable initial/lazy dependency size audits.
+    manifest: true,
     rollupOptions: {
       input: {
         app: path.resolve(__dirname, 'index.html'),

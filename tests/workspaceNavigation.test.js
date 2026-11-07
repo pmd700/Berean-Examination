@@ -7,7 +7,7 @@ const root = path.resolve(import.meta.dirname, '..');
 const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
 
 describe('workspace navigation', () => {
-  test('a new tab opens the three-column local library home', () => {
+  test('a new tab opens the four-column local library home', () => {
     const tabs = read('src/lib/WorkspaceTabs.jsx');
     const bar = read('src/components/tabs/TabBar.jsx');
     const home = read('src/pages/LibraryHome.jsx');
@@ -18,14 +18,15 @@ describe('workspace navigation', () => {
     assert.match(bar, /openTab\(TAB_KINDS\.HOME, \{ path: NEW_TAB_PATH, title: 'New tab' \}\)/);
     assert.match(pages, /mainPage: "LibraryHome"/);
 
-    for (const category of ['web', 'note', 'timeline']) {
+    for (const category of ['web', 'note', 'timeline', 'spreadsheet']) {
       assert.match(home, new RegExp(`library-create-\\$\\{category\\}`));
     }
     assert.match(home, /shortcut: 'W'/);
     assert.match(home, /shortcut: 'N'/);
     assert.match(home, /shortcut: 'T'/);
+    assert.match(home, /shortcut: 'S'/);
     assert.doesNotMatch(home, /shortcut: 'B'/);
-    assert.match(home, /md:grid-cols-3/);
+    assert.match(home, /xl:grid-cols-4/);
     assert.match(home, /<ScriptureSearch/);
     assert.match(home, /Create with \{config\.shortcut\}/);
     assert.match(home, /CATEGORY_BY_SHORTCUT\[event\.key\.toLowerCase\(\)\]/);
@@ -180,7 +181,7 @@ describe('workspace navigation', () => {
     // Choosing an item from New tab is the other explicit duplicate path.
     assert.match(home, /\{ allowDuplicate = false \} = \{\}/);
     assert.match(home, /if \(!allowDuplicate\)/);
-    assert.equal((home.match(/\{ allowDuplicate: true \}/g) || []).length, 3);
+    assert.equal((home.match(/\{ allowDuplicate: true \}/g) || []).length, 4);
   });
 
   test('the old library sidebar is disconnected while import and export remain available', () => {
@@ -212,9 +213,9 @@ describe('workspace navigation', () => {
     assert.match(bar, /\[TAB_KINDS\.COURSES\]: GraduationCap/);
     assert.match(bar, /\[TAB_KINDS\.STATS\]: BarChart3/);
     assert.match(bar, /\[TAB_KINDS\.AI_SECOND_BRAIN\]: Brain/);
-    assert.match(pages, /import Courses from '\.\/pages\/Courses'/);
+    assert.match(pages, /const Courses = deferredPage\(\(\) => import\('\.\/pages\/Courses'\)\)/);
     assert.match(pages, /"Courses": Courses/);
-    assert.match(pages, /import Stats from '\.\/pages\/Stats'/);
+    assert.match(pages, /const Stats = deferredPage\(\(\) => import\('\.\/pages\/Stats'\)\)/);
     assert.match(pages, /"Stats": Stats/);
   });
 

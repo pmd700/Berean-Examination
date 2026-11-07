@@ -27,7 +27,7 @@ describe('crash containment', () => {
 
   test('every tab pane is wrapped, so a crash cannot take the app down', () => {
     assert.match(workspace, /import ErrorBoundary from '@\/components\/ErrorBoundary'/);
-    assert.match(workspace, /<ErrorBoundary[^>]*>\s*<TabRoutes path=\{tab\.path\} \/>/s);
+    assert.match(workspace, /<ErrorBoundary[^>]*>[\s\S]*?<React\.Suspense[\s\S]*?<TabRoutes path=\{tab\.path\} \/>[\s\S]*?<\/React\.Suspense>\s*<\/ErrorBoundary>/);
   });
 
   test('retry remounts the subtree rather than re-rendering the broken one', () => {

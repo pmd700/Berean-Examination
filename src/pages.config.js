@@ -1,69 +1,29 @@
-/**
- * pages.config.js - Page routing configuration
- * 
- * This file is AUTO-GENERATED. Do not add imports or modify PAGES manually.
- * Pages are auto-registered when you create files in the ./pages/ folder.
- * 
- * THE ONLY EDITABLE VALUE: mainPage
- * This controls which page is the landing page (shown when users visit the app).
- * 
- * Example file structure:
- * 
- *   import HomePage from './pages/HomePage';
- *   import Dashboard from './pages/Dashboard';
- *   import Settings from './pages/Settings';
- *   
- *   export const PAGES = {
- *       "HomePage": HomePage,
- *       "Dashboard": Dashboard,
- *       "Settings": Settings,
- *   }
- *   
- *   export const pagesConfig = {
- *       mainPage: "HomePage",
- *       Pages: PAGES,
- *   };
- * 
- * Example with Layout (wraps all pages):
- *
- *   import Home from './pages/Home';
- *   import Settings from './pages/Settings';
- *   import __Layout from './Layout.jsx';
- *
- *   export const PAGES = {
- *       "Home": Home,
- *       "Settings": Settings,
- *   }
- *
- *   export const pagesConfig = {
- *       mainPage: "Home",
- *       Pages: PAGES,
- *       Layout: __Layout,
- *   };
- *
- * To change the main page from HomePage to Dashboard, use find_replace:
- *   Old: mainPage: "HomePage",
- *   New: mainPage: "Dashboard",
- *
- * The mainPage value must match a key in the PAGES object exactly.
- */
-import AssetLibrary from './pages/AssetLibrary';
-import BrainChat from './pages/BrainChat';
-import BrainInbox from './pages/BrainInbox';
-import BrainSearch from './pages/BrainSearch';
-import ChapterArt from './pages/ChapterArt';
-import ContactFeedback from './pages/ContactFeedback';
-import Courses from './pages/Courses';
-import Keywords from './pages/Keywords';
-import KnowledgeWeb from './pages/KnowledgeWeb';
-import LibraryHome from './pages/LibraryHome';
-import MindView from './pages/MindView';
-import SourcesLicenses from './pages/SourcesLicenses';
-import Stats from './pages/Stats';
-import Study from './pages/Study';
-import Timelines from './pages/Timelines';
-import Spreadsheets from './pages/Spreadsheets';
+import React from 'react';
 import __Layout from './Layout.jsx';
+
+// This registry is maintained alongside the tab router. Importing the app shell
+// must not initialize every feature: course/video and all other routes remain
+// registered, but their modules load when a pane first opens that route.
+// Stable lazy components keep each loaded pane mounted across tab switches.
+const deferredPage = load => React.lazy(load);
+
+const AssetLibrary = deferredPage(() => import('./pages/AssetLibrary'));
+const BrainChat = deferredPage(() => import('./pages/BrainChat'));
+const BrainInbox = deferredPage(() => import('./pages/BrainInbox'));
+const BrainSearch = deferredPage(() => import('./pages/BrainSearch'));
+const ChapterArt = deferredPage(() => import('./pages/ChapterArt'));
+const ContactFeedback = deferredPage(() => import('./pages/ContactFeedback'));
+const Courses = deferredPage(() => import('./pages/Courses'));
+const Keywords = deferredPage(() => import('./pages/Keywords'));
+const KnowledgeWeb = deferredPage(() => import('./pages/KnowledgeWeb'));
+const LibraryHome = deferredPage(() => import('./pages/LibraryHome'));
+const MindView = deferredPage(() => import('./pages/MindView'));
+const SourcesLicenses = deferredPage(() => import('./pages/SourcesLicenses'));
+const Stats = deferredPage(() => import('./pages/Stats'));
+const Study = deferredPage(() => import('./pages/Study'));
+const Timelines = deferredPage(() => import('./pages/Timelines'));
+const Spreadsheets = deferredPage(() => import('./pages/Spreadsheets'));
+
 
 
 export const PAGES = {

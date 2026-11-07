@@ -67,7 +67,13 @@ const TabPane = React.memo(function TabPane({ tab, isActive, entering = false, e
             scroll and unsaved edits along with it. `resetKey` clears a stuck
             pane as soon as it navigates somewhere else. */}
         <ErrorBoundary label={tab.title} resetKey={tab.path}>
-          <TabRoutes path={tab.path} />
+          <React.Suspense fallback={
+            <div className="flex flex-1 items-center justify-center p-6 text-sm text-ink-muted" role="status" data-testid="workspace-page-loading">
+              Opening {tab.title || 'workspace'}…
+            </div>
+          }>
+            <TabRoutes path={tab.path} />
+          </React.Suspense>
         </ErrorBoundary>
       </ActiveTabProvider>
     </motion.div>

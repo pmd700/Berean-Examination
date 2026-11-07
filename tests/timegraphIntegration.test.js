@@ -141,7 +141,7 @@ describe('timegraph integration points', () => {
 
   test('the Timeline route opens only the editor and retires its duplicate list', () => {
     const config = read('src/pages.config.js');
-    assert.match(config, /import Timelines from '\.\/pages\/Timelines'/);
+    assert.match(config, /const Timelines = deferredPage\(\(\) => import\('\.\/pages\/Timelines'\)\)/);
     assert.match(config, /"Timelines": Timelines,/);
 
     const page = read('src/pages/Timelines.jsx');

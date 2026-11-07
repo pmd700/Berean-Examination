@@ -1,17 +1,21 @@
 import React, { useEffect, useRef, useState } from 'react';
-import mermaid from 'mermaid';
 import { ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
 
-let initialized = false;
-function ensureInit() {
-  if (initialized) return;
-  mermaid.initialize({
-    startOnLoad: false,
-    securityLevel: 'strict',
-    fontFamily: 'inherit',
-    theme: 'default',
+let enginePromise;
+function loadEngine() {
+  if (!enginePromise) enginePromise = import('mermaid').then(({ default: mermaid }) => {
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: 'strict',
+      fontFamily: 'inherit',
+      theme: 'default',
+    });
+    return mermaid;
+  }).catch(error => {
+    enginePromise = undefined;
+    throw error;
   });
-  initialized = true;
+  return enginePromise;
 }
 
 let counter = 0;
@@ -34,14 +38,16 @@ export default function MermaidBlock({ code }) {
         setError(null);
         return;
       }
-      ensureInit();
       const isDark =
         typeof document !== 'undefined' &&
         document.documentElement.classList.contains('dark');
       const themed = `%%{init: {'theme':'${isDark ? 'dark' : 'default'}'}}%%\n${source}`;
       const renderId = `${baseId.current}-${(counter += 1)}`;
       try {
+        const mermaid = await loadEngine();
+        if (cancelled) return;
         await mermaid.parse(themed);
+        if (cancelled) return;
         const { svg: out } = await mermaid.render(renderId, themed);
         if (!cancelled) {
           setSvg(out);
