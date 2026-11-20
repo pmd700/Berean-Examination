@@ -42,7 +42,7 @@ const TEST_RECORD = Object.freeze({
   purpose: 'Disposable encryption proof; not real study data.',
   sequence: 1,
 });
-const LIBRARY_FOLDERS = ['Database', 'Courses', 'Media', 'Imports', 'Exports', 'Backups'];
+const LIBRARY_FOLDERS = ['Database', 'Courses', 'Media', 'Imports', 'Exports'];
 
 function assertThrowsCode(action, code) {
   let caught;
@@ -93,7 +93,7 @@ function runCreatePhase(databasePath, protector) {
   ];
 }
 
-async function runVerifyPhase(databasePath, backupPath, protector) {
+async function runVerifyPhase(databasePath, protector) {
   let fakeNow = Date.UTC(2026, 6, 23, 12, 0, 0);
   const now = () => fakeNow;
   const { vault, created } = PrivacyVault.open({ databasePath, protector, now });
@@ -145,16 +145,6 @@ async function runVerifyPhase(databasePath, backupPath, protector) {
   vault.unlockWithPin(NEW_TEST_PIN);
   assert.deepEqual(vault.readRecord(RECORD_ID), TEST_RECORD);
 
-  await vault.createEncryptedBackup(backupPath);
-  assertPlaintextAbsent(backupPath, [oldRecoveryCode, replacementRecoveryCode]);
-  const backupOpen = PrivacyVault.open({ databasePath: backupPath, protector, now });
-  assert.equal(backupOpen.created, false);
-  assert.equal(backupOpen.vault.isLocked(), true);
-  assertThrowsCode(() => backupOpen.vault.unlockAutomatically(), 'BEX_PIN_REQUIRED');
-  backupOpen.vault.unlockWithPin(NEW_TEST_PIN);
-  assert.deepEqual(backupOpen.vault.readRecord(RECORD_ID), TEST_RECORD);
-  backupOpen.vault.close();
-
   vault.disablePin();
   assert.equal(vault.getProtectionMode(), 'automatic');
   assert.equal(vault.getRecordCiphertextFingerprint(RECORD_ID), originalFingerprint);
@@ -172,7 +162,6 @@ async function runVerifyPhase(databasePath, backupPath, protector) {
     'replacement recovery code invalidates the previous code',
     'replacement recovery code unlocks the library',
     'changing the PIN leaves record ciphertext unchanged',
-    'backup contains no plaintext and requires the PIN',
     'removing the PIN restores protected automatic unlock without re-encrypting data',
   ];
 }
@@ -222,19 +211,17 @@ function runIntegratedPhase(databasePath, protector) {
 async function main() {
   const phase = process.argv[2];
   const databasePath = path.resolve(process.argv[3] || '');
-  const backupPath = process.argv[4] ? path.resolve(process.argv[4]) : null;
   assert.ok(
     phase === 'create' || phase === 'verify' || phase === 'integrated',
     'Unknown privacy proof phase.',
   );
   assert.ok(databasePath, 'The privacy proof database path is required.');
-  if (phase === 'verify') assert.ok(backupPath, 'The privacy proof backup path is required.');
   assert.equal(safeStorage.isEncryptionAvailable(), true, 'macOS protected storage is unavailable.');
   const protector = createSafeStorageProtector(safeStorage);
   const checks = phase === 'create'
     ? runCreatePhase(databasePath, protector)
     : phase === 'verify'
-      ? await runVerifyPhase(databasePath, backupPath, protector)
+      ? await runVerifyPhase(databasePath, protector)
       : runIntegratedPhase(databasePath, protector);
   process.stdout.write(`BEX_PRIVACY_PROOF ${JSON.stringify({ phase, checks })}\n`);
 }

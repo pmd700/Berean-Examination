@@ -108,7 +108,7 @@ function walkFiles(folder) {
 }
 function assertNoPlaintext() {
   const secrets = [fixtures.privateMarker, ...Object.values(fixtures.names)];
-  for (const folderName of ['Database', 'Media', 'Backups']) {
+  for (const folderName of ['Database', 'Media']) {
     for (const filePath of walkFiles(path.join(libraryPath, folderName))) {
       const bytes = fs.readFileSync(filePath);
       for (const secret of secrets) {
@@ -286,29 +286,14 @@ async function createPhase(protector) {
   // Existing screenshot image insertion must share the organized encrypted Media tree.
   const image = database.saveLocalImage({ bytes: fs.readFileSync(path.join(sourceFolder, fixtures.names.image)), mimeType: 'image/png', name: fixtures.names.image });
   assert.ok(image.url.startsWith('bex-media://library/'));
-  const backup = await database.createLocalBackup();
-  const backupPath = path.join(libraryPath, 'Backups', backup.fileName);
-  assert.ok(fs.existsSync(`${backupPath}.media`), 'backup has its encrypted Media companion');
   const pdfAttachment = attachments.find(item => item.kind === 'pdf');
   const pdfFileName = new URL(pdfAttachment.url).pathname.slice(1);
   const pdfStoredPath = walkFiles(path.join(libraryPath, 'Media')).find(filePath => path.basename(filePath) === pdfFileName);
   assert.ok(pdfStoredPath, 'PDF is physically stored under Library/Media');
-  database.updateLocalEntity('MindNote', note.id, { content: '<p>Changed after snapshot</p>' });
-  fs.unlinkSync(pdfStoredPath);
-  await database.restoreLocalBackup(backupPath, { privacyProtector: protector });
-  assert.equal(database.getLocalEntity('MindNote', note.id).content, savedHtml);
-  assert.equal(digest((await mediaBytes(pdfAttachment.url)).bytes), originalDigests[pdfAttachment.name]);
-  checks.push('local backup and restore recover both encrypted note attachment references and missing encrypted media bytes');
-  fs.writeFileSync(pdfStoredPath, 'Corrupted live encrypted attachment');
-  await database.restoreLocalBackup(backupPath, { privacyProtector: protector });
-  const recoveredPdf = await mediaBytes(pdfAttachment.url);
-  assert.equal(digest(recoveredPdf.bytes), originalDigests[pdfAttachment.name]);
-  recoveredPdf.bytes.fill(0);
-  checks.push('a verified backup replaces a corrupted existing vault attachment with the original encrypted bytes');
   fs.writeFileSync(manifestPath, JSON.stringify({ noteId: note.id, attachments, originalDigests, savedHtml, image }));
   database.closeDatabase();
   assertNoPlaintext();
-  checks.push('filenames, PDF text, and attachment content are absent from plaintext Database, Media, and Backups');
+  checks.push('filenames, PDF text, and attachment content are absent from plaintext Database and Media');
 }
 
 async function reopenPhase(protector) {

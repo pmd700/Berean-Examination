@@ -1,3 +1,4 @@
+import { resolveMediaSource, initialMediaSource } from '@/lib/mediaSource';
 import { Node } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { toast } from 'sonner';
@@ -245,7 +246,9 @@ export const ImageUpload = Node.create({
       frame.className = 'image-resize-frame';
 
       const img = document.createElement('img');
-      img.src = node.attrs.src;
+      img.src = initialMediaSource(node.attrs.src);
+      let destroyed = false;
+      resolveMediaSource(node.attrs.src).then(source => { if (!destroyed) img.src = source; }).catch(() => { if (!destroyed) img.alt = 'Image is still downloading'; });
       if (node.attrs.alt) img.alt = node.attrs.alt;
       if (node.attrs.title) img.title = node.attrs.title;
       img.className = 'uploaded-image';
@@ -329,6 +332,7 @@ export const ImageUpload = Node.create({
         ignoreMutation: (mutation) => mutation.type === 'attributes' || handle.contains(mutation.target),
 
         destroy() {
+          destroyed = true;
           handle.removeEventListener('pointerdown', onPointerDown);
         },
       };

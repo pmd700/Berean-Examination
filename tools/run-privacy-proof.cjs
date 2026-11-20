@@ -10,14 +10,13 @@ const runnerPath = path.join(projectRoot, 'desktop', 'privacy-proof-runner.cjs')
 const electronPath = require('electron');
 const proofFolder = fs.mkdtempSync(path.join(projectRoot, '.bex-privacy-proof-'));
 const databasePath = path.join(proofFolder, 'privacy-proof.db');
-const backupPath = path.join(proofFolder, 'privacy-proof.backup.db');
 
 function runPhase(phase) {
   const environment = { ...process.env };
   delete environment.ELECTRON_RUN_AS_NODE;
   const result = spawnSync(
     electronPath,
-    [runnerPath, phase, databasePath, backupPath],
+    [runnerPath, phase, databasePath],
     {
       cwd: projectRoot,
       encoding: 'utf8',
@@ -46,7 +45,7 @@ try {
   const checks = [...createResult.checks, ...verifyResult.checks, ...integratedResult.checks];
   for (const check of checks) process.stdout.write(`PASS: ${check}\n`);
   process.stdout.write(`PASS: ${checks.length} privacy checks completed in three Electron processes\n`);
-  process.stdout.write('PASS: disposable proof database and backup removed\n');
+  process.stdout.write('PASS: disposable proof database removed\n');
 } finally {
   fs.rmSync(proofFolder, { recursive: true, force: true });
 }

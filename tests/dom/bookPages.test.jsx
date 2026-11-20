@@ -264,13 +264,15 @@ describe('the overview', () => {
     expect(deleted).toEqual([[0, 2]]);
   });
 
+  it('exports the selected page as PDF without changing selection or page numbers',()=>{const exported=vi.fn();mountOverview({onExportPages:exported});fireEvent.click(screen.getByLabelText('Select page 2'));fireEvent.keyDown(screen.getByTestId('button-pages-export'),{key:'Enter'});fireEvent.click(screen.getByRole('menuitem',{name:'PDF (.pdf)'}));expect(exported).toHaveBeenCalledWith([1],'pdf');});
   it('hands the selected pages to export, in page order', () => {
     const exported = [];
     mountOverview({ onExportPages: indices => exported.push(indices) });
 
     fireEvent.click(screen.getByTestId('checkbox-page-3'));
     fireEvent.click(screen.getByTestId('checkbox-page-2'));
-    fireEvent.click(screen.getByTestId('button-pages-export'));
+    fireEvent.keyDown(screen.getByTestId('button-pages-export'),{key:'Enter'});
+    fireEvent.click(screen.getByRole('menuitem',{name:'Markdown (.md)'}));
 
     expect(exported).toEqual([[1, 2]]);
   });

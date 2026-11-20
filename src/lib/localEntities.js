@@ -1,6 +1,9 @@
 import { publishNoteChange } from './noteChanges.js';
+let deviceBackend = null;
+export function installLocalEntityBackend(backend) { deviceBackend = backend; }
 
 function requireDesktopEntities() {
+  if (deviceBackend) return deviceBackend;
   const desktopApi = typeof window === 'undefined' ? null : window.bexDesktop;
   if (!desktopApi?.isDesktop) {
     throw new Error('Local records are available only inside the BEX desktop app.');

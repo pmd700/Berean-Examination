@@ -195,7 +195,7 @@ export function collectLicenseAssets({ root = defaultRoot, moduleIds = [] } = {}
   return { manifest, assets };
 }
 
-export function licenseAssetsPlugin() {
+export function licenseAssetsPlugin({ sourceRoot = null } = {}) {
   let root = defaultRoot;
   let cached;
   function developmentAssets() {
@@ -204,7 +204,7 @@ export function licenseAssetsPlugin() {
   }
   return {
     name: 'bex-software-license-assets',
-    configResolved(config) { root = config.root; },
+    configResolved(config) { root = sourceRoot || config.root; },
     configureServer(server) {
       server.watcher.on('change', file => { if (/package(?:-lock)?\.json$/.test(file) || file.includes('license-sources')) cached = undefined; });
       server.middlewares.use((request, response, next) => {

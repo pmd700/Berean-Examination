@@ -60,7 +60,7 @@ function normalFileDescriptor(target) {
   return { fd, stats: after };
 }
 
-function saveEncryptedAttachment({ libraryPath, privacyVault, sourcePath }) {
+function saveEncryptedAttachment({ libraryPath, privacyVault, sourcePath, storedName = null, originalName: suppliedOriginalName = null }) {
   privacyVault.assertUnlocked();
   if (typeof sourcePath !== 'string' || !path.isAbsolute(sourcePath)) throw codedError('BEX_ATTACHMENT_INVALID', 'Choose a regular file.');
   const { fd, stats } = normalFileDescriptor(sourcePath);
@@ -73,8 +73,9 @@ function saveEncryptedAttachment({ libraryPath, privacyVault, sourcePath }) {
     const storedExtension = /^[a-z0-9]{1,20}$/.test(extension) ? extension : 'bin';
     const sampleSize = fs.readSync(fd, chunk, 0, Math.min(CHUNK_BYTES, stats.size), 0);
     const classification = classifyFile(chunk.subarray(0, sampleSize), storedExtension);
-    const originalName = path.basename(sourcePath).replace(/[\x00-\x1f\x7f]/g, '').slice(0, 255) || 'File';
-    const name = `file-${crypto.randomUUID()}.${storedExtension}`;
+    const originalName = (suppliedOriginalName || path.basename(sourcePath)).replace(/[\x00-\x1f\x7f]/g, '').slice(0, 255) || 'File';
+    const name = storedName || `file-${crypto.randomUUID()}.${storedExtension}`;
+    if (!FILE_PATTERN.test(name) || path.extname(name).slice(1) !== storedExtension) throw codedError('BEX_ATTACHMENT_INVALID', 'Invalid synchronized attachment name.');
     const metadata = { name: originalName, extension: storedExtension, size: stats.size, chunkBytes: CHUNK_BYTES, ...classification };
     const encryptedHeader = privacyVault.encryptBinary(Buffer.from(JSON.stringify(metadata)), purpose(name, 'metadata'));
     const header = Buffer.alloc(MAGIC.length + 4);
@@ -93,7 +94,7 @@ function saveEncryptedAttachment({ libraryPath, privacyVault, sourcePath }) {
     fs.fsyncSync(output);
     return Object.freeze({ url: `bex-media://library/${name}`, name: metadata.name, mimeType: metadata.mimeType, kind: metadata.kind, size: metadata.size });
   } catch (error) {
-    if (destination) try { fs.unlinkSync(destination); } catch { /* Failed imports leave no attachment. */ }
+    if (destination && output !== undefined) try { fs.unlinkSync(destination); } catch { /* Failed imports leave no attachment. */ }
     throw error;
   } finally {
     chunk.fill(0); fs.closeSync(fd); if (output !== undefined) fs.closeSync(output);

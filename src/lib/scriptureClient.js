@@ -3,7 +3,10 @@
  * Bridges the React renderer to the desktop process for API.Bible operations.
  */
 
+let deviceBackend=null;
+export function installScriptureBackend(backend){deviceBackend=backend;}
 function getDesktopApi() {
+  if(deviceBackend)return deviceBackend;
   if (typeof window === 'undefined' || !window.bexDesktop?.isDesktop) {
     return null;
   }

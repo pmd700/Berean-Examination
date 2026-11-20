@@ -1,8 +1,0 @@
-@@ -118,5 +118,5 @@
-     }
-   });
- 
--  await waitForUrl(DEV_URL);
--  return DEV_URL;
-+  await waitForUrl(devUrl);
-+  return devUrl;

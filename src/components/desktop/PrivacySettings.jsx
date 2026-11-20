@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Check, ChevronLeft, Copy, DatabaseBackup, KeyRound, LockKeyhole, RotateCcw, ShieldCheck } from 'lucide-react';
+import { Check, ChevronLeft, Copy, KeyRound, LockKeyhole, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -10,7 +10,6 @@ import {
   readPrivacyStatus,
   replacePrivacyRecoveryCode,
 } from '@/lib/privacy';
-import { chooseAndRestoreLibraryBackup, createLibraryBackup } from '@/lib/localBackup';
 
 const PIN_PATTERN = /^\d{4,12}$/;
 
@@ -30,7 +29,6 @@ export default function DesktopPrivacySettings() {
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
 
   useEffect(() => {
     if (!open || !isDesktop) return;
@@ -48,38 +46,6 @@ export default function DesktopPrivacySettings() {
     setPin('');
     setConfirmPin('');
     setError('');
-    setNotice('');
-  };
-
-  const handleBackupNow = async () => {
-    setBusy(true);
-    setError('');
-    setNotice('');
-    try {
-      const backup = await createLibraryBackup();
-      setNotice(`Backup saved: ${backup.fileName}`);
-    } catch (nextError) {
-      setError(messageFrom(nextError));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleRestore = async () => {
-    setBusy(true);
-    setError('');
-    setNotice('');
-    try {
-      const result = await chooseAndRestoreLibraryBackup();
-      if (result.canceled) return;
-      setNotice('Restore verified. Reopening the library…');
-      window.setTimeout(() => window.location.reload(), 650);
-    } catch (nextError) {
-      setError(messageFrom(nextError));
-      if (nextError?.rolledBack) window.setTimeout(() => window.location.reload(), 900);
-    } finally {
-      setBusy(false);
-    }
   };
 
   const handleOpenChange = (nextOpen) => {
@@ -242,20 +208,6 @@ export default function DesktopPrivacySettings() {
                   <KeyRound /> Add optional PIN
                 </Button>
               )}
-
-              <div className="border-t border-[#252B38] pt-4">
-                <p className="text-sm font-semibold text-white">Library recovery</p>
-                <p className="mt-1 text-sm text-[#8C96A8]">BEX also backs up automatically when it closes.</p>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <Button variant="outline" onClick={handleBackupNow} disabled={busy} className="border-[#303747] bg-transparent hover:bg-[#1A1F2A] hover:text-white">
-                    <DatabaseBackup /> Back up now
-                  </Button>
-                  <Button variant="outline" onClick={handleRestore} disabled={busy} className="border-[#303747] bg-transparent hover:bg-[#1A1F2A] hover:text-white">
-                    <RotateCcw /> Restore
-                  </Button>
-                </div>
-                {notice && <p className="mt-3 break-words text-sm text-[#A7F3D0]">{notice}</p>}
-              </div>
 
               {/* Vault status, on demand. This used to be a full screen shown
                   at every launch; it says the same thing, quietly, to whoever

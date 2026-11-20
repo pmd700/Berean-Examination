@@ -123,6 +123,19 @@ export default function CommentSidebar({ editor, anchorRef, tailSpacerRef }) {
   const cardHeightCacheRef = React.useRef(new Map());
   const groupHeightCacheRef = React.useRef(new Map());
   const layoutSignatureRef = React.useRef('');
+  const hasMarginComments = isActiveTab && comments.length > 0;
+
+  React.useLayoutEffect(() => {
+    const host = anchorRef?.current;
+    if (!host) return undefined;
+    if (hasMarginComments) host.setAttribute('data-bex-margin-comments', '');
+    else host.removeAttribute('data-bex-margin-comments');
+    host.dispatchEvent(new Event('bex:comment-layout', { bubbles: true }));
+    return () => {
+      host.removeAttribute('data-bex-margin-comments');
+      host.dispatchEvent(new Event('bex:comment-layout', { bubbles: true }));
+    };
+  }, [anchorRef, hasMarginComments]);
 
   React.useEffect(() => {
     if (!editor) return undefined;

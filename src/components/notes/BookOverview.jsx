@@ -17,7 +17,8 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Check, Download, Plus, Trash2, X } from 'lucide-react';
+import { Check, Plus, Trash2, X } from 'lucide-react';
+import NoteExportMenu from './NoteExportMenu';
 import PageSnapshot from './PageSnapshot';
 import { MAX_PAGES, footnoteOffsets, getPageTitle } from './bookModel';
 
@@ -185,19 +186,21 @@ export default function BookOverview({
   onMovePage,
   onDeletePages,
   onExportPages,
+  exporting = false,
+  exportNotice = null,
 }) {
   const [items, setItems] = React.useState(() => makePageItems(pages));
   const [selected, setSelected] = React.useState(() => new Set());
   const [activeId, setActiveId] = React.useState(null);
-  const offsets = React.useMemo(() => footnoteOffsets(pages), [pages]);
+  const offsets = React.useMemo(() => open ? footnoteOffsets(pages) : [], [open, pages]);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
   React.useEffect(() => {
-    setItems(current => reconcilePageItems(current, pages));
-  }, [pages]);
+    if(open)setItems(current => reconcilePageItems(current, pages));
+  }, [open, pages]);
 
   // Reopening starts clean: a selection left over from last time would put the
   // delete button behind pages the user has since forgotten they picked.
@@ -286,6 +289,7 @@ export default function BookOverview({
                 {chosen.length > 0 ? ` · ${chosen.length} selected` : ''}
                 {canReorder ? ' · Drag pages to rearrange' : ''}
               </div>
+              {exportNotice && <p role={exportNotice.error ? 'alert' : 'status'} className={`mt-1 max-w-lg text-xs ${exportNotice.error ? 'text-red-300' : exportNotice.saved ? 'text-emerald-300' : 'text-ink-soft'}`}>{exportNotice.message}</p>}
             </div>
 
             <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
@@ -307,15 +311,14 @@ export default function BookOverview({
               >
                 {allSelected ? 'Clear selection' : 'Select all'}
               </button>
-              <button
-                type="button"
+              <NoteExportMenu
                 disabled={chosen.length === 0}
-                onClick={() => onExportPages?.(chosen)}
+                busy={exporting}
+                label="Export selected pages"
+                onExport={format => format === 'md' ? onExportPages?.(chosen) : onExportPages?.(chosen, format)}
                 className="inline-flex h-8 items-center gap-1.5 rounded-md border border-line px-2.5 text-xs text-ink-soft transition-colors hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-                data-testid="button-pages-export"
-              >
-                <Download className="h-3.5 w-3.5" /> Export
-              </button>
+                testId="button-pages-export"
+              />
               <button
                 type="button"
                 disabled={chosen.length === 0}

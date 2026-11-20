@@ -1,0 +1,30 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { importSyncKey, randomSecret } from '../../shared/sync/crypto.js';
+import { encodeFileChunk, decodeFileChunk, validateFileManifest, fileBlob } from '../../shared/sync/files.js';
+import { hexDigest } from '../../shared/sync/relay-client.js';
+const identity = { vaultId: crypto.randomUUID(), epoch: crypto.randomUUID() };
+test('binary file chunks preserve exact bytes without base64 transport expansion', async () => {
+  const key = await importSyncKey(randomSecret()), bytes = crypto.getRandomValues(new Uint8Array(1000));
+  const encrypted = await encodeFileChunk(key, bytes, identity, 'a'.repeat(64), 0);
+  assert.equal(encrypted.bytes.length, bytes.length + 29);
+  assert.deepEqual(await decodeFileChunk(key, encrypted.bytes, identity, 'a'.repeat(64), 0), bytes);
+  await assert.rejects(decodeFileChunk(key, encrypted.bytes, identity, 'a'.repeat(64), 1));
+  const manifest = { version: 1, path: 'Media/Images/example.png', mimeType: 'image/png', size: bytes.length, digest: await hexDigest(bytes), chunks: [] };
+  const actual = await encodeFileChunk(key, bytes, identity, manifest.digest, 0); manifest.chunks = [actual.hash];
+  const blob = await fileBlob(manifest, { get: async () => actual.bytes }, key, identity);
+  assert.deepEqual(new Uint8Array(await blob.arrayBuffer()), bytes);
+  assert.throws(() => validateFileManifest({ ...manifest, path: '../outside' }));
+});
+test('browser imports hash and encrypt bounded slices without a whole-file read',async()=>{
+  const {importFile,cacheFile}=await import('../../shared/sync/files.js');
+  const key=await importSyncKey(randomSecret()),bytes=new Uint8Array(1024*1024+17).fill(37),file=new File([bytes],'large.bin',{type:'application/octet-stream'});
+  file.arrayBuffer=()=>{throw new Error('Whole-file buffering is forbidden');};
+  const chunks=new Map();let manifest;
+  await importFile(file,{identity,blobs:{put:async(hash,value)=>chunks.set(hash,value)},replica:{key,assertUnlocked(){},async change(_ref,value){manifest=value;}},changed(){}});
+  assert.equal(manifest.digest,await hexDigest(bytes));assert.equal(chunks.size,5);
+  let requests=0;
+  await cacheFile(manifest,{has:async()=>true,get(){throw new Error('Completed chunks must not be reread during polling');}},{request(){requests++;throw new Error('Unexpected network');}});
+  assert.equal(requests,0);
+  const blob=await fileBlob(manifest,{get:async hash=>chunks.get(hash)},key,identity);assert.deepEqual(new Uint8Array(await blob.arrayBuffer()),bytes);
+});

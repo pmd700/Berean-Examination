@@ -3,10 +3,10 @@
 const { DatabaseSync } = require('node:sqlite');
 const fs = require('node:fs');
 const path = require('node:path');
-const { activateDatabase, readActivationState } = require('./activation-store.cjs');
 const { CourseStore } = require('./course-store.cjs');
 const { installLocalCoursePackage } = require('./course-package.cjs');
 const {
+  ensureLocalOwner,
   readLocalOwnerProfile,
   updateLocalOwnerPreferences,
 } = require('./local-owner-store.cjs');
@@ -18,20 +18,6 @@ const {
   saveEncryptedImage,
 } = require('./local-media.cjs');
 const { deleteEncryptedAttachment, parseAttachmentUrl, readEncryptedAttachment, saveEncryptedAttachment } = require('./local-attachments.cjs');
-const { recoverInterruptedMediaRestore, restoreEncryptedMediaSnapshot } = require('./local-media-backup.cjs');
-const {
-  createEncryptedLocalBackup,
-  readDatabaseSummary,
-  resolveBackupFolder,
-} = require('./local-backup.cjs');
-const {
-  assertRestoredSummary,
-  completeLocalRestore,
-  inspectLocalRestoreBackup,
-  installLocalRestore,
-  recoverInterruptedRestore,
-  rollbackLocalRestore,
-} = require('./local-restore.cjs');
 const { PRIVACY_SCHEMA_SQL, PrivacyVault } = require('./privacy-vault.cjs');
 
 const DATABASE_FILE_NAME = 'berean.db';
@@ -483,6 +469,16 @@ let activeDatabasePath = null;
 let activePrivacyVault = null;
 let activeEntityStore = null;
 let activeCourseStore = null;
+let activeSyncController = null;
+let syncControllerOptions = {};
+function configureSyncController(options) { syncControllerOptions = options; }
+function getSyncController() {
+  if (!activeSyncController) {
+    const { DesktopSyncController } = require('./sync/controller.cjs');
+    activeSyncController = new DesktopSyncController({ database: requireActiveDatabase(), privacyVault: requirePrivacyVault(), entityStore: requireEntityStore(), libraryPath: activeLibraryPath(), ...syncControllerOptions });
+  }
+  return activeSyncController;
+}
 
 function currentSchemaVersion() {
   return MIGRATIONS.length ? MIGRATIONS[MIGRATIONS.length - 1].version : 0;
@@ -585,14 +581,6 @@ function activeLibraryPath() {
   return path.dirname(path.dirname(activeDatabasePath));
 }
 
-function getActivationState() {
-  return readActivationState(requireActiveDatabase());
-}
-
-function activateInstallation(activationCode) {
-  return activateDatabase(requireActiveDatabase(), activationCode);
-}
-
 function getLocalOwner() {
   return readLocalOwnerProfile(requireActiveDatabase());
 }
@@ -607,6 +595,7 @@ function getPrivacyStatus() {
 
 function lockPrivacyVault() {
   const vault = requirePrivacyVault();
+  activeSyncController?.close();
   vault.lock();
   return vault.getStatus();
 }
@@ -660,97 +649,6 @@ function savePrivateRecord(recordId, recordType, value) {
 
 function readPrivateRecord(recordId) {
   return requirePrivacyVault().readRecord(recordId);
-}
-
-async function createLocalBackup() {
-  const result = await createEncryptedLocalBackup({
-    database: requireActiveDatabase(),
-    libraryPath: activeLibraryPath(),
-    privacyVault: requirePrivacyVault(),
-  });
-  const { path: _privatePath, ...publicResult } = result;
-  return publicResult;
-}
-
-function getLocalDatabaseSummary() {
-  return readDatabaseSummary(requireActiveDatabase());
-}
-
-function getLocalBackupFolder() {
-  return resolveBackupFolder(activeLibraryPath());
-}
-
-function inspectLocalBackupForRestore(backupPath) {
-  const result = inspectLocalRestoreBackup({
-    backupPath,
-    libraryPath: activeLibraryPath(),
-    maxSchemaVersion: currentSchemaVersion(),
-  });
-  const { path: _privatePath, ...publicResult } = result;
-  return publicResult;
-}
-
-async function restoreLocalBackup(backupPath, { privacyProtector } = {}) {
-  const libraryPath = activeLibraryPath();
-  const databasePath = activeDatabasePath;
-  const inspected = inspectLocalRestoreBackup({
-    backupPath,
-    libraryPath,
-    maxSchemaVersion: currentSchemaVersion(),
-  });
-  const emergencyBackup = await createEncryptedLocalBackup({
-    database: requireActiveDatabase(),
-    libraryPath,
-    privacyVault: requirePrivacyVault(),
-    protectedBackupPaths: [inspected.path],
-  });
-
-  closeDatabase();
-  let mediaTransaction = null;
-  try {
-    installLocalRestore({ backupPath: inspected.path, databasePath });
-    const reopened = initializeDatabase(libraryPath, {
-      privacyProtector,
-      skipRestoreRecovery: true,
-    });
-    const restoredSummary = getLocalDatabaseSummary();
-    assertRestoredSummary(inspected, restoredSummary);
-    mediaTransaction = restoreEncryptedMediaSnapshot({ backupPath: inspected.path, libraryPath, deferCommit: true });
-    completeLocalRestore(databasePath);
-    try { mediaTransaction.commit(); } catch (error) {
-      // The database is committed; startup can finish removing protected staging files.
-      console.error('[desktop] Media restore staging cleanup remains pending:', error?.code || 'cleanup failed');
-    }
-    return {
-      emergencyBackupFileName: emergencyBackup.fileName,
-      fileName: inspected.fileName,
-      privacy: reopened.privacy,
-      recordCount: restoredSummary.recordCount,
-      schemaVersion: restoredSummary.schemaVersion,
-    };
-  } catch (restoreError) {
-    closeDatabase();
-    try {
-      if (mediaTransaction) mediaTransaction.rollback();
-      rollbackLocalRestore(databasePath);
-      initializeDatabase(libraryPath, { privacyProtector });
-    } catch (rollbackError) {
-      const error = new Error(
-        'BEX could not finish the restore or automatically reopen the original database.',
-      );
-      error.code = 'BEX_RESTORE_ROLLBACK_FAILED';
-      error.restoreCause = restoreError?.code || null;
-      error.rollbackCause = rollbackError?.code || null;
-      throw error;
-    }
-    const error = new Error(
-      'The selected backup could not be restored. BEX put the original database back.',
-    );
-    error.code = 'BEX_RESTORE_FAILED';
-    error.restoreCause = restoreError?.code || null;
-    error.rolledBack = true;
-    throw error;
-  }
 }
 
 function createLocalEntity(entityType, value) {
@@ -881,6 +779,7 @@ function deleteLocalEntity(entityType, entityId) {
 }
 
 function closeDatabase() {
+  activeSyncController?.close(); activeSyncController = null;
   const database = activeDatabase;
   const privacyVault = activePrivacyVault;
   activeDatabase = null;
@@ -892,7 +791,7 @@ function closeDatabase() {
   if (database) database.close();
 }
 
-function initializeDatabase(libraryPath, { privacyProtector, skipRestoreRecovery = false } = {}) {
+function initializeDatabase(libraryPath, { privacyProtector } = {}) {
   if (typeof libraryPath !== 'string' || !libraryPath.trim()) {
     throw new Error('A valid Berean Library location is required before opening the database.');
   }
@@ -905,7 +804,12 @@ function initializeDatabase(libraryPath, { privacyProtector, skipRestoreRecovery
 
   const nextDatabasePath = path.join(databaseFolder, DATABASE_FILE_NAME);
   if (activeDatabase && activeDatabasePath === nextDatabasePath) {
-    const privacy = unlockPrivacyAutomatically();
+    let privacy;
+    try {
+      privacy = unlockPrivacyAutomatically();
+    } catch {
+      privacy = getPrivacyStatus();
+    }
     return {
       path: activeDatabasePath,
       privacy,
@@ -914,10 +818,6 @@ function initializeDatabase(libraryPath, { privacyProtector, skipRestoreRecovery
   }
 
   closeDatabase();
-  if (!skipRestoreRecovery) {
-    recoverInterruptedMediaRestore(libraryPath);
-    recoverInterruptedRestore(nextDatabasePath);
-  }
   const database = new DatabaseSync(nextDatabasePath);
   let privacyVault = null;
 
@@ -929,6 +829,7 @@ function initializeDatabase(libraryPath, { privacyProtector, skipRestoreRecovery
     database.exec('PRAGMA secure_delete = ON');
     database.exec('PRAGMA trusted_schema = OFF');
     const schemaVersion = applyMigrations(database);
+    ensureLocalOwner(database);
     const privacyResult = PrivacyVault.attach({
       database,
       databasePath: nextDatabasePath,
@@ -936,7 +837,13 @@ function initializeDatabase(libraryPath, { privacyProtector, skipRestoreRecovery
     });
     privacyVault = privacyResult.vault;
     if (!privacyResult.created && privacyResult.vault.getProtectionMode() === 'automatic') {
-      privacyResult.vault.unlockAutomatically();
+      try {
+        privacyResult.vault.unlockAutomatically();
+      } catch (error) {
+        // Leave the vault open in a locked state so PrivacyGate can display
+        // the exact Keychain mismatch error instead of breaking library selection.
+        console.warn('[desktop] Automatic privacy unlock deferred to PrivacyGate:', error?.code || error?.message);
+      }
     }
 
     if (process.platform !== 'win32') fs.chmodSync(nextDatabasePath, 0o600);
@@ -963,31 +870,27 @@ function initializeDatabase(libraryPath, { privacyProtector, skipRestoreRecovery
 }
 
 module.exports = {
+  configureSyncController,
+  getSyncController,
   CURRENT_SCHEMA_VERSION: currentSchemaVersion(),
-  activateInstallation,
   applyMigrations,
   assertLocalFilesAvailable,
   changePrivacyPin,
   closeDatabase,
-  createLocalBackup,
   createLocalEntity,
   DATABASE_FILE_NAME,
   deleteLocalImage,
   deleteLocalEntity,
   disablePrivacyPin,
   enablePrivacyPin,
-  getActivationState,
   getActiveLibraryPath,
   getLocalOwner,
   getLocalEntity,
-  getLocalDatabaseSummary,
-  getLocalBackupFolder,
   getPrivacyStatus,
   importKnowledgeWebGraph,
   installCoursePackage,
   installCourseVersion,
   initializeDatabase,
-  inspectLocalBackupForRestore,
   lockPrivacyVault,
   listCourseLibrary,
   listLocalEntities,
@@ -997,7 +900,6 @@ module.exports = {
   resolveCourseAsset,
   reorderLocalEntities,
   restoreKnowledgeWebGraph,
-  restoreLocalBackup,
   rollbackLocalFile,
   saveCourseProgress,
   saveLocalImage,

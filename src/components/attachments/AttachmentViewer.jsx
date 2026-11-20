@@ -1,3 +1,4 @@
+import { useMediaSource } from '@/lib/mediaSource';
 import { Component, lazy, Suspense, useEffect, useState } from 'react';
 import { ExternalLink, X } from 'lucide-react';
 import { Content as DialogContent, Close as DialogClose } from '@radix-ui/react-dialog';
@@ -24,6 +25,7 @@ export class AttachmentRenderBoundary extends Component {
 }
 
 export default function AttachmentViewer({ attachment, onClose }) {
+  const mediaSource=useMediaSource(attachment?.url);
   const [mediaFailed, setMediaFailed] = useState(false);
   const [externalError, setExternalError] = useState('');
   const [openingExternal, setOpeningExternal] = useState(false);
@@ -67,10 +69,10 @@ export default function AttachmentViewer({ attachment, onClose }) {
             </AttachmentRenderBoundary>
           ) : kind === 'audio' ? (
             <div className="flex flex-1 items-center justify-center px-5">
-              <audio ref={mediaRef} data-testid="attachment-audio" aria-label={`Audio player: ${name}`} src={attachment.url} controls preload="metadata" className="w-full max-w-2xl" onError={() => setMediaFailed(true)} />
+              <audio ref={mediaRef} data-testid="attachment-audio" aria-label={`Audio player: ${name}`} src={mediaSource} controls preload="metadata" className="w-full max-w-2xl" onError={() => setMediaFailed(true)} />
             </div>
           ) : kind === 'video' ? (
-            <video ref={mediaRef} data-testid="attachment-video" aria-label={`Video player: ${name}`} src={attachment.url} controls playsInline preload="metadata" className="min-h-0 w-full flex-1 bg-black object-contain" onError={() => setMediaFailed(true)} />
+            <video ref={mediaRef} data-testid="attachment-video" aria-label={`Video player: ${name}`} src={mediaSource} controls playsInline preload="metadata" className="min-h-0 w-full flex-1 bg-black object-contain" onError={() => setMediaFailed(true)} />
           ) : <ViewerFailure>Use Open in default app to view this file.</ViewerFailure>}
         </div>
         <DialogClose aria-label="Close file viewer" className="absolute right-4 top-4 rounded p-1 text-slate-400 hover:text-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-purple-400"><X size={16} aria-hidden="true" /></DialogClose>

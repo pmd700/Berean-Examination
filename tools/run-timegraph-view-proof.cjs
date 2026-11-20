@@ -79,7 +79,7 @@ app.whenReady().then(async () => {
     const close = require('../desktop/normal-close-backup.cjs').createNormalCloseHandler({
       app: { quit: () => { quitFinished = true; } },
       prepareForShutdown: () => run('window.__bexFlushPendingEditorSaves()'),
-      createLocalBackup: async () => { assert.equal(saved().scrollTop,309);exactView=saved(); },
+      onShutdownStarted: () => { assert.equal(saved().scrollTop, 309); exactView = saved(); },
       closeDatabase: database.closeDatabase, closeServices: () => {},
     });
     await close({preventDefault(){}});assert.equal(quitFinished,true);

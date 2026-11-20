@@ -12,6 +12,8 @@ import Underline from '@tiptap/extension-underline';
 import Link from '@tiptap/extension-link';
 import { InheritedPasteLink, surroundingPasteLink, inheritInsertedLink } from './InheritedPasteLink';
 import { ImageUpload } from './ImageUploadExtension';
+import { ImageGallery } from './ImageGalleryExtension';
+import ImageGalleryTools from './ImageGalleryTools';
 import ImageLightbox from './ImageLightbox';
 import { CollapsibleToggle, ToggleSummary, ToggleContent } from './CollapsibleToggleExtension';
 import { delimitedTableToHtml } from '@/components/editor/delimitedTable';
@@ -413,6 +415,7 @@ export default function TEXT_EDITOR_MACHINERY({
       Highlight,
       TextCase,
       ...richOnly(ImageUpload),
+      ...richOnly(ImageGallery),
       ...richOnly(FileAttachment),
       ...richOnly(KeywordLink),
       ...richOnly(BibleSiteLink),
@@ -852,6 +855,7 @@ export default function TEXT_EDITOR_MACHINERY({
       }
 
       const image = e.target.closest('img[src]');
+      if (image?.closest('[data-image-gallery]')) return;
       if (image && !image.closest('[data-uploading]')) {
         e.preventDefault();
         e.stopPropagation();
@@ -892,6 +896,7 @@ export default function TEXT_EDITOR_MACHINERY({
 
     const handleDblClick = (e) => {
       const image = e.target.closest('img[src]');
+      if (image?.closest('[data-image-gallery]')) return;
       if (image && !image.closest('[data-uploading]')) {
         e.preventDefault();
         e.stopPropagation();
@@ -1916,6 +1921,7 @@ export default function TEXT_EDITOR_MACHINERY({
           onClose={() => setLightboxImage(null)}
         />
       )}
+      {!plainFormatting && <ImageGalleryTools editor={editor} />}
 
       {selectedImage && (
         <>

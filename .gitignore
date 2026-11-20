@@ -30,3 +30,8 @@ dist-ssr
 .env
 # Machine-specific output from the retired startup proof runner
 .bex-offline-startup-network-proof.json
+
+# Generated iPhone/relay build state
+.cloudflare/
+
+.bex-sync-provisioning.local.json

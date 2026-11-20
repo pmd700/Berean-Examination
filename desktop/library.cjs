@@ -13,7 +13,6 @@ const LIBRARY_FOLDERS = Object.freeze([
   'Media',
   'Imports',
   'Exports',
-  'Backups',
 ]);
 
 function configPath() {
@@ -101,8 +100,40 @@ async function getLibraryStatus() {
   };
 }
 
+async function fileExists(filePath) {
+  try {
+    const stats = await fs.promises.stat(filePath);
+    return stats.isFile();
+  } catch {
+    return false;
+  }
+}
+
+async function isExistingBereanLibrary(folderPath) {
+  return fileExists(path.join(folderPath, 'Database', 'berean.db'));
+}
+
+async function resolveLibraryRoot(selectedPath) {
+  const candidate = path.resolve(selectedPath);
+  if (await isExistingBereanLibrary(candidate)) return candidate;
+
+  // If the user selected a subfolder inside an existing Berean Library
+  // (e.g. Vault/Backups, Vault/Backups/Archives, Vault/Database, Vault/Media),
+  // automatically resolve to the parent Vault folder instead of creating
+  // nested empty folders inside it.
+  let current = candidate;
+  for (let depth = 0; depth < 3; depth += 1) {
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    if (await isExistingBereanLibrary(parent)) return parent;
+    current = parent;
+  }
+
+  return candidate;
+}
+
 async function createLibraryStructure(libraryPath) {
-  const resolvedPath = path.resolve(libraryPath);
+  const resolvedPath = await resolveLibraryRoot(libraryPath);
   const rootStats = await fs.promises.stat(resolvedPath);
   if (!rootStats.isDirectory()) {
     throw new Error('The selected location is not a folder.');
@@ -164,9 +195,14 @@ function registerLibraryHandlers({ appUrl, getMainWindow, onLibraryReady }) {
     try {
       assertTrustedSender(event, trustedOrigin);
 
+      const current = await readLibraryConfig();
+      const defaultPath = current.config?.libraryPath
+        ? path.dirname(path.resolve(current.config.libraryPath))
+        : app.getPath('desktop');
+
       const result = await dialog.showOpenDialog(getMainWindow(), {
         buttonLabel: 'Choose Berean Library',
-        defaultPath: app.getPath('documents'),
+        defaultPath,
         message: 'Choose or create the folder BEX will use as your Berean Library.',
         properties: ['openDirectory', 'createDirectory'],
         title: 'Choose Berean Library',
@@ -193,4 +229,5 @@ module.exports = {
   LIBRARY_FOLDERS,
   getLibraryStatus,
   registerLibraryHandlers,
+  resolveLibraryRoot,
 };

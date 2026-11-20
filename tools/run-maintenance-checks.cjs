@@ -8,7 +8,7 @@ const { spawnSync } = require('node:child_process');
 const root = path.resolve(__dirname, '..');
 const native = process.argv.includes('--native');
 const nativeTools = [
-  'run-local-entity-proof.cjs', 'run-local-attachment-proof.cjs', 'run-local-backup-proof.cjs',
+  'run-local-entity-proof.cjs', 'run-local-attachment-proof.cjs',
   'run-local-study-proof.cjs', 'run-local-timegraph-proof.cjs',
   'run-local-course-proof.cjs', 'run-course-playback-proof.cjs', 'run-privacy-proof.cjs',
   'run-offline-startup-network-proof.cjs', 'run-spreadsheet-proof.cjs',

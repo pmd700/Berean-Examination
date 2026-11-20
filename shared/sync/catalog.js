@@ -21,9 +21,16 @@ export const ENTITY_TABLES = Object.freeze({
   StudyChapter: 'local_study_chapters',
   Timegraph: 'local_timegraphs',
   TextHighlight: 'local_text_highlights',
+  Spreadsheet: 'local_spreadsheets',
 });
 
 export const AUXILIARY_TABLES = Object.freeze({
+  local_sync_file_index: { mode: 'device', reason: 'Device fingerprints and encrypted file manifests.' },
+  local_sync_file_content: { mode: 'device', reason: 'Encrypted deduplication manifests.' },
+  local_sync_config: { mode: 'device', reason: 'Local identity and sync enable/suppression state.' },
+  local_sync_heads: { mode: 'device', reason: 'Durable local revision heads.' },
+  local_sync_journal: { mode: 'device', reason: 'Encrypted transactional change journal and outgoing envelopes.' },
+  local_sync_conflicts: { mode: 'device', reason: 'Local encrypted conflict cache; causal versions synchronize separately.' },
   private_records: { mode: 'split', kind: 'PrivateRecord', reason: 'Content/progress sync; key caches and device sessions stay device-scoped.' },
   local_owner: { mode: 'split', kind: 'OwnerProfile', reason: 'Profile and library preferences sync; unlock and workspace preferences are device-scoped.' },
   app_metadata: { mode: 'review', reason: 'Classify each metadata key before enrollment; no silent omission.' },
@@ -44,7 +51,7 @@ for (const policy of Object.values(AUXILIARY_TABLES)) Object.freeze(policy);
 export const STRING_RECORD_KINDS = Object.freeze([
   'OwnerProfile', 'LibraryPreferences', 'DeviceWorkspace', 'PrivateRecord',
   'CourseVersion', 'CourseCatalog', 'CourseModule', 'CourseAsset', 'CourseLesson',
-  'VaultFile',
+  'VaultFile', 'CourseProgressIndex', 'LibraryMetadata',
 ]);
 
 export function tablePolicy(table) {

@@ -31,7 +31,7 @@ function finish(result, exitCode) {
   const report = {
     checkedAt: new Date().toISOString(), elapsedMs: Date.now() - startedAt,
     onlineModeEnabled: false,
-    proofScope: 'Built production desktop main, preload, renderer and real local IPC; synthetic signed activation with a harness-only ephemeral trust root. Network observation covers the Electron default session.',
+    proofScope: 'Built production desktop main, preload, renderer and real local IPC. Network observation covers the Electron default session.',
     routesVerified, deferredPagesVerified, outsideRequests, rendererErrors, requests, ...result,
   };
   fs.writeFileSync(reportPath, JSON.stringify(report, null, 2) + '\n', { mode: 0o600 });
@@ -50,10 +50,10 @@ async function readGateState(contents) {
     if (!normalAppVisible || !document.querySelector('[data-testid="library-home"]')) {
       return { ready: false, bodyPreview: (document.body?.innerText || '').slice(0, 500) };
     }
-    const [library, activation, privacy] = await Promise.all([
-      api.getLibraryStatus(), api.getActivationStatus(), api.getPrivacyStatus(),
+    const [library, privacy] = await Promise.all([
+      api.getLibraryStatus(), api.getPrivacyStatus(),
     ]);
-    return { ready: true, normalAppVisible, library, activation, privacy };
+    return { ready: true, normalAppVisible, library, privacy };
   })()`, true);
 }
 
@@ -90,10 +90,9 @@ function watchContents(contents) {
         return next.ready ? next : null;
       }, 'normal Library page and startup gates');
       const libraryReady = state.library?.ok === true && state.library.status?.available === true;
-      const activationReady = state.activation?.ok === true && state.activation.status?.activated === true;
       const privacyReady = state.privacy?.ok === true && state.privacy.status?.locked === false;
       const disposableLibrary = state.library.status.path === path.join(proofRoot, 'library');
-      assert.ok(libraryReady && activationReady && privacyReady && disposableLibrary, 'Startup gates did not accept the disposable library.');
+      assert.ok(libraryReady && privacyReady && disposableLibrary, 'Startup gates did not accept the disposable library.');
       routesVerified.push('LibraryHome');
       assert.ok(pageRequests('LibraryHome').length, 'The production Library module must load.');
       for (const page of ['Stats', 'Courses']) assert.equal(pageRequests(page).length, 0, page + ' must remain deferred at startup.');
@@ -118,7 +117,7 @@ function watchContents(contents) {
       await pause(500);
       assert.deepEqual(rendererErrors, []);
       assert.deepEqual(requests.filter(request => request.outside), []);
-      finish({ ok: true, libraryReady, activationReady, privacyReady, disposableLibrary, normalAppVisible: state.normalAppVisible }, 0);
+      finish({ ok: true, libraryReady, privacyReady, disposableLibrary, normalAppVisible: state.normalAppVisible }, 0);
     } catch (error) {
       let finalState;
       try { finalState = await readGateState(contents); } catch { /* Keep the initial error. */ }

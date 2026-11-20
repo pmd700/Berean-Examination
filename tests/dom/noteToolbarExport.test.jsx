@@ -3,8 +3,9 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const harness = vi.hoisted(() => ({ save: vi.fn(), error: vi.fn(), success: vi.fn() }));
-vi.mock('@/lib/saveExportFile', () => ({ saveExportFile: (...args) => harness.save(...args) }));
+const harness = vi.hoisted(() => ({ choose: vi.fn(), cancel: vi.fn(), save: vi.fn(), error: vi.fn(), success: vi.fn(), pdf: vi.fn() }));
+vi.mock('@/lib/saveExportFile', () => ({ saveExportFile: (...args) => harness.save(...args), chooseExportFile: (...args) => harness.choose(...args), cancelExportFile: (...args) => harness.cancel(...args) }));
+vi.mock('@/lib/notePdf',()=>({exportNotePdf:(...args)=>harness.pdf(...args)}));
 vi.mock('sonner', () => ({ toast: { error: (...args) => harness.error(...args), success: (...args) => harness.success(...args) } }));
 vi.mock('@/lib/PrivateWebContext', () => ({ usePrivateWeb: () => ({ getKey: () => null }) }));
 // Exercise real note/book state and persistence; replace only the text widget.
@@ -51,12 +52,20 @@ function mount({ duplicate = false, onNoteSaved = null, requestedPage = null } =
 function changeBody(html, editor = 'first-editor') {
   fireEvent.change(within(screen.getByTestId(editor)).getByRole('textbox', { name: 'Note body' }), { target: { value: html } });
 }
-function exportNote() { fireEvent.click(within(screen.getByTestId('first-editor')).getByRole('button', { name: 'Export note' })); }
+function exportNote(format = 'md') {
+  const button = within(screen.getByTestId('first-editor')).getByRole('button', { name: 'Export note' });
+  if (button.disabled) return;
+  fireEvent.keyDown(button, { key: 'Enter' });
+  fireEvent.click(screen.getByRole('menuitem', { name: format === 'pdf' ? 'PDF (.pdf)' : 'Markdown (.md)' }));
+}
 
 beforeEach(() => {
+  harness.choose.mockReset(); harness.choose.mockResolvedValue({ status: 'ready', selectionId: 'chosen-location' });
+  harness.cancel.mockReset(); harness.cancel.mockResolvedValue(undefined);
   stored = { ...original };
   artifacts = [];
   status = 'saved';
+  harness.pdf.mockReset();harness.pdf.mockResolvedValue({status:'saved'});
   harness.error.mockReset(); harness.success.mockReset(); harness.save.mockReset();
   harness.save.mockImplementation(async (blob, fileName) => {
     artifacts.push({ fileName, text: await readBlob(blob) });
@@ -259,4 +268,26 @@ describe('top-of-note Export and current note views', () => {
     await act(async () => { gate.resolve(); await flushPendingEditorSaves(); });
     expect(harness.save).not.toHaveBeenCalled();
   });
+});
+
+it('shows formats only after Export opens and exports the whole current note as PDF',async()=>{mount();await waitFor(()=>expect(screen.getByRole('button',{name:'Export note'}).disabled).toBe(false));expect(screen.queryByText('PDF (.pdf)')).toBeNull();expect(screen.queryByRole('combobox',{name:'Note export format'})).toBeNull();exportNote('pdf');await waitFor(()=>expect(harness.pdf).toHaveBeenCalled());expect(harness.pdf.mock.calls[0][0]).toMatchObject({title:'Research',pages:expect.arrayContaining([expect.stringContaining('Keep the second page.')])});expect(harness.save).not.toHaveBeenCalled();});
+it('exports selected pages as PDF using the freshly saved book',async()=>{mount();fireEvent.click(await screen.findByTestId('button-page-overview'));fireEvent.click(await screen.findByTestId('checkbox-page-2'));fireEvent.keyDown(screen.getByTestId('button-pages-export'),{key:'Enter'});fireEvent.click(screen.getByRole('menuitem',{name:'PDF (.pdf)'}));await waitFor(()=>expect(harness.pdf).toHaveBeenCalled());expect(harness.pdf.mock.calls[0][0]).toMatchObject({title:'Research',indices:[1],pages:expect.arrayContaining([expect.stringContaining('Keep the second page.')])});});
+
+it('opens the save chooser before preparing a PDF and stops completely on cancel', async () => { harness.choose.mockResolvedValue({status:'canceled'}); mount(); exportNote('pdf'); await waitFor(()=>expect(harness.choose).toHaveBeenCalledWith('research.pdf')); expect(harness.pdf).not.toHaveBeenCalled(); expect(harness.save).not.toHaveBeenCalled(); expect(await screen.findByText('Export canceled.')).toBeTruthy(); });
+it('routes selected Markdown pages through the native save flow with confirmation',async()=>{mount();fireEvent.click(await screen.findByTestId('button-page-overview'));fireEvent.click(await screen.findByTestId('checkbox-page-2'));fireEvent.keyDown(screen.getByTestId('button-pages-export'),{key:'Enter'});fireEvent.click(screen.getByRole('menuitem',{name:'Markdown (.md)'}));await waitFor(()=>expect(artifacts).toHaveLength(1));expect(artifacts[0].fileName).toBe('research-page-2.md');expect(artifacts[0].text).toContain('Keep the second page.');expect(artifacts[0].text).not.toContain('Old first page.');expect(harness.save.mock.calls[0][2]).toEqual({status:'ready',selectionId:'chosen-location'});expect(await screen.findByText('Saved research-page-2.md')).toBeTruthy();});
+
+it('holds an incoming sync refresh until the export destination and write finish', async () => {
+  const chooser = deferred(); harness.choose.mockReturnValue(chooser.promise);
+  mount(); exportNote('pdf');
+  await waitFor(()=>expect(harness.choose).toHaveBeenCalled());
+  let prepared=false;
+  const apply=window.__bexBeginRemoteApply().then(()=>{prepared=true;});
+  await act(async()=>{await Promise.resolve();});
+  expect(prepared).toBe(false);
+  expect(document.body.textContent).not.toContain('Receiving your synchronized changes');
+  await act(async()=>{chooser.resolve({status:'ready',selectionId:'chosen-location'});});
+  await waitFor(()=>expect(harness.pdf).toHaveBeenCalled());
+  await act(async()=>{await apply;});
+  expect(prepared).toBe(true);
+  window.__bexEndRemoteApply(false);
 });

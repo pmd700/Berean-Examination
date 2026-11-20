@@ -7,6 +7,7 @@ const {
   dialog,
   ipcMain,
   Menu,
+  net: electronNet,
   powerMonitor,
   protocol,
   safeStorage,
@@ -21,10 +22,9 @@ const { registerScriptureHandlers } = require('./scripture-ipc.cjs');
 const { registerAppRestartHandler } = require('./app-restart-ipc.cjs');
 const { installApplicationMenu } = require('./app-menu.cjs');
 const { installContextMenu } = require('./context-menu.cjs');
-const { createMachineRequest } = require('./activation.cjs');
-const { registerActivationHandlers } = require('./activation-ipc.cjs');
 const { registerClipboardHandlers } = require('./clipboard-ipc.cjs');
 const { registerEmojiHandlers } = require('./emoji.cjs');
+const { registerNotePdfHandler } = require('./note-pdf.cjs');
 const { registerExportFileHandlers } = require('./export-file-ipc.cjs');
 const { registerContactHandlers } = require('./contact-ipc.cjs');
 const { registerExternalLinkHandlers, validateExternalUrl } = require('./external-link-ipc.cjs');
@@ -39,7 +39,6 @@ const {
 const { registerLibraryHandlers } = require('./library.cjs');
 const { readLocalBibleChapter } = require('./local-bible.cjs');
 const { registerLocalBibleHandlers } = require('./local-bible-ipc.cjs');
-const { registerLocalBackupHandlers } = require('./local-backup-ipc.cjs');
 const { registerLocalEntityHandlers } = require('./local-entity-ipc.cjs');
 const { registerLocalMediaHandlers } = require('./local-media-ipc.cjs');
 const { registerLocalAttachmentHandlers } = require('./local-attachments-ipc.cjs');
@@ -59,27 +58,24 @@ const {
 } = require('./privacy-ipc.cjs');
 const { createSafeStorageProtector } = require('./privacy-vault.cjs');
 const {
-  activateInstallation,
+  configureSyncController,
+  getSyncController,
   assertLocalFilesAvailable,
   changePrivacyPin,
   closeDatabase,
-  createLocalBackup,
   createLocalEntity,
   deleteLocalImage,
   deleteLocalEntity,
   disablePrivacyPin,
   enablePrivacyPin,
-  getActivationState,
   getActiveLibraryPath,
   getLocalEntity,
-  getLocalBackupFolder,
   getLocalOwner,
   getPrivacyStatus,
   importKnowledgeWebGraph,
   installCoursePackage,
   installCourseVersion,
   initializeDatabase,
-  inspectLocalBackupForRestore,
   lockPrivacyVault,
   listLocalEntities,
   readLocalEntitySnapshot,
@@ -89,7 +85,6 @@ const {
   reorderLocalEntities,
   replacePrivacyRecoveryCode,
   restoreKnowledgeWebGraph,
-  restoreLocalBackup,
   rollbackLocalFile,
   saveLocalImage,
   saveLocalFile,
@@ -100,6 +95,7 @@ const {
   updateLocalEntity,
   updateLocalOwner,
 } = require('./database.cjs');
+const { registerSyncHandlers } = require('./sync/ipc.cjs');
 const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const http = require('node:http');
@@ -142,6 +138,8 @@ registerLocalMediaScheme(protocol);
 registerCourseMediaScheme(protocol);
 
 app.setName(APP_NAME);
+// Use the same protected profile in development and installed launches.
+app.setPath('userData', path.join(app.getPath('appData'), APP_NAME));
 
 function publishPrivacyStatus(status) {
   if (status?.locked) attachmentExternalCopies?.cleanup();
@@ -419,37 +417,28 @@ async function launch() {
   });
   const activeCourseDownloads = new Map();
   const privacyProtector = createSafeStorageProtector(safeStorage);
-  const chooseAndRestoreLocalBackup = async () => {
-    const result = await dialog.showOpenDialog(mainWindow, {
-      buttonLabel: 'Choose Backup',
-      defaultPath: getLocalBackupFolder(),
-      filters: [{ name: 'BEX encrypted backup', extensions: ['db'] }],
-      message: 'Choose a BEX backup from this Berean Library Backups folder.',
-      properties: ['openFile'],
-      title: 'Restore Berean Library',
-    });
-    if (result.canceled || !result.filePaths[0]) return { canceled: true };
-
-    const backupPath = result.filePaths[0];
-    const preview = inspectLocalBackupForRestore(backupPath);
-    const modifiedAt = new Date(preview.modifiedAt).toLocaleString();
-    const confirmation = await dialog.showMessageBox(mainWindow, {
-      buttons: ['Cancel', 'Restore Backup'],
-      cancelId: 0,
-      defaultId: 0,
-      detail: `${preview.fileName}\nSaved ${modifiedAt}\n\nBEX will first preserve your current database as an emergency backup.`,
-      message: 'Replace the current library with this backup?',
-      noLink: true,
-      title: 'Confirm Restore',
-      type: 'warning',
-    });
-    if (confirmation.response !== 1) return { canceled: true };
-
-    return {
-      canceled: false,
-      restored: await restoreLocalBackup(backupPath, { privacyProtector }),
-    };
+  const flushForSync = async () => {
+    if (mainWindow && !mainWindow.isDestroyed()) await mainWindow.webContents.executeJavaScript('window.__bexFlushPendingEditorSaves?.()');
   };
+  configureSyncController({
+    cachePath: path.join(app.getPath('userData'), 'EncryptedSyncFiles'),
+    flushEditors: flushForSync,
+    prepareApply: async () => { if (mainWindow && !mainWindow.isDestroyed()) await mainWindow.webContents.executeJavaScript('window.__bexBeginRemoteApply?.()'); },
+    finishApply: async changed => { if (mainWindow && !mainWindow.isDestroyed()) await mainWindow.webContents.executeJavaScript(`window.__bexEndRemoteApply?.(${Boolean(changed)})`); },
+  });
+  registerSyncHandlers({ ipcMain, appUrl, getController: getSyncController, readProvisioning: () => {
+    const file = path.join(__dirname, '..', '.bex-sync-provisioning.local.json');
+    if (!fs.existsSync(file)) throw new Error('The protected local sync provisioning file is unavailable.');
+    const provisioning = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (provisioning.relay !== 'https://bex-iphone.bex-library-dm.workers.dev') throw new Error('Unrecognized BEX relay.');
+    return provisioning;
+  } });
+  const syncTimer = setInterval(() => {
+    if (isQuitting || !mainWindow || mainWindow.isDestroyed()) return;
+    try { void getSyncController().tick().catch(() => {}); } catch { /* A library is not open yet. */ }
+  }, 15000);
+  app.once('will-quit', () => clearInterval(syncTimer));
+
   const chooseAndInstallCoursePackage = async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
       buttonLabel: 'Install Course Package',
@@ -527,15 +516,9 @@ async function launch() {
       return initializeDatabase(libraryPath, { privacyProtector });
     },
   });
-  registerActivationHandlers({
-    activateInstallation,
-    appUrl,
-    createMachineRequest,
-    getActivationState,
-    ipcMain,
-  });
   registerClipboardHandlers({ appUrl, ipcMain, clipboard });
   registerEmojiHandlers({ appUrl, ipcMain, cacheFolder: path.join(app.getPath('userData'), 'Emoji') });
+  registerNotePdfHandler({ipcMain,appUrl,BrowserWindow,assertUnlocked:assertLocalFilesAvailable,readLocalMedia,fetchImage:(...args)=>electronNet.fetch(...args)});
   registerExportFileHandlers({
     appUrl,
     ipcMain,
@@ -599,12 +582,6 @@ async function launch() {
     appUrl,
     ipcMain,
     readLocalMamChapter,
-  });
-  registerLocalBackupHandlers({
-    appUrl,
-    chooseAndRestoreLocalBackup,
-    createLocalBackup,
-    ipcMain,
   });
   registerLocalEntityHandlers({
     appUrl,
@@ -681,21 +658,23 @@ const handleNormalClose = createNormalCloseHandler({
     let timeout;
     try {
       await Promise.race([
-        mainWindow.webContents.executeJavaScript('window.__bexFlushPendingEditorSaves?.()'),
+        mainWindow.webContents.executeJavaScript("window.__bexBeginRemoteApply ? window.__bexBeginRemoteApply('Saving your library before closing…') : window.__bexFlushPendingEditorSaves?.()"),
         new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error('Saving timed out.')), 15000); }),
       ]);
     } finally { clearTimeout(timeout); }
   },
-  onPreparationFailed: () => dialog.showErrorBox('BEX is still saving', 'Your workspace has been kept open because a recent save could not finish. Resolve the save error or wait for saving to finish, then quit again.'),
+  onPreparationFailed: () => { if(mainWindow&&!mainWindow.isDestroyed())void mainWindow.webContents.executeJavaScript('window.__bexEndRemoteApply?.(false)').catch(()=>{});dialog.showErrorBox('BEX is still saving', 'Your workspace has been kept open because a recent save could not finish. Resolve the save error or wait for saving to finish, then quit again.'); },
   closeDatabase,
   closeServices: () => {
     attachmentExternalCopies?.cleanup();
     if (devServerProcess && !devServerProcess.killed) devServerProcess.kill();
     if (builtServer) builtServer.close();
   },
-  createLocalBackup,
   onShutdownStarted: () => {
     isQuitting = true;
+    // Local saves are already durable. Stop transport before taking the close
+    // snapshot; an in-flight network exchange must not race the backup.
+    try { getSyncController().close(); } catch { /* No library may be open. */ }
     attachmentExternalCopies?.cleanup();
   },
 });

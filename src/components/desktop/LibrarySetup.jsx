@@ -6,7 +6,6 @@ const DEFAULT_FOLDERS = [
   'Media',
   'Imports',
   'Exports',
-  'Backups',
 ];
 
 function readableError(error) {
@@ -173,7 +172,7 @@ export default function DesktopLibraryGate({ children }) {
             <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
               Folders BEX creates
             </h2>
-            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
               {folders.map((folder) => (
                 <div
                   key={folder}

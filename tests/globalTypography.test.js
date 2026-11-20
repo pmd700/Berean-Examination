@@ -21,7 +21,6 @@ describe('global app typography', () => {
       'src/Layout.jsx',
       'src/index.css',
       'src/components/editor/TEXT_EDITOR_MACHINERY.jsx',
-      'src/components/desktop/ActivationGate.css',
       'src/styles/timegraph.css',
       'src/components/markdown/markdown-report.css',
     ];

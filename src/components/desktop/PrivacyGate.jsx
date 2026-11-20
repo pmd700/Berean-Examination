@@ -215,10 +215,24 @@ export default function DesktopPrivacyGate({ children }) {
               </form>
             )}
             {!needsPin && (
-              <button type="button" className="bex-privacy-retry" onClick={checkVault}>
-                <RefreshCw />
-                Try again
-              </button>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', justifyContent: 'center' }}>
+                <button type="button" className="bex-privacy-retry" onClick={checkVault}>
+                  <RefreshCw />
+                  Try again
+                </button>
+                {desktopApi?.chooseLibrary && (
+                  <button
+                    type="button"
+                    className="bex-privacy-method"
+                    onClick={async () => {
+                      const result = await desktopApi.chooseLibrary();
+                      if (result?.ok && !result.canceled) checkVault();
+                    }}
+                  >
+                    Choose another library
+                  </button>
+                )}
+              </div>
             )}
           </div>
         )}

@@ -158,8 +158,8 @@ function readStoredSession() {
   }
 }
 
-function initialSession(initialPath) {
-  const restored = readStoredSession();
+function initialSession(initialPath, persist = true) {
+  const restored = persist ? readStoredSession() : null;
   if (restored) return restored;
   // First run, or a deep link opened before any session existed.
   const kind = initialPath && initialPath !== '/' ? kindForPath(initialPath) : TAB_KINDS.HOME;
@@ -262,8 +262,8 @@ export function useCurrentWorkspaceTab() {
   return tabs.find((tab) => tab.id === tabId) || null;
 }
 
-export function WorkspaceTabsProvider({ initialPath, children }) {
-  const [session, setSession] = React.useState(() => initialSession(initialPath));
+export function WorkspaceTabsProvider({ initialPath, children, persist = true }) {
+  const [session, setSession] = React.useState(() => initialSession(initialPath, persist));
   const sessionRef = React.useRef(session);
   sessionRef.current = session;
   // Transient presentation state is never written into the restored session.
@@ -274,7 +274,7 @@ export function WorkspaceTabsProvider({ initialPath, children }) {
   // would erase the distinction before the library read could use it.
   const hadLocalSession = React.useRef(undefined);
   if (hadLocalSession.current === undefined) {
-    hadLocalSession.current = Boolean(readStoredSession());
+    hadLocalSession.current = persist && Boolean(readStoredSession());
   }
 
   // Set once the user has actually moved tabs around, so a slow library read
@@ -291,6 +291,7 @@ export function WorkspaceTabsProvider({ initialPath, children }) {
   // session before any async read could return, and the library record is the
   // copy that actually survives. Same arrangement as usePersistentPreference.
   React.useEffect(() => {
+    if (!persist) return;
     if (firstPersist.current) firstPersist.current = false;
     else touched.current = true;
 
@@ -305,12 +306,12 @@ export function WorkspaceTabsProvider({ initialPath, children }) {
         await desktopClient.owner.updatePreferences({ [STORAGE_KEY]: session });
       } catch { /* cached locally; the next change retries */ }
     })();
-  }, [session]);
+  }, [session, persist]);
 
   // Adopt the library's copy on launch, but only when this launch had nothing of
   // its own — which is exactly the ephemeral-origin case.
   React.useEffect(() => {
-    if (!isDesktopRuntime() || hadLocalSession.current) return undefined;
+    if (!persist || !isDesktopRuntime() || hadLocalSession.current) return undefined;
     let cancelled = false;
     (async () => {
       try {

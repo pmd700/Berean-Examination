@@ -3,7 +3,7 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
-const { DatabaseSync, backup } = require('node:sqlite');
+const { DatabaseSync } = require('node:sqlite');
 
 const DATA_KEY_BYTES = 32;
 const SALT_BYTES = 16;
@@ -435,7 +435,16 @@ class PrivacyVault {
     if (!row || row.protection_mode !== 'automatic') {
       throw codedError('BEX_PIN_REQUIRED', 'This Berean Library requires its privacy PIN.');
     }
-    const dataKey = this.protector.unprotect(row.automatic_key_envelope);
+    let dataKey;
+    try {
+      dataKey = this.protector.unprotect(row.automatic_key_envelope);
+    } catch (error) {
+      if (error && error.code === 'BEX_PROTECTED_STORAGE_UNAVAILABLE') throw error;
+      throw codedError(
+        'BEX_AUTOMATIC_KEY_MISMATCH',
+        'This library uses automatic macOS Keychain protection from another Mac. Enable a Privacy PIN on the original Mac and copy the updated Database/berean.db here, or transfer its Keychain item to this Mac.',
+      );
+    }
     try {
       this.setDataKey(dataKey);
     } finally {
@@ -656,21 +665,6 @@ class PrivacyVault {
   countRecords() {
     this.assertOpen();
     return Number(this.database.prepare('SELECT COUNT(*) AS count FROM private_records').get().count);
-  }
-
-  async createEncryptedBackup(destinationPath) {
-    this.assertOpen();
-    const resolvedDestination = path.resolve(destinationPath);
-    if (resolvedDestination === this.databasePath) {
-      throw codedError('BEX_BACKUP_PATH_INVALID', 'The backup must use a different file path.');
-    }
-    if (fs.existsSync(resolvedDestination)) {
-      throw codedError('BEX_BACKUP_EXISTS', 'The backup file already exists.');
-    }
-    fs.mkdirSync(path.dirname(resolvedDestination), { recursive: true });
-    await backup(this.database, resolvedDestination);
-    if (process.platform !== 'win32') fs.chmodSync(resolvedDestination, 0o600);
-    return resolvedDestination;
   }
 
   close() {

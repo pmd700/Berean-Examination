@@ -32,7 +32,6 @@ try {
   assert.equal(child.status, 0, JSON.stringify(report));
   assert.equal(report.onlineModeEnabled, false);
   assert.equal(report.libraryReady, true);
-  assert.equal(report.activationReady, true);
   assert.equal(report.privacyReady, true);
   assert.equal(report.normalAppVisible, true);
   assert.equal(report.disposableLibrary, true);
@@ -41,8 +40,8 @@ try {
   assert.deepEqual(report.outsideRequests, []);
   assert.deepEqual(report.rendererErrors, []);
   process.stdout.write(JSON.stringify(report, null, 2) + '\n');
-  process.stdout.write('PASS: built production main/preload/renderer opened the disposable encrypted library, passed startup gates with test-only signed activation, and lazily opened Stats and Courses through the UI with zero external Electron-session requests.\n');
+  process.stdout.write('PASS: built production main/preload/renderer opened the disposable encrypted library, passed startup gates without activation, and lazily opened Stats and Courses through the UI with zero external Electron-session requests.\n');
 } finally {
   fs.rmSync(proofRoot, { recursive: true, force: true });
-  process.stdout.write('PASS: disposable startup profile, library and ephemeral activation fixture removed.\n');
+  process.stdout.write('PASS: disposable startup profile and library removed.\n');
 }

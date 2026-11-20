@@ -1,0 +1,3 @@
+/* Device insets only. BEX owns all application screens, styling and layout. */
+.bex-iphone { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+.bex-iphone .h-screen { height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }

@@ -306,6 +306,9 @@ class LocalEntityStore {
     this.database = database;
     this.privacyVault = privacyVault;
     this.now = now;
+    const syncTable = database.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='local_sync_config'").get();
+    const syncRow = syncTable && database.prepare('SELECT identity FROM local_sync_config WHERE id=1 AND enabled=1').get();
+    this.syncAllocation = syncRow ? JSON.parse(syncRow.identity) : null;
   }
 
   assertReady(entityType) {
@@ -1017,9 +1020,11 @@ class LocalEntityStore {
     const sequence = this.database.prepare(`
       SELECT last_id FROM local_entity_sequences WHERE entity_type = ?
     `).get(entityType);
-    const lastId = Math.max(Number(maximum.largest_id || 0), Number(sequence?.last_id || 0));
+    const lastId = this.syncAllocation
+      ? Math.max(this.syncAllocation.slot * (2 ** 32), Number(sequence?.last_id || 0))
+      : Math.max(Number(maximum.largest_id || 0), Number(sequence?.last_id || 0));
     const finalId = lastId + count;
-    if (!Number.isSafeInteger(finalId)) {
+    if (!Number.isSafeInteger(finalId) || (this.syncAllocation && Math.floor(finalId / (2 ** 32)) !== this.syncAllocation.slot)) {
       throw codedError('BEX_ENTITY_INVALID', 'The local record ID limit was reached.');
     }
     this.database.prepare(`
@@ -1492,6 +1497,7 @@ class LocalEntityStore {
         RETURNING last_id
       `).get(entityType);
       const entityId = Number(sequence.last_id);
+      if (this.syncAllocation && Math.floor(entityId / (2 ** 32)) !== this.syncAllocation.slot) throw codedError('BEX_ENTITY_INVALID', 'The device ID range is exhausted.');
       const encryptedPayload = this.privacyVault.encryptValue(
         entityType === 'Spreadsheet' ? encodeSpreadsheetPayload(payload) : payload,
         entityPurpose(entityType, entityId),
@@ -1631,6 +1637,41 @@ class LocalEntityStore {
       for (const field of config.listOmitFields) delete listedRecord[field];
       return Object.freeze(listedRecord);
     });
+  }
+
+  // Called only by the trusted main-process sync adapter inside its suppressed
+  // receive transaction. Keep portable IDs; do not allocate a replacement row.
+  applySyncPut(entityType, record) {
+    const config = this.assertReady(entityType), entityId = requireEntityId(record.id);
+    let payload = cleanPayload(record, config.maxBytes);
+    if (entityType === 'StudyChapter') payload = separateApiStudyRecord(payload);
+    const existing = this.database.prepare(`SELECT ${this.selectColumns(config)} FROM ${config.table} WHERE id=?`).get(entityId);
+    const current = existing ? this.decodeRow(entityType, existing, { readOnly: true }) : null;
+    if (entityType === 'Timegraph') payload.view = current?.view || null;
+    if (current) {
+      for (const field of [...(config.immutableFields || []), ...(config.scopeField ? [config.scopeField] : [])]) {
+        if (payload[field] !== current[field]) throw codedError('BEX_ENTITY_INVALID', 'An incoming immutable identity or link changed.');
+      }
+    }
+    this.validateConfiguredPayload(config, payload, { defaultOrdering: !existing, nowMs: this.now(), existingId: entityId });
+    if (entityType === 'Asset') payload = this.validateAsset(payload);
+    if (entityType === 'BrainSource') payload = this.validateBrainSource(payload, { creating: !existing });
+    if (entityType === 'ChapterArtCatalog') payload = this.validateChapterArtCatalog(payload, { creating: !existing });
+    if (entityType === 'MindLink') this.validateMindLink(payload);
+    if (entityType === 'Timegraph') payload = this.validateTimegraph(payload);
+    if (entityType === 'WebVersion') payload = this.validateWebVersion(payload);
+    if (entityType === 'WebCard') this.validateWebCardSources(payload);
+    if (STUDY_ENTITY_TYPES.has(entityType)) payload = this.validateStudyEntity(entityType, payload, { creating: !existing, existingId: entityId });
+    const timestamp = new Date(this.now()).toISOString();
+    const created = existing?.created_at || record.created_date || timestamp;
+    const updated = record.updated_date || timestamp;
+    const encrypted = this.privacyVault.encryptValue(entityType === 'Spreadsheet' ? encodeSpreadsheetPayload(payload) : payload, entityPurpose(entityType, entityId));
+    const scoped = config.scopeField;
+    const scopeId = scoped ? requireEntityId(payload[scoped]) : null;
+    const columns = scoped ? `id,${scoped},encrypted_payload,created_at,updated_at` : 'id,encrypted_payload,created_at,updated_at';
+    const values = scoped ? [entityId, scopeId, encrypted, created, updated] : [entityId, encrypted, created, updated];
+    this.database.prepare(`INSERT INTO ${config.table}(${columns}) VALUES(${values.map(() => '?').join(',')}) ON CONFLICT(id) DO UPDATE SET encrypted_payload=excluded.encrypted_payload,updated_at=excluded.updated_at`).run(...values);
+    return { ...payload, id: entityId, created_date: created, updated_date: updated };
   }
 
   update(entityType, entityId, patch) {
@@ -1805,4 +1846,5 @@ class LocalEntityStore {
 
 module.exports = {
   LocalEntityStore,
+  ENTITY_CONFIG,
 };

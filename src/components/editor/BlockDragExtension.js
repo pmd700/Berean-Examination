@@ -692,6 +692,9 @@ class BlockDragPluginView {
    */
   startGutterGesture = (event) => {
     if (event.button !== 0) return false;
+    // Gallery images own their click/drag gestures, including compact portrait
+    // rows whose remaining page space would otherwise look like a gutter.
+    if (event.target?.closest?.('[data-image-gallery] img')) return false;
 
     // Some controls live in the gutter themselves — a toggle's chevron hangs
     // out there. Claiming the press for a drag would preventDefault their

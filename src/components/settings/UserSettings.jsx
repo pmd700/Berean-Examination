@@ -1,3 +1,4 @@
+import SyncSettings from './SyncSettings';
 import React, { useEffect, useState } from 'react';
 import { Settings2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -45,7 +46,7 @@ export default function UserSettings({ active = true }) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-w-lg border-line bg-surface text-ink">
         <DialogHeader><DialogTitle>User settings</DialogTitle><DialogDescription>Personalize your local BEX library.</DialogDescription></DialogHeader>
-        {open && <Preferences />}
+        {open && <div className="max-h-[70dvh] overflow-y-auto pr-1"><Preferences /><SyncSettings /></div>}
       </DialogContent>
     </Dialog>
   </>;

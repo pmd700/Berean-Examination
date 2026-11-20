@@ -13,6 +13,8 @@ const PRIVACY_CHANNELS = Object.freeze({
 const PRIVACY_STATUS_CHANGED_CHANNEL = 'privacy:status-changed';
 
 const PUBLIC_ERROR_MESSAGES = Object.freeze({
+  BEX_AUTOMATIC_KEY_MISMATCH:
+    'This library uses automatic macOS Keychain encryption from another Mac. To open it on this Mac, enable a Privacy PIN on the original Mac and copy the updated Database/berean.db here, or migrate the Keychain item from that Mac.',
   BEX_DATABASE_NOT_OPEN: 'Choose or reconnect the Berean Library before checking privacy.',
   BEX_PRIVACY_NOT_OPEN: 'The local privacy vault is unavailable.',
   BEX_PROTECTED_STORAGE_UNAVAILABLE: 'This Mac could not open protected system storage.',

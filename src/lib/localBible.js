@@ -1,4 +1,7 @@
+let deviceBackend=null;
+export function installLocalBibleBackend(backend){deviceBackend=backend;}
 function requireDesktopBible() {
+  if(deviceBackend)return deviceBackend;
   const desktopApi = typeof window === 'undefined' ? null : window.bexDesktop;
   if (!desktopApi?.isDesktop || typeof desktopApi.getLocalBibleChapter !== 'function') {
     throw new Error('Local Bible files are available only inside the BEX desktop app.');

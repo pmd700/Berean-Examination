@@ -86,9 +86,11 @@ describe('editor idle animation ownership', () => {
     expect(frames.named('tick')).toHaveLength(0);
     expect(screen.queryByTestId('card-comment-comment-1')).toBeNull();
     view.rerender(tree(true));
+    expect(host.hasAttribute('data-bex-margin-comments')).toBe(true);
     expect(frames.named('tick')).toHaveLength(1);
     expect(screen.getByTestId('card-comment-comment-1')).not.toBeNull();
     view.rerender(tree(false));
+    expect(host.hasAttribute('data-bex-margin-comments')).toBe(false);
     expect(frames.named('tick')).toHaveLength(0);
     expect(screen.queryByTestId('card-comment-comment-1')).toBeNull();
   });

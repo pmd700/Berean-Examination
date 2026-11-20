@@ -6,7 +6,6 @@ const privacy = { locked: false, mode: 'automatic', encryption: 'AES-256-GCM', l
 contextBridge.exposeInMainWorld('bexDesktop', {
   isDesktop: true,
   getLibraryStatus: async () => ({ ok: true, status: { available: true } }),
-  getActivationStatus: async () => ({ ok: true, status: { activated: true } }),
   getPrivacyStatus: async () => ({ ok: true, status: privacy }),
   unlockPrivacyAutomatically: async () => ({ ok: true, status: privacy }),
   onPrivacyStatusChanged: () => () => {},

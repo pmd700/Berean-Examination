@@ -1,13 +1,8 @@
 'use strict';
 
-const NO_OPEN_LIBRARY_CODES = new Set([
-  'BEX_DATABASE_NOT_OPEN',
-  'BEX_PRIVACY_NOT_OPEN',
-]);
-
 function requireFunction(options, name) {
   if (typeof options?.[name] !== 'function') {
-    throw new TypeError(`The normal-close backup flow requires ${name}.`);
+    throw new TypeError(`The normal-close shutdown flow requires ${name}.`);
   }
   return options[name];
 }
@@ -15,11 +10,10 @@ function requireFunction(options, name) {
 function createNormalCloseHandler(options = {}) {
   const app = options.app;
   if (!app || typeof app.quit !== 'function') {
-    throw new TypeError('The normal-close backup flow requires Electron app.quit.');
+    throw new TypeError('The normal-close shutdown flow requires Electron app.quit.');
   }
   const closeDatabase = requireFunction(options, 'closeDatabase');
   const closeServices = requireFunction(options, 'closeServices');
-  const createLocalBackup = requireFunction(options, 'createLocalBackup');
   const onShutdownStarted = typeof options.onShutdownStarted === 'function'
     ? options.onShutdownStarted
     : () => {};
@@ -53,7 +47,7 @@ function createNormalCloseHandler(options = {}) {
     if (event && typeof event.preventDefault === 'function') event.preventDefault();
     if (shutdownPromise) return shutdownPromise;
 
-    shutdownState = 'backing-up';
+    shutdownState = 'closing';
     shutdownPromise = (async () => {
       if (typeof options.prepareForShutdown === 'function') {
         try {
@@ -65,17 +59,11 @@ function createNormalCloseHandler(options = {}) {
           options.onPreparationFailed?.(error);
           return;
         }
+      } else {
+        await Promise.resolve();
       }
       onShutdownStarted();
-      try {
-        await createLocalBackup();
-      } catch (error) {
-        if (!NO_OPEN_LIBRARY_CODES.has(error?.code)) {
-          logFailure('Could not create the normal-close backup; BEX will still close', error);
-        }
-      } finally {
-        finishShutdown();
-      }
+      finishShutdown();
     })();
     return shutdownPromise;
   };

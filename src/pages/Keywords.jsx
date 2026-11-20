@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useId } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useIsActiveTab } from '@/lib/WorkspaceTabs';
 import { desktopClient } from '@/api/desktopClient';
@@ -25,7 +25,14 @@ import { useInfiniteScroll } from '../components/ui/useInfiniteScroll';
 import UnsavedChangesDialog from '../components/editor/UnsavedChangesDialog';
 import { trackActivity } from '../components/utils/activityTracker';
 
+const serializeKeywordDraft = (keyword = {}) => JSON.stringify({
+  title: keyword.title || '',
+  category: keyword.category || '',
+  explanation: keyword.explanation || '',
+});
+
 export default function Keywords() {
+  const formId = useId();
   const navigate = useNavigate();
   const returnToLibraryHome = useReturnToLibraryHome();
   // Background tabs stay mounted; only the visible one may redirect.
@@ -53,21 +60,24 @@ export default function Keywords() {
   const [pendingAction, setPendingAction] = useState(null);
 
   // Auto-save for form
-  const { saveStatus, hasUnsavedChanges, resetSaveState } = useAutoSave({
-    content: explanation,
-    initialContent: editingKeyword?.explanation || '',
+  const { saveStatus, hasUnsavedChanges, resetSaveState, flushSave } = useAutoSave({
+    content: serializeKeywordDraft({ title, category, explanation }),
+    initialContent: serializeKeywordDraft(editingKeyword || {}),
     onSave: async (content) => {
-      // Only auto-save if editing and has title
-      if (editingKeyword && title.trim()) {
-        await platformEntities.Keyword.update(editingKeyword.id, {
-          title: title.trim(),
-          category: category.trim() || '',
-          explanation: content.trim()
-        });
-      }
+      const draft = JSON.parse(content);
+      if (!draft.title.trim()) throw new Error('Title is required');
+      if (draft.category.length > 30) throw new Error('Category must be 30 characters or less');
+      const payload = {
+        title: draft.title.trim(),
+        category: draft.category.trim(),
+        explanation: draft.explanation.trim(),
+      };
+      const updated = await platformEntities.Keyword.update(editingKeyword.id, payload);
+      setKeywords(current => current.map(item => item.id === editingKeyword.id ? { ...item, ...payload, ...updated } : item));
     },
-    delay: 5000,
-    enabled: showForm && !!editingKeyword
+    delay: 400,
+    maxWait: 1500,
+    enabled: showForm && !!editingKeyword && !isUploadingImages
   });
 
   useEffect(() => {
@@ -93,7 +103,7 @@ export default function Keywords() {
           setTitle(target.title);
           setCategory(target.category || '');
           setExplanation(target.explanation);
-          resetSaveState(target.explanation);
+          resetSaveState(serializeKeywordDraft(target));
           setShowForm(true);
         }
       }
@@ -122,7 +132,7 @@ export default function Keywords() {
     setTitle('');
     setCategory('');
     setExplanation('');
-    resetSaveState(''); // Reset with empty content
+    resetSaveState(serializeKeywordDraft());
     setShowForm(true);
   };
 
@@ -134,7 +144,7 @@ export default function Keywords() {
         setTitle(keyword.title);
         setCategory(keyword.category || '');
         setExplanation(keyword.explanation);
-        resetSaveState(keyword.explanation);
+        resetSaveState(serializeKeywordDraft(keyword));
         setShowForm(true);
       });
       setShowUnsavedDialog(true);
@@ -144,7 +154,7 @@ export default function Keywords() {
     setTitle(keyword.title);
     setCategory(keyword.category || '');
     setExplanation(keyword.explanation);
-    resetSaveState(keyword.explanation);
+    resetSaveState(serializeKeywordDraft(keyword));
     setShowForm(true);
     trackActivity({
       type: 'keyword_edit',
@@ -165,7 +175,7 @@ export default function Keywords() {
         setTitle('');
         setCategory('');
         setExplanation('');
-        resetSaveState();
+        resetSaveState(serializeKeywordDraft());
       });
       setShowUnsavedDialog(true);
       return;
@@ -175,7 +185,7 @@ export default function Keywords() {
     setTitle('');
     setCategory('');
     setExplanation('');
-    resetSaveState();
+    resetSaveState(serializeKeywordDraft());
   };
 
   const handleReturnToLibrary = () => {
@@ -231,8 +241,8 @@ export default function Keywords() {
       return;
     }
 
-    if (category && category.length > 25) {
-      toast.error('Category must be 25 characters or less');
+    if (category && category.length > 30) {
+      toast.error('Category must be 30 characters or less');
       return;
     }
 
@@ -255,6 +265,8 @@ export default function Keywords() {
     };
 
     if (editingKeyword) {
+      // Finish any earlier autosave before the explicit update can close the form.
+      await flushSave();
       await platformEntities.Keyword.update(editingKeyword.id, payload);
       toast.success('Keyword updated');
     } else {
@@ -263,7 +275,7 @@ export default function Keywords() {
     }
 
     await loadKeywords();
-    resetSaveState();
+    resetSaveState(serializeKeywordDraft());
     setShowForm(false);
     setEditingKeyword(null);
     setTitle('');
@@ -318,7 +330,7 @@ export default function Keywords() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      <main className="max-w-7xl mx-auto px-4 py-8">
+      <main className="w-full px-4 py-8 sm:px-6">
         <BackToLibraryHomeButton className="mb-6" onClick={handleReturnToLibrary} />
         
         {showForm ? (
@@ -332,8 +344,9 @@ export default function Keywords() {
 
             <div className="space-y-6">
               <div>
-                <Label className="text-gray-700 dark:text-gray-300 mb-2">Title *</Label>
+                <Label htmlFor={`${formId}-title`} className="text-gray-700 dark:text-gray-300 mb-2">Title *</Label>
                 <Input
+                  id={`${formId}-title`}
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="e.g., Justification, Sanctification"
@@ -341,22 +354,24 @@ export default function Keywords() {
                 />
               </div>
 
-              <div>
-                <Label className="text-gray-700 dark:text-gray-300 mb-2">
-                  Category <span className="text-xs text-gray-500">(optional, max 25 chars)</span>
+              <div className="w-full max-w-sm">
+                <Label htmlFor={`${formId}-category`} className="text-gray-700 dark:text-gray-300 mb-2">
+                  Category <span className="text-xs text-gray-500">(optional, max 30 characters)</span>
                 </Label>
                 <Input
+                  id={`${formId}-category`}
                   value={category}
-                  onChange={(e) => setCategory(e.target.value.slice(0, 25))}
+                  maxLength={30}
+                  onChange={(e) => setCategory(e.target.value.slice(0, 30))}
                   placeholder="e.g., Theology, History, Greek"
                   className="dark:bg-gray-800 dark:border-gray-700"
                 />
-                <p className="text-xs text-gray-500 mt-1">{category.length}/25</p>
+                <p className="text-xs text-gray-500 mt-1">{category.length}/30</p>
               </div>
 
               <div>
                 <Label className="text-gray-700 dark:text-gray-300 mb-2">Explanation *</Label>
-                <div className="border border-gray-200 dark:border-gray-700 rounded-lg">
+                <div className="[&_.ProseMirror.bex-block-editor]:!px-10 [&_.ProseMirror.bex-block-editor]:py-6">
                   <TEXT_EDITOR_MACHINERY
                     content={explanation}
                     onChange={setExplanation}
@@ -372,7 +387,7 @@ export default function Keywords() {
                 <Button variant="outline" onClick={handleCancel} disabled={isUploadingImages}>
                   Cancel
                 </Button>
-                <Button onClick={handleSave} disabled={isUploadingImages} className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                <Button onClick={handleSave} disabled={isUploadingImages} className="bg-brand text-white hover:bg-brand-strong disabled:opacity-50 disabled:cursor-not-allowed">
                   {isUploadingImages ? 'Uploading images…' : editingKeyword ? 'Update Keyword' : 'Create Keyword'}
                 </Button>
               </div>

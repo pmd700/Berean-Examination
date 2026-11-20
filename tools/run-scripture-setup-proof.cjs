@@ -32,7 +32,7 @@ if (!process.versions.electron) {
       assert.ok(fs.existsSync(receiptPath), 'The new app process must report a successful relaunch');
       const receipt = JSON.parse(fs.readFileSync(receiptPath));
       assert.equal(receipt.ok, true);
-      console.log('PASS: full Electron quit/relaunch, different process ID, pending edit saved before backup, scripture setup recovered');
+      console.log('PASS: full Electron quit/relaunch, different process ID, pending edit saved before close, scripture setup recovered');
     }
   })().catch(error => { console.error(error); process.exitCode = 1; });
 } else {
@@ -75,7 +75,7 @@ if (!process.versions.electron) {
       if (fs.existsSync(restartStatePath)) {
         const restartState = JSON.parse(fs.readFileSync(restartStatePath));
         assert.notEqual(process.pid, restartState.pid, 'Restart must use a new process, not reload the renderer');
-        assert.deepEqual(JSON.parse(fs.readFileSync(path.join(temp, 'restart-stages.json'))), ['write', 'backup', 'close-database', 'close-services']);
+        assert.deepEqual(JSON.parse(fs.readFileSync(path.join(temp, 'restart-stages.json'))), ['write', 'close-database', 'close-services']);
         assert.equal(fs.readFileSync(path.join(temp, 'pending-edit.txt'), 'utf8'), 'latest debounced edit');
         registerScriptureHandlers({ appUrl: url, ipcMain, settings: new ScriptureSettings({ filePath: credentials, safeStorage }) });
         await win.loadURL(url); await until(homeReady); await openSetup();
@@ -223,8 +223,7 @@ if (!process.versions.electron) {
       });
       app.on('before-quit', createNormalCloseHandler({
         app,
-        createLocalBackup: async () => { assert.equal(stages[0], 'write'); record('backup'); },
-        closeDatabase: () => record('close-database'),
+        closeDatabase: () => { assert.equal(stages[0], 'write'); record('close-database'); },
         closeServices: () => record('close-services'),
       }));
       fs.writeFileSync(restartStatePath, JSON.stringify({ pid: process.pid }));

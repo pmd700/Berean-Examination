@@ -15,7 +15,6 @@ const readyPrivacyStatus = Object.freeze({
 });
 
 const previewApi = Object.freeze({
-  getActivationStatus: async () => ({ ok: true, status: { activated: true } }),
   getLibraryStatus: async () => ({
     ok: true,
     status: { available: true, configured: true, path: '/Disposable Preview Library' },

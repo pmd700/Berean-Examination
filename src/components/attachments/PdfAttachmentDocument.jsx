@@ -1,3 +1,4 @@
+import { useMediaSource } from '@/lib/mediaSource';
 import { useEffect, useRef, useState } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { ChevronLeft, ChevronRight, Minus, Plus, Scan } from 'lucide-react';
@@ -18,6 +19,7 @@ const PDF_OPTIONS = Object.freeze({
 });
 
 export default function PdfAttachmentDocument({ attachment, thumbnail = false }) {
+  const mediaSource=useMediaSource(attachment.url);
   const viewportRef = useRef(null);
   const [width, setWidth] = useState(700);
   const [pages, setPages] = useState(0);
@@ -70,7 +72,7 @@ export default function PdfAttachmentDocument({ attachment, thumbnail = false })
         <button type="submit" className="rounded bg-white/10 px-3 py-2">Unlock PDF</button>
       </form>}
       <div ref={viewportRef} className={thumbnail ? '' : 'min-h-0 flex-1 overflow-auto p-4'}>
-        <Document file={attachment.url} options={PDF_OPTIONS} className="mx-auto w-fit" onLoadSuccess={({ numPages }) => setPages(numPages)} onLoadError={() => setFailed(true)} onSourceError={() => setFailed(true)} onPassword={requestPassword} loading={<PdfStatus>Loading {thumbnail ? 'thumbnail' : 'PDF'}…</PdfStatus>} error={<PdfFailure thumbnail={thumbnail}>PDF unavailable.</PdfFailure>}>
+        <Document file={mediaSource||undefined} options={PDF_OPTIONS} className="mx-auto w-fit" onLoadSuccess={({ numPages }) => setPages(numPages)} onLoadError={() => setFailed(true)} onSourceError={() => setFailed(true)} onPassword={requestPassword} loading={<PdfStatus>Loading {thumbnail ? 'thumbnail' : 'PDF'}…</PdfStatus>} error={<PdfFailure thumbnail={thumbnail}>PDF unavailable.</PdfFailure>}>
           {!passwordRequest && <Page pageNumber={thumbnail ? 1 : page} width={thumbnail ? 180 : width * zoom} renderTextLayer={!thumbnail} renderAnnotationLayer={false} renderForms={false} devicePixelRatio={Math.min(window.devicePixelRatio || 1, 2)} onLoadError={() => setFailed(true)} onRenderError={() => setFailed(true)} loading={<PdfStatus>Loading page…</PdfStatus>} />}
         </Document>
       </div>

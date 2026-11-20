@@ -10,7 +10,7 @@ export default function BookIndex({ open, pages, onGoToPage, entries = [], onEnt
   const [draft, setDraft] = React.useState(empty);
   const [editId, setEditId] = React.useState(null);
   const [error, setError] = React.useState('');
-  const roots = React.useMemo(() => buildBookIndex(pages, entries), [pages, entries]);
+  const roots = React.useMemo(() => open ? buildBookIndex(pages, entries) : [], [open, pages, entries]);
   if (!open) return null;
   const matches = entry => indexKey(entry.term).includes(indexKey(query)) || entry.seeAlso.some(term => indexKey(term).includes(indexKey(query)));
   const visible = roots.filter(entry => matches(entry) || entry.children.some(matches));

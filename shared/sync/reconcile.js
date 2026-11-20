@@ -1,5 +1,15 @@
 import { canonicalJson, recordKey, syncError, validateOperation } from './protocol.js';
 import { requireUuid } from './identity.js';
+const prepared = new WeakSet();
+function freezeTree(value) {
+  if(value&&typeof value==='object'&&!Object.isFrozen(value)){for(const child of Object.values(value))freezeTree(child);Object.freeze(value);}return value;
+}
+// Called after authenticated decryption. Validation still runs once for every
+// new ciphertext; immutable history can then be reconciled without repeatedly
+// cloning hundreds of megabytes of previously validated note revisions.
+export function prepareDecodedOperation(input) {
+  const operation=freezeTree(validateOperation(input));prepared.add(operation);return operation;
+}
 
 // Pure reference reducer. A later SQLite/IndexedDB adapter must commit returned
 // operations, inbox/outbox, and cursors together. This is NOT durable storage.
@@ -7,15 +17,13 @@ export function reconcileOperations({ vaultId, epoch, operations }) {
   requireUuid(vaultId); requireUuid(epoch);
   if (!Array.isArray(operations)) throw new TypeError('Expected a sync operation batch.');
   const byId = new Map();
-  const bodies = new Map();
   for (const input of operations) {
-    const op = validateOperation(input);
+    const op = prepared.has(input) ? input : validateOperation(input);
     if (op.vaultId !== vaultId || op.epoch !== epoch) throw syncError('BEX_SYNC_SCOPE_MISMATCH', 'Different vault or recovery epoch.');
-    const body = canonicalJson(op);
-    if (byId.has(op.id) && bodies.get(op.id) !== body) {
+    if (byId.has(op.id) && canonicalJson(byId.get(op.id)) !== canonicalJson(op)) {
       throw syncError('BEX_SYNC_REPLAY_MISMATCH', 'An operation identity was reused with different content.');
     }
-    byId.set(op.id, op); bodies.set(op.id, body);
+    byId.set(op.id, op);
   }
 
   // Topological ordering uses only causality. Clocks and delivery order never

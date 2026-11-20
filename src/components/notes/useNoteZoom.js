@@ -9,12 +9,28 @@ export default function useNoteZoom(viewportRef, pageRef, noteId, available) {
     let scale = 1;
     let pinch = null;
     const resize = () => {
-      page.style.width = `${Math.min(880, viewport.clientWidth)}px`;
+      const width = viewport.clientWidth;
+      // A modest expansion from the original 880px page, rather than filling
+      // half of all available whitespace on a wide display.
+      let pageWidth = Math.min(width, 880 + Math.max(0, width - 880) * 0.35);
+      let left = (width - pageWidth) / 2;
+      if (width >= 640 && page.querySelector('[data-bex-margin-comments]')) {
+        const padding = parseFloat(getComputedStyle(page).paddingRight) || 0;
+        const commentSpace = 280 + 16 + 12; // full card, gap, viewport inset
+        pageWidth = Math.min(pageWidth, width - commentSpace + padding - 24);
+        // Use the existing right margin first. Shift the page only as far as
+        // needed so a full comment card fits beside, without covering, text.
+        left = Math.min((width - pageWidth) / 2, width - pageWidth - commentSpace + padding);
+      }
+      page.style.width = `${pageWidth}px`;
+      page.style.marginLeft = `${Math.max(0, left)}px`;
+      page.style.marginRight = 'auto';
     };
     page.style.zoom = '1';
     resize();
     const observer = new ResizeObserver(resize);
     observer.observe(viewport);
+    viewport.addEventListener('bex:comment-layout', resize);
 
     const zoomAt = (next, x, y, previousX = x, previousY = y) => {
       next = Math.max(0.5, Math.min(3, next));
@@ -64,6 +80,7 @@ export default function useNoteZoom(viewportRef, pageRef, noteId, available) {
     viewport.addEventListener('touchcancel', end);
     return () => {
       observer.disconnect();
+      viewport.removeEventListener('bex:comment-layout', resize);
       viewport.removeEventListener('wheel', wheel);
       viewport.removeEventListener('touchstart', start);
       viewport.removeEventListener('touchmove', move);

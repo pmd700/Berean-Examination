@@ -14,7 +14,6 @@ import { ThemeProvider } from '@/lib/ThemeContext';
 import { I18nProvider } from '@/components/utils/I18nContext';
 import { PrivateWebProvider } from '@/lib/PrivateWebContext';
 import { ConfirmDialogHost } from '@/components/ui/confirm-dialog';
-import DesktopActivationGate from '@/components/desktop/ActivationGate';
 import DesktopLibraryGate from '@/components/desktop/LibrarySetup';
 import DesktopPrivacyGate from '@/components/desktop/PrivacyGate';
 import { useTextSizePreference } from '@/components/scripture/TextSizeControl';
@@ -79,18 +78,17 @@ function pageNameForPath(path = '') {
   return match || 'Study';
 }
 
-function App() {
+// Both device entry points use this same BEX interface. Device setup and
+// storage belong outside it; pages, navigation and editors stay shared.
+export function BexInterface({ persistWorkspace = true, initialPath = `${window.location.pathname}${window.location.search}` }) {
   return (
-    <DesktopLibraryGate>
-    <DesktopActivationGate>
-    <DesktopPrivacyGate>
     <ThemeProvider>
     <AuthProvider>
       <I18nProvider>
         <PrivateWebProvider>
           <QueryClientProvider client={queryClientInstance}>
             <Router>
-              <WorkspaceTabsProvider initialPath={`${window.location.pathname}${window.location.search}`}>
+              <WorkspaceTabsProvider initialPath={initialPath} persist={persistWorkspace}>
                 <LocalApp />
               </WorkspaceTabsProvider>
             </Router>
@@ -102,10 +100,11 @@ function App() {
       </I18nProvider>
     </AuthProvider>
     </ThemeProvider>
-    </DesktopPrivacyGate>
-    </DesktopActivationGate>
-    </DesktopLibraryGate>
   )
+}
+
+function App() {
+  return <DesktopLibraryGate><DesktopPrivacyGate><BexInterface /></DesktopPrivacyGate></DesktopLibraryGate>;
 }
 
 export default App

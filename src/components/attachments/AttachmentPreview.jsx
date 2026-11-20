@@ -1,3 +1,4 @@
+import { useMediaSource } from '@/lib/mediaSource';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { Expand } from 'lucide-react';
 import { AttachmentRenderBoundary } from './AttachmentViewer';
@@ -8,6 +9,7 @@ import useAttachmentMediaRef from './useAttachmentMediaRef';
 const PdfAttachmentDocument = lazy(() => import('./PdfAttachmentDocument'));
 
 export default function AttachmentPreview({ attachment, onOpen }) {
+  const mediaSource=useMediaSource(attachment?.url);
   const [failed, setFailed] = useState(false);
   const locked = useAttachmentPrivacy();
   const mediaRef = useAttachmentMediaRef();
@@ -20,7 +22,7 @@ export default function AttachmentPreview({ attachment, onOpen }) {
   if (kind === 'audio') return (
     <div data-testid="attachment-preview" className="flex w-full max-w-md items-center gap-2 px-3 py-2">
       {failed ? <p role="status" className="flex-1 text-xs text-slate-400">Audio preview unavailable. Open file.</p> : (
-        <audio ref={mediaRef} aria-label={`Audio preview: ${name}`} src={attachment.url} controls preload="metadata" className="min-w-0 flex-1" onError={() => setFailed(true)} />
+        <audio ref={mediaRef} aria-label={`Audio preview: ${name}`} src={mediaSource} controls preload="metadata" className="min-w-0 flex-1" onError={() => setFailed(true)} />
       )}
       <button type="button" aria-label={`Open ${name}`} title="Open player" className="shrink-0 rounded p-2 text-slate-400 hover:bg-white/5 hover:text-slate-200" onClick={onOpen}><Expand size={16} aria-hidden="true" /></button>
     </div>
@@ -33,7 +35,7 @@ export default function AttachmentPreview({ attachment, onOpen }) {
             <PdfAttachmentDocument attachment={attachment} thumbnail />
           </Suspense>
         </AttachmentRenderBoundary>
-      ) : <video ref={mediaRef} aria-label={`Video preview: ${name}`} src={attachment.url} preload="metadata" muted playsInline className="max-h-52 w-full bg-black object-contain" onError={() => setFailed(true)} />}
+      ) : <video ref={mediaRef} aria-label={`Video preview: ${name}`} src={mediaSource} preload="metadata" muted playsInline className="max-h-52 w-full bg-black object-contain" onError={() => setFailed(true)} />}
     </button>
   );
 }

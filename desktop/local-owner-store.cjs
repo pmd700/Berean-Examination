@@ -1,5 +1,7 @@
 'use strict';
 
+const { randomUUID } = require('node:crypto');
+
 const MAX_PREFERENCES_BYTES = 64 * 1024;
 const MAX_PREFERENCE_KEYS = 256;
 const PREFERENCE_KEY_PATTERN = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
@@ -45,9 +47,24 @@ function readOwnerRow(database) {
   ].join('\n')).get();
 
   if (!row) {
-    throw ownerStateError('The activated local owner is unavailable.');
+    throw ownerStateError('The local owner record is unavailable.');
   }
   return row;
+}
+
+function ensureLocalOwner(database) {
+  assertDatabase(database);
+  const existing = database.prepare('SELECT 1 FROM local_owner WHERE singleton_id = 1').get();
+  if (existing) return readLocalOwnerProfile(database);
+
+  const now = new Date().toISOString();
+  database.prepare(`
+    INSERT OR IGNORE INTO local_owner (
+      singleton_id, owner_id, display_name, avatar_path, created_at, updated_at
+    ) VALUES (1, ?, NULL, NULL, ?, ?)
+  `).run(randomUUID(), now, now);
+
+  return readLocalOwnerProfile(database);
 }
 
 function parsePreferences(serialized) {
@@ -136,6 +153,7 @@ function updateLocalOwnerPreferences(database, patch) {
 }
 
 module.exports = {
+  ensureLocalOwner,
   readLocalOwnerProfile,
   updateLocalOwnerPreferences,
 };

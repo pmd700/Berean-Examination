@@ -87,3 +87,5 @@ describe('traditional book index', () => {
     expect(screen.getByRole('button', { name: 'Go to page 3, Treatment' }).className).toContain('font-bold');
   });
 });
+
+it('does not parse whole-book headings while the index is closed',()=>{const spy=vi.spyOn(DOMParser.prototype,'parseFromString');try{const view=render(<BookIndex open={false} pages={pages} entries={[]} onGoToPage={()=>{}} onEntriesChange={()=>{}}/>);expect(spy).not.toHaveBeenCalled();view.rerender(<BookIndex open={false} pages={[...pages,'<h2>New</h2>']} entries={[]} onGoToPage={()=>{}} onEntriesChange={()=>{}}/>);expect(spy).not.toHaveBeenCalled();view.rerender(<BookIndex open pages={pages} entries={[]} onGoToPage={()=>{}} onEntriesChange={()=>{}}/>);expect(spy).toHaveBeenCalled();}finally{spy.mockRestore();}});

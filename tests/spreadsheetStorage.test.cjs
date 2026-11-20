@@ -11,7 +11,6 @@ const { deflateRawSync } = require('node:zlib');
 const { applyMigrations } = require('../desktop/database.cjs');
 const { PrivacyVault } = require('../desktop/privacy-vault.cjs');
 const { LocalEntityStore } = require('../desktop/local-entity-store.cjs');
-const { createEncryptedLocalBackup } = require('../desktop/local-backup.cjs');
 const { encodeSpreadsheetPayload, decodeSpreadsheetPayload, MAX_WORKBOOK_BYTES } = require('../desktop/spreadsheet-storage.cjs');
 
 // Substitute only OS Keychain access; real PrivacyVault authenticated encryption,
@@ -85,16 +84,6 @@ describe('encrypted spreadsheet storage', () => {
     state.vault.lock();
     assert.throws(() => store.get('Spreadsheet', item.id), { code: 'BEX_PRIVACY_LOCKED' });
     assert.throws(() => store.list('Spreadsheet'), { code: 'BEX_PRIVACY_LOCKED' });
-  }));
-
-  it('includes spreadsheets in verified encrypted backups and reopens the backup with exact cell contents', () => fixture(async state => {
-    const store = state.open(), source = workbook();
-    const item = store.create('Spreadsheet', { title: 'Backed-up sources', workbook: source });
-    const backup = await createEncryptedLocalBackup({ database: state.database, privacyVault: state.vault, libraryPath: state.library });
-    const backupBytes = fs.readFileSync(backup.path);
-    assert.equal(backupBytes.includes(Buffer.from('DISPOSABLE-PRIVATE-SOURCE')), false);
-    const backedUpStore = state.open(backup.path);
-    assert.deepEqual(backedUpStore.get('Spreadsheet', item.id).workbook, source);
   }));
 
   it('preserves existing records while migrating schema16 to17 and permits folder moves/reorder/root recovery', () => fixture(state => {

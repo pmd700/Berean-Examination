@@ -2,11 +2,11 @@ import BackToMenu from '@/components/navigation/BackToMenu';
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
 import { desktopClient } from '@/api/desktopClient';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, LayoutGrid, ListTree, NotebookPen, Trash2, Save, Check, Copy, Download, Link2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LayoutGrid, ListTree, NotebookPen, Trash2, Save, Check, Copy, Link2 } from 'lucide-react';
 import { buildCurrentNoteExport, waitForNoteExportSaves } from '@/lib/exportNote';
-import { saveExportFile } from '@/lib/saveExportFile';
+import { saveExportFile, chooseExportFile, cancelExportFile } from '@/lib/saveExportFile';
 import { subscribeToNoteChanges } from '@/lib/noteChanges';
-import { registerPendingEditorSave } from '@/lib/pendingEditorSaves';
+import { registerPendingEditorSave, registerActiveExport } from '@/lib/pendingEditorSaves';
 import BookSurface from '../notes/BookSurface';
 import useNoteZoom from '../notes/useNoteZoom';
 import { copyNotePage } from '../notes/copyNotePage';
@@ -18,7 +18,10 @@ import { remapIndexEntries } from '../notes/bookIndexModel';
 import PageWheelPicker from '../notes/PageWheelPicker';
 import { useTabBookStatus } from '@/lib/WorkspaceTabs';
 import TextSizeControl, { useTextSizePreference } from '../scripture/TextSizeControl';
-import { exportPagesToMarkdown } from '../notes/bookExport';
+import { exportNotePdf } from '@/lib/notePdf';
+import { buildPagesMarkdown } from '../notes/bookExport';
+import { sanitizeFileName } from './bereanFileFormat';
+import NoteExportMenu from '../notes/NoteExportMenu';
 import {
   MAX_PAGES,
   footnoteOffsets,
@@ -82,6 +85,7 @@ export default function NoteEditorPanel({
   onNoteSavedRef.current = onNoteSaved;
   const exportingRef = useRef(false);
   const [exporting, setExporting] = useState(false);
+  const [exportNotice, setExportNotice] = useState(null);
   const lastLoadedId = useRef(null);
   const titleRef = useRef(null);
   const bodyEditorRef = useRef(null);
@@ -458,32 +462,59 @@ export default function NoteEditorPanel({
     }
   }, [pages.length, safePageIndex]);
 
-  const handleExportPages = useCallback((indices) => {
-    if (!indices?.length) return;
-    try {
-      exportPagesToMarkdown({ title: title || 'Untitled Note', pages, indices });
-      toast.success(indices.length === 1 ? 'Page exported' : `${indices.length} pages exported`);
-    } catch {
-      toast.error('Could not export those pages.');
-    }
-  }, [pages, title]);
-
-  const handleExportNote = async () => {
+  const handleExportNote = async (format = 'md', indices = undefined) => {
     if (exportingRef.current || !note || loadedNoteId !== noteId) return;
     const targetId = noteId;
+    const suffix = indices?.length === 1 ? `-page-${indices[0] + 1}` : indices?.length ? '-pages' : '';
+    const fileName = `${sanitizeFileName(title || 'note')}${suffix}.${format}`;
+    let destination;
+    const finishExport = registerActiveExport();
     exportingRef.current = true;
     setExporting(true);
+    setExportNotice({ message: 'Choose where to save your export…' });
     try {
+      destination = await chooseExportFile(fileName);
+      if (destination.status === 'canceled') {
+        setExportNotice({ message: 'Export canceled.' });
+        return;
+      }
+      setExportNotice({ message: 'Finishing pending saves…' });
       await waitForNoteExportSaves();
-      const artifact = await buildCurrentNoteExport(targetId);
-      const result = await saveExportFile(new Blob([artifact.content], { type: artifact.type }), artifact.fileName);
-      if (result.status === 'saved') toast.success('Note exported');
+      let result;
+      if (format === 'pdf') {
+        const current = await desktopClient.entities.MindNote.get(targetId);
+        result = await exportNotePdf({ title: current.title, pages: splitBookPages(current.content || ''), indices, destination,
+          onProgress: message => setExportNotice({ message }),
+        });
+      } else if (indices?.length) {
+        const current = await desktopClient.entities.MindNote.get(targetId);
+        const content = buildPagesMarkdown({ title: current.title, pages: splitBookPages(current.content || ''), indices });
+        result = await saveExportFile(new Blob([content], { type: 'text/markdown;charset=utf-8' }), fileName, destination);
+      } else {
+        const artifact = await buildCurrentNoteExport(targetId);
+        result = await saveExportFile(new Blob([artifact.content], { type: artifact.type }), artifact.fileName, destination);
+      }
+      if (result.status === 'saved') {
+        const message = `Saved ${result.fileName || fileName}`;
+        setExportNotice({ message, saved: true });
+        toast.success(message);
+      } else {
+        setExportNotice({ message: result.status === 'canceled' ? 'Export canceled.' : format === 'pdf' ? 'Print dialog opened. Choose Save as PDF to keep your export.' : 'Download started. Check your browser’s downloads.' });
+      }
     } catch (error) {
-      toast.error(error?.message || 'Could not export the current note.');
+      const message = error?.message || 'Could not export the current note.';
+      setExportNotice({ message, error: true });
+      toast.error(message);
     } finally {
+      await cancelExportFile(destination).catch(() => {});
       exportingRef.current = false;
       setExporting(false);
+      finishExport();
     }
+  };
+
+  const handleExportPages = (indices, format = 'md') => {
+    if (indices?.length) return handleExportNote(format, indices);
   };
 
   const handleDelete = async () => {
@@ -559,19 +590,13 @@ export default function NoteEditorPanel({
           <Copy className="h-4 w-4" />
           Copy
         </Button>
-        <button
-          type="button"
-          onClick={handleExportNote}
-          disabled={exporting || loadedNoteId !== noteId}
-          aria-busy={exporting}
-          aria-label="Export note"
-          title="Export the current note as Markdown"
+        <NoteExportMenu
+          onExport={format => handleExportNote(format)}
+          disabled={loadedNoteId !== noteId}
+          busy={exporting}
           className={`${buttonVariants({ variant: 'ghost', size: 'sm' })} h-8 gap-1.5 px-2 text-gray-400 hover:text-white`}
-          data-testid="button-export-note"
-        >
-          <Download className="h-4 w-4" />
-          {exporting ? 'Exporting…' : 'Export'}
-        </button>
+          testId="button-export-note"
+        />
         <button
           type="button"
           onClick={handleCopyLink}
@@ -681,7 +706,9 @@ export default function NoteEditorPanel({
         </Button>
       </div>
 
-      {/* Document canvas — centered, borderless, lots of breathing room */}
+      {exportNotice && !showPages && <p role={exportNotice.error ? 'alert' : 'status'} className={`px-4 pb-2 text-xs ${exportNotice.error ? 'text-red-300' : exportNotice.saved ? 'text-emerald-300' : 'text-gray-400'}`}>{exportNotice.message}</p>}
+
+      {/* Document canvas — centered, with responsive side margins */}
       <div ref={documentScrollRef} className="flex-1 min-h-0 overflow-auto" style={{ touchAction: 'pan-x pan-y' }} data-testid="note-zoom-viewport" data-bex-marquee-surface>
         <div ref={documentPageRef} className="mx-auto px-6 sm:px-9 py-12 sm:py-16" data-testid="note-zoom-page">
           {/* Title — reads like page text, not an input. An untitled note
@@ -745,6 +772,8 @@ export default function NoteEditorPanel({
         onMovePage={handleMovePage}
         onDeletePages={handleDeletePages}
         onExportPages={handleExportPages}
+        exporting={exporting}
+        exportNotice={exportNotice}
       />
     </div>
   );

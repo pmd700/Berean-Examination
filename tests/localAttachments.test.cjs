@@ -10,7 +10,6 @@ const { AttachmentExternalCopies, CHUNK_BYTES, parseAttachmentUrl, readEncrypted
 const { createLocalMediaResponse } = require('../desktop/local-media-protocol.cjs');
 const { ATTACHMENT_CHANNELS, registerLocalAttachmentHandlers } = require('../desktop/local-attachments-ipc.cjs');
 const { migrateLegacyImages, readEncryptedMedia, saveEncryptedImage } = require('../desktop/local-media.cjs');
-const { MANIFEST_NAME, copyEncryptedMediaSnapshot, recoverInterruptedMediaRestore, restoreEncryptedMediaSnapshot, validateEncryptedMediaSnapshot } = require('../desktop/local-media-backup.cjs');
 
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bex-attachment-test-'));
@@ -76,14 +75,12 @@ test('attachments keep private names and bytes encrypted, survive source removal
   } finally { f.cleanup(); }
 });
 
-test('URLs, selected source paths, and snapshot trees reject traversal or symlinks', () => {
+test('URLs and selected source paths reject traversal or symlinks', () => {
   const f = fixture();
   try {
     for (const url of ['file:///tmp/file.pdf', 'bex-media://library/../file.pdf', 'bex-media://user@library/file-11111111-1111-4111-8111-111111111111.pdf', 'bex-media://library/file-11111111-1111-4111-8111-111111111111.pdf?x=1', 'bex-media://library/%66ile-11111111-1111-4111-8111-111111111111.pdf']) assert.throws(() => parseAttachmentUrl(url));
     fs.writeFileSync(path.join(f.root, 'original.txt'), 'Hello'); fs.symlinkSync(path.join(f.root, 'original.txt'), path.join(f.root, 'alias.txt'));
     assert.throws(() => saveEncryptedAttachment({ libraryPath: f.libraryPath, privacyVault: f.privacyVault, sourcePath: path.join(f.root, 'alias.txt') }));
-    const backupPath = path.join(f.root, 'backup.db'); fs.mkdirSync(`${backupPath}.media`); fs.symlinkSync(path.join(f.root, 'original.txt'), path.join(`${backupPath}.media`, 'escape'));
-    assert.throws(() => validateEncryptedMediaSnapshot(backupPath), { code: 'BEX_BACKUP_MEDIA_INVALID' });
   } finally { f.cleanup(); }
 });
 
@@ -106,7 +103,7 @@ test('external handoff preserves extensions, limits temporary file permissions, 
   } finally { f.cleanup(); }
 });
 
-test('legacy image references retain their encryption purpose after organized migration and encrypted snapshots restore missing files', async () => {
+test('legacy image references retain their encryption purpose after organized migration', async () => {
   const f = fixture();
   try {
     const image = Buffer.from('89504e470d0a1a0a504f50554c4152494d414745', 'hex');
@@ -114,13 +111,6 @@ test('legacy image references retain their encryption purpose after organized mi
     const imageName = new URL(savedImage.url).pathname.slice(1);
     fs.renameSync(path.join(f.libraryPath, 'Media', 'Images', imageName), path.join(f.libraryPath, 'Media', imageName));
     migrateLegacyImages(f.libraryPath);
-    assert.deepEqual(readEncryptedMedia({ libraryPath: f.libraryPath, privacyVault: f.privacyVault, mediaUrl: savedImage.url }).bytes, image);
-    const attachment = f.save('Archive.txt', Buffer.from('Vault backup bytes'));
-    const backupPath = path.join(f.root, 'backup.db');
-    const copied = copyEncryptedMediaSnapshot({ libraryPath: f.libraryPath, destination: `${backupPath}.media` }); assert.equal(copied.fileCount, 2);
-    fs.rmSync(path.join(f.libraryPath, 'Media'), { recursive: true }); fs.mkdirSync(path.join(f.libraryPath, 'Media'));
-    assert.equal(restoreEncryptedMediaSnapshot({ backupPath, libraryPath: f.libraryPath }).fileCount, 2);
-    assert.equal(Buffer.from(await new Response(f.read(attachment.url).body).arrayBuffer()).toString(), 'Vault backup bytes');
     assert.deepEqual(readEncryptedMedia({ libraryPath: f.libraryPath, privacyVault: f.privacyVault, mediaUrl: savedImage.url }).bytes, image);
   } finally { f.cleanup(); }
 });
@@ -139,88 +129,4 @@ test('the picker runs only for trusted unlocked pages and multi-file failures ro
   const trusted = { senderFrame: { url: 'http://127.0.0.1:3000/Notes' } };
   const failed = await handlers.get(ATTACHMENT_CHANNELS.import)(trusted); assert.equal(failed.ok, false); assert.deepEqual(rolledBack, ['new-file-url']);
   unlocked = false; const locked = await handlers.get(ATTACHMENT_CHANNELS.import)(trusted); assert.equal(locked.code, 'BEX_PRIVACY_LOCKED'); assert.equal(picked, 1);
-});
-
-test('snapshot checksums reject corrupt or incomplete companions and restore replaces corrupted live ciphertext', async () => {
-  const f = fixture();
-  try {
-    const attachment = f.save('Private restored document.txt', Buffer.from('Recoverable private bytes'));
-    const fileName = parseAttachmentUrl(attachment.url);
-    const livePath = path.join(f.libraryPath, 'Media', 'Files', fileName);
-    const backupPath = path.join(f.root, 'backup.db');
-    copyEncryptedMediaSnapshot({ libraryPath: f.libraryPath, destination: `${backupPath}.media` });
-    const manifest = fs.readFileSync(path.join(`${backupPath}.media`, MANIFEST_NAME), 'utf8');
-    assert.equal(manifest.includes(attachment.name), false); assert.equal(manifest.includes('Recoverable private bytes'), false);
-    fs.writeFileSync(livePath, 'Truncated live ciphertext');
-    restoreEncryptedMediaSnapshot({ backupPath, libraryPath: f.libraryPath });
-    assert.equal(Buffer.from(await new Response(f.read(attachment.url).body).arrayBuffer()).toString(), 'Recoverable private bytes');
-    const snapshotFile = path.join(`${backupPath}.media`, 'Files', fileName);
-    const ciphertext = fs.readFileSync(snapshotFile); ciphertext[ciphertext.length - 1] ^= 1; fs.writeFileSync(snapshotFile, ciphertext);
-    const before = fs.readFileSync(livePath);
-    assert.throws(() => restoreEncryptedMediaSnapshot({ backupPath, libraryPath: f.libraryPath }), { code: 'BEX_BACKUP_MEDIA_INVALID' });
-    assert.deepEqual(fs.readFileSync(livePath), before);
-    fs.unlinkSync(path.join(`${backupPath}.media`, MANIFEST_NAME));
-    assert.throws(() => validateEncryptedMediaSnapshot(backupPath), { code: 'BEX_BACKUP_MEDIA_INVALID' });
-    assert.equal(restoreEncryptedMediaSnapshot({ backupPath: path.join(f.root, 'legacy.db'), libraryPath: f.libraryPath }).fileCount, 0);
-  } finally { f.cleanup(); }
-});
-
-test('a media restore transaction rolls changed existing files and newly created files back after later failure', () => {
-  const f = fixture();
-  try {
-    const first = f.save('one.txt', Buffer.from('First snapshot file'));
-    const second = f.save('two.txt', Buffer.from('Second snapshot file'));
-    const firstPath = path.join(f.libraryPath, 'Media', 'Files', parseAttachmentUrl(first.url));
-    const secondPath = path.join(f.libraryPath, 'Media', 'Files', parseAttachmentUrl(second.url));
-    const backupPath = path.join(f.root, 'backup.db');
-    copyEncryptedMediaSnapshot({ libraryPath: f.libraryPath, destination: `${backupPath}.media` });
-    fs.writeFileSync(firstPath, 'Original before failed restore'); fs.unlinkSync(secondPath);
-    const transaction = restoreEncryptedMediaSnapshot({ backupPath, libraryPath: f.libraryPath, deferCommit: true });
-    assert.notEqual(fs.readFileSync(firstPath).toString(), 'Original before failed restore'); assert.equal(fs.existsSync(secondPath), true);
-    transaction.rollback();
-    assert.equal(fs.readFileSync(firstPath).toString(), 'Original before failed restore'); assert.equal(fs.existsSync(secondPath), false);
-    assert.equal(fs.existsSync(path.join(f.libraryPath, 'Database', '.bex-media-restore-staging')), false);
-    assert.equal(fs.existsSync(path.join(f.libraryPath, 'Database', '.bex-media-restore-state.json')), false);
-  } finally { f.cleanup(); }
-});
-
-test('a failed atomic media swap restores every original ciphertext file', (t) => {
-  const f = fixture();
-  try {
-    const first = f.save('one.txt', Buffer.from('First snapshot file'));
-    const second = f.save('two.txt', Buffer.from('Second snapshot file'));
-    const firstPath = path.join(f.libraryPath, 'Media', 'Files', parseAttachmentUrl(first.url));
-    const secondPath = path.join(f.libraryPath, 'Media', 'Files', parseAttachmentUrl(second.url));
-    const backupPath = path.join(f.root, 'backup.db');
-    copyEncryptedMediaSnapshot({ libraryPath: f.libraryPath, destination: `${backupPath}.media` });
-    fs.writeFileSync(firstPath, 'Original first file'); fs.writeFileSync(secondPath, 'Original second file');
-    const rename = fs.renameSync;
-    t.mock.method(fs, 'renameSync', (source, destination) => {
-      if (path.basename(source) === 'new-1') { const error = new Error('Simulated disk failure'); error.code = 'EIO'; throw error; }
-      return rename(source, destination);
-    });
-    assert.throws(() => restoreEncryptedMediaSnapshot({ backupPath, libraryPath: f.libraryPath }), { code: 'EIO' });
-    assert.equal(fs.readFileSync(firstPath).toString(), 'Original first file'); assert.equal(fs.readFileSync(secondPath).toString(), 'Original second file');
-    assert.equal(fs.existsSync(path.join(f.libraryPath, 'Database', '.bex-media-restore-state.json')), false);
-  } finally { f.cleanup(); }
-});
-
-test('startup recovers media swaps with the pending database restore and cleans committed swaps without reverting them', () => {
-  const f = fixture();
-  try {
-    const attachment = f.save('one.txt', Buffer.from('Snapshot file'));
-    const livePath = path.join(f.libraryPath, 'Media', 'Files', parseAttachmentUrl(attachment.url));
-    const backupPath = path.join(f.root, 'backup.db');
-    copyEncryptedMediaSnapshot({ libraryPath: f.libraryPath, destination: `${backupPath}.media` });
-    const snapshotBytes = fs.readFileSync(livePath);
-    fs.writeFileSync(livePath, 'Current file before interrupted restore');
-    restoreEncryptedMediaSnapshot({ backupPath, libraryPath: f.libraryPath, deferCommit: true });
-    const pendingDatabaseJournal = path.join(f.libraryPath, 'Database', '.bex-restore-state.json'); fs.writeFileSync(pendingDatabaseJournal, '{}');
-    assert.equal(recoverInterruptedMediaRestore(f.libraryPath).rolledBack, true);
-    assert.equal(fs.readFileSync(livePath).toString(), 'Current file before interrupted restore');
-    fs.unlinkSync(pendingDatabaseJournal);
-    restoreEncryptedMediaSnapshot({ backupPath, libraryPath: f.libraryPath, deferCommit: true });
-    assert.equal(recoverInterruptedMediaRestore(f.libraryPath).rolledBack, false);
-    assert.deepEqual(fs.readFileSync(livePath), snapshotBytes);
-  } finally { f.cleanup(); }
 });

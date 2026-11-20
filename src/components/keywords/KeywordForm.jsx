@@ -29,8 +29,7 @@ export default function KeywordForm({ isOpen, onClose, keyword, onSave }) {
   const validate = () => {
     const newErrors = {};
     if (!title.trim()) newErrors.title = 'Title is required';
-    if (!category.trim()) newErrors.category = 'Category is required';
-    if (category.length > 25) newErrors.category = 'Category must be 25 characters or less';
+    if (category.length > 30) newErrors.category = 'Category must be 30 characters or less';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -72,29 +71,30 @@ export default function KeywordForm({ isOpen, onClose, keyword, onSave }) {
             {errors.title && <p className="text-red-500 text-sm">{errors.title}</p>}
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2 w-full max-w-sm">
             <Label htmlFor="category" className="text-gray-700 dark:text-gray-300">
-              Category <span className="text-gray-400 text-xs">(max 25 characters)</span>
+              Category <span className="text-gray-400 text-xs">(optional, max 30 characters)</span>
             </Label>
             <Input
               id="category"
               value={category}
-              onChange={(e) => setCategory(e.target.value.slice(0, 25))}
+              maxLength={30}
+              onChange={(e) => setCategory(e.target.value.slice(0, 30))}
               placeholder="e.g., Eschatology"
               className={`dark:bg-gray-800 dark:border-gray-700 ${errors.category ? 'border-red-500' : ''}`}
             />
             <div className="flex justify-between">
               {errors.category && <p className="text-red-500 text-sm">{errors.category}</p>}
-              <p className="text-gray-400 text-xs ml-auto">{category.length}/25</p>
+              <p className="text-gray-400 text-xs ml-auto">{category.length}/30</p>
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2 [&_.ProseMirror.bex-block-editor]:!px-10 [&_.ProseMirror.bex-block-editor]:py-6">
             <Label className="text-gray-700 dark:text-gray-300">
               Explanation
             </Label>
             <TEXT_EDITOR_MACHINERY
-              value={explanation}
+              content={explanation}
               onChange={setExplanation}
               placeholder="Provide a detailed explanation of this keyword or concept..."
               localFindShortcut
@@ -110,7 +110,7 @@ export default function KeywordForm({ isOpen, onClose, keyword, onSave }) {
           <Button 
             onClick={handleSave}
             disabled={saving}
-            className="bg-purple-600 hover:bg-purple-700 text-white"
+            className="bg-brand text-white hover:bg-brand-strong"
           >
             <Save className="w-4 h-4 mr-1" />
             {saving ? 'Saving...' : 'Save Keyword'}

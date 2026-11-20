@@ -23,8 +23,8 @@ function deferred() {
   return { promise, reject, resolve };
 }
 
-describe('automatic normal-close backup', () => {
-  it('drains pending renderer saves before backup and keeps the window open if preparing fails', async () => {
+describe('normal-close shutdown', () => {
+  it('drains pending renderer saves before closing SQLite and keeps the window open if preparing fails', async () => {
     const calls = [], preparation = deferred();
     let failure = true;
     const handler = createNormalCloseHandler({
@@ -33,7 +33,6 @@ describe('automatic normal-close backup', () => {
       closeServices: () => calls.push('close-services'),
       prepareForShutdown: async () => { calls.push('prepare'); await preparation.promise; if (failure) throw new Error('Save failed'); },
       onPreparationFailed: () => calls.push('kept-open'),
-      createLocalBackup: async () => calls.push('backup'),
       logger: { error() {} },
     });
     const closing = handler(quitEvent());
@@ -43,20 +42,15 @@ describe('automatic normal-close backup', () => {
     assert.deepEqual(calls, ['prepare', 'kept-open']);
     failure = false;
     await handler(quitEvent());
-    assert.deepEqual(calls, ['prepare', 'kept-open', 'prepare', 'backup', 'close-database', 'close-services', 'quit']);
+    assert.deepEqual(calls, ['prepare', 'kept-open', 'prepare', 'close-database', 'close-services', 'quit']);
   });
 
-  it('waits for one backup before closing SQLite and quitting', async () => {
-    const backup = deferred();
+  it('runs shutdown once without creating backup files before closing SQLite and quitting', async () => {
     const calls = [];
     const handler = createNormalCloseHandler({
       app: { quit: () => calls.push('quit') },
       closeDatabase: () => calls.push('close-database'),
       closeServices: () => calls.push('close-services'),
-      createLocalBackup: () => {
-        calls.push('backup-started');
-        return backup.promise;
-      },
       onShutdownStarted: () => calls.push('shutdown-started'),
     });
 
@@ -67,13 +61,10 @@ describe('automatic normal-close backup', () => {
     assert.equal(firstEvent.prevented, true);
     assert.equal(repeatedEvent.prevented, true);
     assert.equal(firstShutdown, repeatedShutdown);
-    assert.deepEqual(calls, ['shutdown-started', 'backup-started']);
 
-    backup.resolve({ fileName: 'verified.bex-backup.db' });
     await firstShutdown;
     assert.deepEqual(calls, [
       'shutdown-started',
-      'backup-started',
       'close-database',
       'close-services',
       'quit',
@@ -82,49 +73,6 @@ describe('automatic normal-close backup', () => {
     const finalEvent = quitEvent();
     assert.equal(handler(finalEvent), undefined);
     assert.equal(finalEvent.prevented, false);
-    assert.equal(calls.filter((call) => call === 'backup-started').length, 1);
-  });
-
-  it('still closes when backup creation fails', async () => {
-    const calls = [];
-    const loggedErrors = [];
-    const backupError = Object.assign(new Error('Drive unavailable'), {
-      code: 'BEX_BACKUP_FOLDER_INVALID',
-    });
-    const handler = createNormalCloseHandler({
-      app: { quit: () => calls.push('quit') },
-      closeDatabase: () => calls.push('close-database'),
-      closeServices: () => calls.push('close-services'),
-      createLocalBackup: async () => {
-        calls.push('backup-attempted');
-        throw backupError;
-      },
-      logger: { error: (...values) => loggedErrors.push(values) },
-    });
-
-    await handler(quitEvent());
-    assert.deepEqual(calls, ['backup-attempted', 'close-database', 'close-services', 'quit']);
-    assert.equal(loggedErrors.length, 1);
-    assert.match(loggedErrors[0][0], /BEX will still close/);
-  });
-
-  it('quietly exits when no Berean Library was opened', async () => {
-    const calls = [];
-    const loggedErrors = [];
-    const handler = createNormalCloseHandler({
-      app: { quit: () => calls.push('quit') },
-      closeDatabase: () => calls.push('close-database'),
-      closeServices: () => calls.push('close-services'),
-      createLocalBackup: async () => {
-        const error = new Error('No database');
-        error.code = 'BEX_DATABASE_NOT_OPEN';
-        throw error;
-      },
-      logger: { error: (...values) => loggedErrors.push(values) },
-    });
-
-    await handler(quitEvent());
-    assert.deepEqual(calls, ['close-database', 'close-services', 'quit']);
-    assert.equal(loggedErrors.length, 0);
+    assert.equal(calls.filter((call) => call === 'close-database').length, 1);
   });
 });

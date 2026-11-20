@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { render, fireEvent, screen } from '@testing-library/react';
+import { act, render, fireEvent, screen } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 import useNoteZoom from '@/components/notes/useNoteZoom';
 
@@ -15,6 +15,27 @@ const touches = (distance) => [
 ];
 
 describe('Note page magnification', () => {
+  it('keeps a modest wider page and reserves room for full margin comments as the window narrows', () => {
+    render(<Note />);
+    const viewport = screen.getByTestId('viewport'), page = screen.getByTestId('page');
+    let width = 1470;
+    Object.defineProperty(viewport, 'clientWidth', { configurable: true, get: () => width });
+    page.style.paddingRight = '36px';
+    const relayout = () => act(() => viewport.dispatchEvent(new Event('bex:comment-layout', { bubbles: true })));
+    relayout();
+    expect(parseFloat(page.style.width)).toBeGreaterThan(880);
+    expect(parseFloat(page.style.width)).toBeLessThan((width + 880) / 2);
+    const marker = document.createElement('div'); marker.setAttribute('data-bex-margin-comments', ''); page.append(marker);
+    for (const size of [1470, 1100, 800]) {
+      width = size; relayout();
+      const textRight = parseFloat(page.style.marginLeft) + parseFloat(page.style.width) - 36;
+      expect(textRight + 16 + 280).toBeLessThanOrEqual(width - 12);
+      expect(parseFloat(page.style.marginLeft)).toBeGreaterThanOrEqual(24);
+    }
+    marker.remove(); width = 1470; relayout();
+    expect(parseFloat(page.style.marginLeft)).toBeCloseTo((width - parseFloat(page.style.width)) / 2);
+    expect(screen.getByDisplayValue('My study notes').value).toBe('My study notes');
+  });
   it('handles trackpad pinch separately from regular scrolling and font size', () => {
     render(<Note />);
     const viewport = screen.getByTestId('viewport');

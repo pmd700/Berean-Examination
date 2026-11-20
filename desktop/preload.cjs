@@ -6,14 +6,11 @@ const desktopApi = Object.freeze({
   cancelCatalogCourse: (courseId) => ipcRenderer.invoke('courses:cancel-catalog-course', courseId),
   changePrivacyPin: (pin) => ipcRenderer.invoke('privacy:change-pin', pin),
   chooseLibrary: () => ipcRenderer.invoke('library:choose'),
-  createLocalBackup: () => ipcRenderer.invoke('local-backup:create'),
   createLocalEntity: (entityType, value) => ipcRenderer.invoke('local-entity:create', entityType, value),
   deleteLocalImage: (mediaUrl) => ipcRenderer.invoke('local-media:delete-image', mediaUrl),
   deleteLocalEntity: (entityType, entityId) => ipcRenderer.invoke('local-entity:delete', entityType, entityId),
   disablePrivacyPin: () => ipcRenderer.invoke('privacy:disable-pin'),
   enablePrivacyPin: (pin) => ipcRenderer.invoke('privacy:enable-pin', pin),
-  getActivationRequest: () => ipcRenderer.invoke('activation:get-request'),
-  getActivationStatus: () => ipcRenderer.invoke('activation:get-status'),
   getLibraryStatus: () => ipcRenderer.invoke('library:get-status'),
   getLocalBibleChapter: (request) => ipcRenderer.invoke('local-bible:get-chapter', request),
   getLocalMamChapter: (request) => ipcRenderer.invoke('local-mam:get-chapter', request),
@@ -31,9 +28,22 @@ const desktopApi = Object.freeze({
   cancelScriptureRequest: (requestId) => ipcRenderer.invoke('scripture:cancel-request', requestId),
   getScriptureUsage: () => ipcRenderer.invoke('scripture:get-usage'),
   isDesktop: true,
+  syncStatus: () => ipcRenderer.invoke('sync:status'),
+  syncEnable: () => ipcRenderer.invoke('sync:enable'),
+  syncNow: () => ipcRenderer.invoke('sync:now'),
+  syncInvite: () => ipcRenderer.invoke('sync:invite'),
+  syncConflicts: () => ipcRenderer.invoke('sync:conflicts'),
+  syncResolve: payload => ipcRenderer.invoke('sync:resolve', payload),
+  syncDevices: () => ipcRenderer.invoke('sync:devices'),
+  syncRevoke: deviceId => ipcRenderer.invoke('sync:revoke', deviceId),
+  syncPause: paused => ipcRenderer.invoke('sync:pause', paused),
   writeClipboardText: (text) => ipcRenderer.invoke('clipboard:write-text', text),
   restartApp: () => ipcRenderer.invoke('app:restart'),
+  renderNotePdf: payload => ipcRenderer.invoke('export:render-note-pdf', payload),
+  readPdfImage: payload => ipcRenderer.invoke('export:read-pdf-image', payload),
   saveExportFile: (payload) => ipcRenderer.invoke('export:save-file', payload),
+  chooseExportFile: payload => ipcRenderer.invoke('export:choose-file', payload),
+  cancelExportFile: payload => ipcRenderer.invoke('export:cancel-selection', payload),
   importKnowledgeWebGraph: (webId, importValue, options) => (
     ipcRenderer.invoke('local-entity:import-knowledge-web-graph', webId, importValue, options)
   ),
@@ -59,9 +69,7 @@ const desktopApi = Object.freeze({
     ipcRenderer.on('courses:download-progress', listener);
     return () => ipcRenderer.removeListener('courses:download-progress', listener);
   },
-  submitActivationCode: (activationCode) => ipcRenderer.invoke('activation:submit', activationCode),
   replacePrivacyRecoveryCode: () => ipcRenderer.invoke('privacy:replace-recovery'),
-  restoreLocalBackup: () => ipcRenderer.invoke('local-backup:restore'),
   reorderLocalEntities: (entityType, entityIds, containerId) => (
     ipcRenderer.invoke('local-entity:reorder', entityType, entityIds, containerId)
   ),
