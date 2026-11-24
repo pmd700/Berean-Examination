@@ -124,32 +124,44 @@ export function collectLicenseAssets({ root = defaultRoot, moduleIds = [] } = {}
   const lock = readJson(path.join(root, 'package-lock.json'));
   const provenance = readJson(path.join(sourceDir, 'provenance.json'));
   const electronRoot = path.join(root, 'node_modules/electron');
-  const version = readJson(path.join(electronRoot, 'package.json')).version;
-  const binaryVersion = read(path.join(electronRoot, 'dist/version')).trim();
-  if (version !== binaryVersion || version !== provenance.electronVersion) throw new Error('Electron changed: refresh pinned runtime license sources before building. See read.me (Dependencies, assets and notices).');
-  const chromiumFile = fs.readFileSync(path.join(electronRoot, 'dist/LICENSES.chromium.html'));
-  const credits = parse(chromiumFile.toString('utf8'));
-  const productText = name => {
-    const product = credits.querySelectorAll('.product').find(product => product.querySelector('.title')?.text === name);
-    const text = product?.querySelector('pre')?.text;
-    if (!text) throw new Error(`Electron notices omit ${name}`);
-    return text;
-  };
-  const releaseUrl = `https://github.com/electron/electron/releases/tag/v${version}`;
-  const depsUrl = `https://github.com/electron/electron/blob/v${version}/DEPS`;
-  const runtime = [
-    { name: 'Electron', version, license: 'MIT', text: read(path.join(electronRoot, 'LICENSE')), source: `https://github.com/electron/electron/blob/v${version}/LICENSE` },
-    { name: 'Chromium third-party licenses', license: 'Multiple licenses', file: '/licenses/LICENSES.chromium.html', bytes: chromiumFile.length, sha256: sha256(chromiumFile), source: depsUrl, note: 'Complete, unmodified LICENSES.chromium.html from the installed Electron package. Bundled separately for offline reading.' },
-    { name: 'Node.js', version: provenance.nodeVersion, license: 'MIT + bundled third-party notices', text: productText('Node.js'), source: `https://github.com/nodejs/node/blob/v${provenance.nodeVersion}/LICENSE` },
-    { name: 'OpenSSL (bundled with Node.js)', license: 'Apache-2.0', ...sourceFile('openssl-node-24.18.0-LICENSE', provenance) },
-    { name: 'Squirrel.Mac', license: 'MIT', ...sourceFile('Squirrel-Mac-LICENSE', provenance), note: 'The Squirrel.Mac revision pinned by this Electron release is distributed under the MIT license. Its original notice is retained here.' },
-    { name: 'Mantle', license: 'MIT + Proton BSD-style notice', ...sourceFile('Mantle-LICENSE', provenance), note: 'The pinned Mantle license includes MIT terms and a separate two-condition Proton notice. Both are retained verbatim.' },
-    { name: 'ReactiveObjC', license: 'MIT', ...sourceFile('ReactiveObjC-LICENSE', provenance) },
-    { name: 'nan (Native Abstractions for Node)', license: 'MIT', ...sourceFile('nan-LICENSE', provenance) },
-    { name: 'FFmpeg', license: 'LGPL-2.1-or-later', text: productText('ffmpeg'), source: releaseUrl,
-      note: `This software uses libraries from the FFmpeg project under LGPL-2.1-or-later. Matching Electron source and release: ${releaseUrl}. Use that exact tag's DEPS to obtain the corresponding Chromium/FFmpeg revisions and its patches/build configuration. BEX uses Electron's unmodified dynamically linked FFmpeg library.`,
-      links: [{ label: `Electron v${version} source and release`, url: releaseUrl }, { label: 'Pinned dependencies and revisions', url: depsUrl }, { label: 'Build instructions for this release', url: `https://github.com/electron/electron/blob/v${version}/docs/development/build-instructions-gn.md` }] },
-  ];
+  const hasElectron = fs.existsSync(path.join(electronRoot, 'package.json'));
+  let version = 'tauri-2.x';
+  let chromiumFile = null;
+  let runtime = [];
+  if (hasElectron) {
+    version = readJson(path.join(electronRoot, 'package.json')).version;
+    const binaryVersion = read(path.join(electronRoot, 'dist/version')).trim();
+    if (version !== binaryVersion || version !== provenance.electronVersion) throw new Error('Electron changed: refresh pinned runtime license sources before building. See read.me (Dependencies, assets and notices).');
+    chromiumFile = fs.readFileSync(path.join(electronRoot, 'dist/LICENSES.chromium.html'));
+    const credits = parse(chromiumFile.toString('utf8'));
+    const productText = name => {
+      const product = credits.querySelectorAll('.product').find(product => product.querySelector('.title')?.text === name);
+      const text = product?.querySelector('pre')?.text;
+      if (!text) throw new Error(`Electron notices omit ${name}`);
+      return text;
+    };
+    const releaseUrl = `https://github.com/electron/electron/releases/tag/v${version}`;
+    const depsUrl = `https://github.com/electron/electron/blob/v${version}/DEPS`;
+    runtime = [
+      { name: 'Electron', version, license: 'MIT', text: read(path.join(electronRoot, 'LICENSE')), source: `https://github.com/electron/electron/blob/v${version}/LICENSE` },
+      { name: 'Chromium third-party licenses', license: 'Multiple licenses', file: '/licenses/LICENSES.chromium.html', bytes: chromiumFile.length, sha256: sha256(chromiumFile), source: depsUrl, note: 'Complete, unmodified LICENSES.chromium.html from the installed Electron package. Bundled separately for offline reading.' },
+      { name: 'Node.js', version: provenance.nodeVersion, license: 'MIT + bundled third-party notices', text: productText('Node.js'), source: `https://github.com/nodejs/node/blob/v${provenance.nodeVersion}/LICENSE` },
+      { name: 'OpenSSL (bundled with Node.js)', license: 'Apache-2.0', ...sourceFile('openssl-node-24.18.0-LICENSE', provenance) },
+      { name: 'Squirrel.Mac', license: 'MIT', ...sourceFile('Squirrel-Mac-LICENSE', provenance), note: 'The Squirrel.Mac revision pinned by this Electron release is distributed under the MIT license. Its original notice is retained here.' },
+      { name: 'Mantle', license: 'MIT + Proton BSD-style notice', ...sourceFile('Mantle-LICENSE', provenance), note: 'The pinned Mantle license includes MIT terms and a separate two-condition Proton notice. Both are retained verbatim.' },
+      { name: 'ReactiveObjC', license: 'MIT', ...sourceFile('ReactiveObjC-LICENSE', provenance) },
+      { name: 'nan (Native Abstractions for Node)', license: 'MIT', ...sourceFile('nan-LICENSE', provenance) },
+      { name: 'FFmpeg', license: 'LGPL-2.1-or-later', text: productText('ffmpeg'), source: releaseUrl,
+        note: `This software uses libraries from the FFmpeg project under LGPL-2.1-or-later. Matching Electron source and release: ${releaseUrl}. Use that exact tag's DEPS to obtain the corresponding Chromium/FFmpeg revisions and its patches/build configuration. BEX uses Electron's unmodified dynamically linked FFmpeg library.`,
+        links: [{ label: `Electron v${version} source and release`, url: releaseUrl }, { label: 'Pinned dependencies and revisions', url: depsUrl }, { label: 'Build instructions for this release', url: `https://github.com/electron/electron/blob/v${version}/docs/development/build-instructions-gn.md` }] },
+    ];
+  } else {
+    runtime = [
+      { name: 'Tauri', version: '2.x', license: 'MIT OR Apache-2.0', text: 'Tauri Desktop Framework — dual-licensed under MIT or Apache-2.0. https://github.com/tauri-apps/tauri', source: 'https://github.com/tauri-apps/tauri/blob/dev/LICENSE_MIT' },
+      { name: 'SQLite (via rusqlite)', version: '3.x', license: 'Public Domain / MIT', text: 'SQLite is in the public domain; rusqlite is licensed under the MIT license. https://github.com/rusqlite/rusqlite', source: 'https://github.com/rusqlite/rusqlite/blob/master/LICENSE' },
+      { name: 'Rust Standard & Ecosystem Crates', version: 'Cargo.lock', license: 'MIT / Apache-2.0', text: 'Native backend crates (aes-gcm, scrypt, calamine, rust_xlsxwriter, reqwest, image, zip, blake3) are declared in src-tauri/Cargo.toml.', source: 'https://github.com/pmd700/Berean-Examination/blob/main/src-tauri/Cargo.toml' },
+    ];
+  }
   const bundled = rendererPackagePaths(root, moduleIds, lock);
   const paths = new Set(Object.keys(lock.packages).filter(key => key && !lock.packages[key].dev));
   for (const key of bundled) if (key !== 'node_modules/electron') paths.add(key);
@@ -189,7 +201,7 @@ export function collectLicenseAssets({ root = defaultRoot, moduleIds = [] } = {}
   ].join('\n')).join('\n');
   const assets = new Map([
     ['licenses/manifest.json', Buffer.from(JSON.stringify(manifest))],
-    ['licenses/LICENSES.chromium.html', chromiumFile],
+    ...(chromiumFile ? [['licenses/LICENSES.chromium.html', chromiumFile]] : []),
     ['licenses/npm-original-notices.txt', Buffer.from(originals)],
   ]);
   return { manifest, assets };
