@@ -35,3 +35,11 @@ dist-ssr
 .cloudflare/
 
 .bex-sync-provisioning.local.json
+
+# Tauri / Rust build artifacts & local signing keys
+src-tauri/target/
+src-tauri/gen/
+src-tauri/.cargo/config.toml
+*.key
+*.sig
+
