@@ -43,7 +43,9 @@ echo "→ Creating updater archive $TAR_NAME..."
 tar -C "$STAGE" -czf "$TAR_PATH" BEX.app
 
 echo "→ Signing updater archive with $KEY_PATH..."
-npx --yes @tauri-apps/cli@2 signer sign "$TAR_PATH" --private-key-path "$KEY_PATH" >/dev/null
+npx --yes @tauri-apps/cli@2 signer sign "$TAR_PATH" \
+  --private-key-path "$KEY_PATH" \
+  --password "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" >/dev/null
 SIG_PATH="${TAR_PATH}.sig"
 if [ ! -f "$SIG_PATH" ]; then
   echo "ERROR: Signature file was not generated at $SIG_PATH" >&2
