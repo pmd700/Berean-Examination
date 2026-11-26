@@ -7,9 +7,11 @@
 //! - Async streaming `bex-media://` protocol with HTTP 206 byte ranges, ETag, LRU cache & thumbnails
 //! - Pre-React `window.bexDesktop` bridge injected via `initialization_script`
 
+pub mod ai_access;
 pub mod bible;
 pub mod commands;
 pub mod crypto;
+pub mod http_bridge;
 pub mod media;
 pub mod search;
 pub mod sheet_io;

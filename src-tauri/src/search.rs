@@ -17,7 +17,8 @@ use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;
 
-const BOOK_PAGE_MARKER: &str = "<!-- bex-book-page -->";
+const BOOK_PAGE_MARKER: &str = "<!--bex-page-break-->";
+const LEGACY_BOOK_PAGE_MARKER: &str = "<!-- bex-book-page -->";
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -613,15 +614,44 @@ pub fn strip_html(html: &str) -> String {
 }
 
 fn split_note_pages(content: &str, fallback_title: &str) -> Vec<(String, String)> {
-    if !content.contains(BOOK_PAGE_MARKER) {
-        return vec![(fallback_title.to_string(), content.to_string())];
-    }
-    content
-        .split(BOOK_PAGE_MARKER)
+    let marker = if content.contains(BOOK_PAGE_MARKER) {
+        Some(BOOK_PAGE_MARKER)
+    } else if content.contains(LEGACY_BOOK_PAGE_MARKER) {
+        Some(LEGACY_BOOK_PAGE_MARKER)
+    } else {
+        None
+    };
+
+    let raw_pages: Vec<&str> = match marker {
+        Some(m) => content.split(m).collect(),
+        None => vec![content],
+    };
+
+    raw_pages
+        .into_iter()
         .enumerate()
         .map(|(idx, raw)| {
-            // Optional JSON title header `<!-- bex-page-title:... -->`
             let trimmed = raw.trim();
+            if let Some(rest) = trimmed.strip_prefix("<!--bex-page-title:") {
+                if let Some(end_idx) = rest.find("-->") {
+                    let encoded_title = &rest[..end_idx];
+                    let decoded = url::form_urlencoded::parse(
+                        format!("t={encoded_title}").as_bytes(),
+                    )
+                    .next()
+                    .map(|(_, v)| v.into_owned())
+                    .unwrap_or_else(|| encoded_title.to_string());
+                    let title = if !decoded.trim().is_empty() {
+                        decoded
+                    } else if idx == 0 {
+                        fallback_title.to_string()
+                    } else {
+                        format!("Page {}", idx + 1)
+                    };
+                    let body = rest[end_idx + 3..].trim().to_string();
+                    return (title, body);
+                }
+            }
             let title = if idx == 0 {
                 fallback_title.to_string()
             } else {

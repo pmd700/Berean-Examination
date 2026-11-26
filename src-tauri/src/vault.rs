@@ -169,6 +169,12 @@ pub struct VaultEngine {
     pub data_key: Option<[u8; DATA_KEY_BYTES]>,
     pub cache: HashMap<&'static str, Vec<Value>>,
     pub search_index: SearchIndex,
+    last_data_version: i64,
+}
+
+fn query_data_version(conn: &Connection) -> i64 {
+    conn.query_row("PRAGMA data_version", [], |r| r.get::<_, i64>(0))
+        .unwrap_or(0)
 }
 
 impl VaultEngine {
@@ -179,6 +185,7 @@ impl VaultEngine {
             data_key: None,
             cache: HashMap::new(),
             search_index: SearchIndex::new().expect("in-memory FTS5 init"),
+            last_data_version: 0,
         };
         if let Some(path) = resolve_or_discover_library_path() {
             let _ = engine.open_library(&path);
@@ -252,6 +259,7 @@ impl VaultEngine {
         self.conn = Some(conn);
         self.data_key = None;
         self.cache.clear();
+        self.last_data_version = 0;
         Ok(())
     }
 
@@ -579,7 +587,225 @@ impl VaultEngine {
 
         self.cache = next_cache;
         let _ = self.search_index.rebuild(&self.cache);
+        let _ = self.sync_ai_semantic_index_internal();
+        self.last_data_version = self.conn.as_ref().map(query_data_version).unwrap_or(0);
         Ok(())
+    }
+
+    fn private_web_id_set(&self) -> HashSet<i64> {
+        self.cache
+            .get("KnowledgeWeb")
+            .map(|v| v.as_slice())
+            .unwrap_or(&[])
+            .iter()
+            .filter(|w| crate::ai_access::is_private_web(w))
+            .filter_map(|w| w.get("id").and_then(|x| x.as_i64()))
+            .collect()
+    }
+
+    fn upsert_ai_semantic_row(&self, entity_type: &str, rec: &Value) {
+        let (Ok(key), Some(conn)) = (self.require_unlocked(), self.conn.as_ref()) else {
+            return;
+        };
+        let private_webs = self.private_web_id_set();
+        let Some((source_id, ai_doc)) =
+            crate::ai_access::build_ai_semantic_doc(entity_type, rec, &private_webs)
+        else {
+            return;
+        };
+        let Some(entity_id) = rec.get("id").and_then(|v| v.as_i64()) else {
+            return;
+        };
+        let updated_at = rec
+            .get("updated_date")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .unwrap_or_else(now_iso);
+        let Ok(bytes) = serde_json::to_vec(&ai_doc) else {
+            return;
+        };
+        let purpose = format!("bex:ai-index:v1:{entity_type}:{entity_id}");
+        if let Ok(enc) = encrypt_bytes(&key, &bytes, &purpose) {
+            let _ = conn.execute(
+                "INSERT INTO ai_semantic_index (entity_type, entity_id, source_id, schema_version, encrypted_ai_doc, updated_at)
+                 VALUES (?1, ?2, ?3, 1, ?4, ?5)
+                 ON CONFLICT(entity_type, entity_id) DO UPDATE SET
+                   source_id = excluded.source_id,
+                   schema_version = excluded.schema_version,
+                   encrypted_ai_doc = excluded.encrypted_ai_doc,
+                   updated_at = excluded.updated_at",
+                params![entity_type, entity_id, source_id, enc, updated_at],
+            );
+        }
+    }
+
+    fn delete_ai_semantic_row(&self, entity_type: &str, entity_id: i64) {
+        if let Some(conn) = self.conn.as_ref() {
+            let _ = conn.execute(
+                "DELETE FROM ai_semantic_index WHERE entity_type = ?1 AND entity_id = ?2",
+                params![entity_type, entity_id],
+            );
+        }
+    }
+
+    /// Synchronizes `berean.db`'s encrypted `ai_semantic_index` table to 100% parity with
+    /// all non-private records in the Vault (backfilling missing/stale rows and pruning orphans).
+    fn sync_ai_semantic_index_internal(&self) -> Result<(usize, usize), CryptoError> {
+        let key = self.require_unlocked()?;
+        let conn = self.conn.as_ref().ok_or_else(|| {
+            CryptoError::new("BEX_DATABASE_NOT_OPEN", "Vault database is not open.")
+        })?;
+        let private_webs = self.private_web_id_set();
+
+        // Read existing (entity_type, entity_id) -> updated_at
+        let mut existing: HashMap<(String, i64), String> = HashMap::new();
+        {
+            if let Ok(mut stmt) =
+                conn.prepare("SELECT entity_type, entity_id, updated_at FROM ai_semantic_index WHERE schema_version = 1")
+            {
+                if let Ok(rows) = stmt.query_map([], |r| {
+                    Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?, r.get::<_, String>(2)?))
+                }) {
+                    for r in rows.flatten() {
+                        existing.insert((r.0, r.1), r.2);
+                    }
+                }
+            }
+        }
+
+        let mut expected_keys: HashSet<(String, i64)> = HashSet::new();
+        let mut to_upsert: Vec<(String, i64, String, Vec<u8>, String)> = Vec::new();
+
+        for &et in crate::ai_access::AI_INDEXED_ENTITY_TYPES {
+            for rec in self.cache.get(et).map(|v| v.as_slice()).unwrap_or(&[]) {
+                let Some(id) = rec.get("id").and_then(|v| v.as_i64()) else {
+                    continue;
+                };
+                let Some((source_id, ai_doc)) =
+                    crate::ai_access::build_ai_semantic_doc(et, rec, &private_webs)
+                else {
+                    continue;
+                };
+                let updated_at = rec
+                    .get("updated_date")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(now_iso);
+                let k = (et.to_string(), id);
+                expected_keys.insert(k.clone());
+                let is_fresh = existing.get(&k).map(|u| u == &updated_at).unwrap_or(false);
+                if !is_fresh {
+                    if let Ok(bytes) = serde_json::to_vec(&ai_doc) {
+                        let purpose = format!("bex:ai-index:v1:{et}:{id}");
+                        if let Ok(enc) = encrypt_bytes(&key, &bytes, &purpose) {
+                            to_upsert.push((et.to_string(), id, source_id, enc, updated_at));
+                        }
+                    }
+                }
+            }
+        }
+
+        let orphans: Vec<(String, i64)> = existing
+            .keys()
+            .filter(|k| !expected_keys.contains(*k))
+            .cloned()
+            .collect();
+
+        if !to_upsert.is_empty() || !orphans.is_empty() {
+            let tx = conn
+                .unchecked_transaction()
+                .map_err(|e| CryptoError::new("BEX_PRIVACY_DATA_INVALID", e.to_string()))?;
+            for (et, id, source_id, enc, upd) in &to_upsert {
+                let _ = tx.execute(
+                    "INSERT INTO ai_semantic_index (entity_type, entity_id, source_id, schema_version, encrypted_ai_doc, updated_at)
+                     VALUES (?1, ?2, ?3, 1, ?4, ?5)
+                     ON CONFLICT(entity_type, entity_id) DO UPDATE SET
+                       source_id = excluded.source_id,
+                       schema_version = excluded.schema_version,
+                       encrypted_ai_doc = excluded.encrypted_ai_doc,
+                       updated_at = excluded.updated_at",
+                    params![et, id, source_id, enc, upd],
+                );
+            }
+            for (et, id) in &orphans {
+                let _ = tx.execute(
+                    "DELETE FROM ai_semantic_index WHERE entity_type = ?1 AND entity_id = ?2",
+                    params![et, id],
+                );
+            }
+            let _ = tx.commit();
+        }
+
+        Ok((expected_keys.len(), to_upsert.len()))
+    }
+
+    pub fn ai_semantic_index_stats(&self) -> Result<Value, CryptoError> {
+        let _ = self.require_unlocked()?;
+        let conn = self.conn.as_ref().ok_or_else(|| {
+            CryptoError::new("BEX_DATABASE_NOT_OPEN", "Vault database is not open.")
+        })?;
+        let private_webs = self.private_web_id_set();
+        let mut expected = 0usize;
+        for &et in crate::ai_access::AI_INDEXED_ENTITY_TYPES {
+            for rec in self.cache.get(et).map(|v| v.as_slice()).unwrap_or(&[]) {
+                if crate::ai_access::build_ai_semantic_doc(et, rec, &private_webs).is_some() {
+                    expected += 1;
+                }
+            }
+        }
+        let stored: i64 = conn
+            .query_row("SELECT COUNT(*) FROM ai_semantic_index WHERE schema_version = 1", [], |r| r.get(0))
+            .unwrap_or(0);
+        let parity_pct = if expected == 0 {
+            100.0
+        } else {
+            ((stored as f64 / expected as f64) * 100.0).min(100.0)
+        };
+        Ok(json!({
+            "table": "ai_semantic_index",
+            "schema_version": 1,
+            "encrypted_at_rest": true,
+            "expected_records": expected,
+            "indexed_records": stored,
+            "parity_percent": (parity_pct * 10.0).round() / 10.0,
+        }))
+    }
+
+    pub fn read_ai_semantic_doc(&self, entity_type: &str, entity_id: i64) -> Result<Option<Value>, CryptoError> {
+        let key = self.require_unlocked()?;
+        let conn = self.conn.as_ref().ok_or_else(|| {
+            CryptoError::new("BEX_DATABASE_NOT_OPEN", "Vault database is not open.")
+        })?;
+        let enc_opt: Option<Vec<u8>> = conn
+            .query_row(
+                "SELECT encrypted_ai_doc FROM ai_semantic_index WHERE entity_type = ?1 AND entity_id = ?2",
+                params![entity_type, entity_id],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(|e| CryptoError::new("BEX_PRIVACY_DATA_INVALID", e.to_string()))?;
+        let Some(enc) = enc_opt else {
+            return Ok(None);
+        };
+        let purpose = format!("bex:ai-index:v1:{entity_type}:{entity_id}");
+        let plain = decrypt_bytes(&key, &enc, &purpose)?;
+        let val: Value = serde_json::from_slice(&plain)
+            .map_err(|e| CryptoError::new("BEX_PRIVACY_DATA_INVALID", e.to_string()))?;
+        Ok(Some(val))
+    }
+
+    /// Detects commits made by another process (e.g., `BEX.app` <-> `bex-mcp`) via SQLite
+    /// `PRAGMA data_version` (~20µs check) and reloads the decrypted RAM cache + FTS5 index.
+    pub fn sync_external_changes(&mut self) -> Result<bool, CryptoError> {
+        if self.data_key.is_none() {
+            return Ok(false);
+        }
+        let current_ver = self.conn.as_ref().map(query_data_version).unwrap_or(0);
+        if current_ver != self.last_data_version {
+            self.warm_cache_and_search()?;
+            return Ok(true);
+        }
+        Ok(false)
     }
 
     pub fn search_global(&self, query: &str, limit: usize) -> Result<Vec<SearchHit>, CryptoError> {
@@ -779,6 +1005,7 @@ impl VaultEngine {
         let rec_val = Value::Object(full_record);
         self.cache.entry(cfg.entity_type).or_default().push(rec_val.clone());
         let _ = self.search_index.rebuild(&self.cache);
+        self.upsert_ai_semantic_row(cfg.entity_type, &rec_val);
         Ok(rec_val)
     }
 
@@ -834,6 +1061,7 @@ impl VaultEngine {
             }
         }
         let _ = self.search_index.rebuild(&self.cache);
+        self.upsert_ai_semantic_row(cfg.entity_type, &updated_val);
         Ok(updated_val)
     }
 
@@ -871,11 +1099,23 @@ impl VaultEngine {
         }
         if entity_type == "KnowledgeWeb" {
             for child in ["WebCard", "WebConnection", "CanvasObject", "WebVersion"] {
-                if let Some(list) = self.cache.get_mut(child) {
+                let removed_ids: Vec<i64> = if let Some(list) = self.cache.get_mut(child) {
+                    let ids = list
+                        .iter()
+                        .filter(|r| r.get("web_id").and_then(|v| v.as_i64()) == Some(entity_id))
+                        .filter_map(|r| r.get("id").and_then(|v| v.as_i64()))
+                        .collect();
                     list.retain(|r| r.get("web_id").and_then(|v| v.as_i64()) != Some(entity_id));
+                    ids
+                } else {
+                    Vec::new()
+                };
+                for rid in removed_ids {
+                    self.delete_ai_semantic_row(child, rid);
                 }
             }
         }
+        self.delete_ai_semantic_row(cfg.entity_type, entity_id);
         let _ = self.search_index.rebuild(&self.cache);
         Ok(json!({ "deleted": true, "id": entity_id }))
     }
@@ -1278,7 +1518,17 @@ fn ensure_base_tables(conn: &Connection) -> Result<(), String> {
         CREATE TABLE IF NOT EXISTS local_entity_sequences (
             entity_type TEXT PRIMARY KEY NOT NULL,
             last_id INTEGER NOT NULL
-        );",
+        );
+        CREATE TABLE IF NOT EXISTS ai_semantic_index (
+            entity_type TEXT NOT NULL,
+            entity_id INTEGER NOT NULL,
+            source_id TEXT NOT NULL,
+            schema_version INTEGER NOT NULL DEFAULT 1,
+            encrypted_ai_doc BLOB NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (entity_type, entity_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_ai_semantic_source ON ai_semantic_index(source_id);",
     )
     .map_err(|e| e.to_string())?;
 
@@ -1311,4 +1561,102 @@ fn ensure_base_tables(conn: &Connection) -> Result<(), String> {
         conn.execute_batch(&sql).map_err(|e| e.to_string())?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn full_crud_and_ai_semantic_index_100_percent_parity() {
+        let tmp_dir = std::env::temp_dir().join(format!("bex-crud-test-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(tmp_dir.join("Database")).unwrap();
+        let db_path = tmp_dir.join("Database").join("berean.db");
+        let conn = Connection::open(&db_path).unwrap();
+        ensure_base_tables(&conn).unwrap();
+
+        let mut engine = VaultEngine {
+            library_path: Some(tmp_dir.clone()),
+            conn: Some(conn),
+            data_key: Some(random_bytes::<DATA_KEY_BYTES>()),
+            cache: HashMap::new(),
+            search_index: SearchIndex::new().unwrap(),
+            last_data_version: 0,
+        };
+
+        // 1. Create across all major BEX entity types
+        let folder = engine.create_entity("WebFolder", &json!({ "title": "Theology", "name": "Theology" })).unwrap();
+        let fid = folder["id"].as_i64().unwrap();
+
+        let note = engine.create_entity("MindNote", &json!({
+            "title": "Kingdom Authority",
+            "folder_id": fid,
+            "content": "<!--bex-page-title:Overview--><p>See Matthew 4:9 on dominion.</p><!--bex-page-break--><!--bex-page-title:Cross%20Checks--><p>Compare Luke 4:6.</p>"
+        })).unwrap();
+        let nid = note["id"].as_i64().unwrap();
+
+        let ann = engine.create_entity("Annotation", &json!({
+            "book": "Matthew", "chapter_number": 4, "start_verse": 9, "end_verse": 9,
+            "version": "BSB", "selected_text": "All this I will give You",
+            "content": "<p>Delegated jurisdiction claim by Satan.</p>"
+        })).unwrap();
+        let aid = ann["id"].as_i64().unwrap();
+
+        let web = engine.create_entity("KnowledgeWeb", &json!({ "title": "Jurisdiction Web", "description": "<p>Map</p>", "is_private": false })).unwrap();
+        let wid = web["id"].as_i64().unwrap();
+        let c1 = engine.create_entity("WebCard", &json!({ "web_id": wid, "title": "Satan Claim", "description": "<p>Matthew 4:9</p>", "tags": ["authority"] })).unwrap();
+        let c2 = engine.create_entity("WebCard", &json!({ "web_id": wid, "title": "God Sovereignty", "description": "<p>Psalm 24:1</p>" })).unwrap();
+        let conn_edge = engine.create_entity("WebConnection", &json!({
+            "web_id": wid, "from_card_id": c1["id"], "to_card_id": c2["id"], "from_kind": "card", "to_kind": "card", "has_arrow": true, "label": "contrasts"
+        })).unwrap();
+
+        let kw = engine.create_entity("Keyword", &json!({ "title": "Proskuneo", "category": "Greek", "explanation": "<p>Worship / bow down.</p>" })).unwrap();
+        let tg = engine.create_entity("Timegraph", &json!({
+            "title": "Ministry Chronology",
+            "events": [{ "id": "ev1", "title": "Wilderness Temptation", "start": { "year": 27, "precision": "year" }, "description": "<p>Matthew 4:1-11</p>" }]
+        })).unwrap();
+        let ss = engine.create_entity("Spreadsheet", &json!({
+            "title": "Parallel Passages",
+            "workbook": { "version": 1, "activeSheetId": "s1", "sheets": [{ "id": "s1", "name": "Synoptics", "cells": { "A1": { "v": "Matthew 4:9" }, "B1": { "v": "Luke 4:6" } } }] }
+        })).unwrap();
+        let ml = engine.create_entity("MindLink", &json!({ "from_type": "note", "from_id": nid, "to_type": "web", "to_id": wid, "label": "expands" })).unwrap();
+
+        // 2. Verify 100% encrypted AI semantic index parity & pre-parsed fields
+        let stats = engine.ai_semantic_index_stats().unwrap();
+        assert_eq!(stats["parity_percent"].as_f64(), Some(100.0));
+        assert_eq!(stats["expected_records"].as_u64(), Some(8)); // note, ann, web, 2 cards, kw, tg, ss
+        assert_eq!(stats["indexed_records"].as_u64(), Some(8));
+
+        let ai_note = engine.read_ai_semantic_doc("MindNote", nid).unwrap().unwrap();
+        assert_eq!(ai_note["page_count"].as_u64(), Some(2));
+        assert!(ai_note["citations"].as_array().unwrap().iter().any(|c| c == "Matthew 4:9"));
+        assert!(ai_note["citations"].as_array().unwrap().iter().any(|c| c == "Luke 4:6"));
+        assert!(ai_note["concepts"].as_array().unwrap().iter().any(|c| c == "kingdom"));
+
+        // 3. Verify UPDATE propagates to DB + RAM + encrypted AI semantic index
+        engine.update_entity("MindNote", nid, &json!({ "title": "Kingdom Authority Revised", "content": "<p>Updated with Romans 13:1.</p>" })).unwrap();
+        let ai_note2 = engine.read_ai_semantic_doc("MindNote", nid).unwrap().unwrap();
+        assert_eq!(ai_note2["title"].as_str(), Some("Kingdom Authority Revised"));
+        assert!(ai_note2["citations"].as_array().unwrap().iter().any(|c| c == "Romans 13:1"));
+
+        // 4. Verify DELETE removes entity + cascades web children + prunes ai_semantic_index
+        engine.delete_entity("WebConnection", conn_edge["id"].as_i64().unwrap()).unwrap();
+        engine.delete_entity("KnowledgeWeb", wid).unwrap();
+        assert!(engine.read_ai_semantic_doc("KnowledgeWeb", wid).unwrap().is_none());
+        assert!(engine.read_ai_semantic_doc("WebCard", c1["id"].as_i64().unwrap()).unwrap().is_none());
+        engine.delete_entity("MindNote", nid).unwrap();
+        engine.delete_entity("Annotation", aid).unwrap();
+        engine.delete_entity("Keyword", kw["id"].as_i64().unwrap()).unwrap();
+        engine.delete_entity("Timegraph", tg["id"].as_i64().unwrap()).unwrap();
+        engine.delete_entity("Spreadsheet", ss["id"].as_i64().unwrap()).unwrap();
+        engine.delete_entity("MindLink", ml["id"].as_i64().unwrap()).unwrap();
+        engine.delete_entity("WebFolder", fid).unwrap();
+
+        let final_stats = engine.ai_semantic_index_stats().unwrap();
+        assert_eq!(final_stats["expected_records"].as_u64(), Some(0));
+        assert_eq!(final_stats["indexed_records"].as_u64(), Some(0));
+        assert_eq!(final_stats["parity_percent"].as_f64(), Some(100.0));
+
+        let _ = fs::remove_dir_all(&tmp_dir);
+    }
 }

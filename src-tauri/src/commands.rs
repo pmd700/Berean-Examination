@@ -208,7 +208,8 @@ pub fn local_entity_list(
     entity_type: String,
     query: Option<Value>,
 ) -> Value {
-    let vault = state.vault.lock().unwrap();
+    let mut vault = state.vault.lock().unwrap();
+    let _ = vault.sync_external_changes();
     let q = query.unwrap_or_else(|| json!({}));
     match vault.list_entities(&entity_type, &q) {
         Ok(records) => json!({ "ok": true, "records": records }),
@@ -228,7 +229,8 @@ pub fn local_entity_get(
     else {
         return json!({ "ok": false, "code": "BEX_ENTITY_INVALID", "error": "Invalid record ID." });
     };
-    let vault = state.vault.lock().unwrap();
+    let mut vault = state.vault.lock().unwrap();
+    let _ = vault.sync_external_changes();
     match vault.get_entity(&entity_type, id) {
         Ok(record) => json!({ "ok": true, "record": record }),
         Err(e) => err_json(e),
@@ -312,7 +314,8 @@ pub fn local_entity_snapshot(
     state: State<'_, AppState>,
     entity_types: Option<Vec<String>>,
 ) -> Value {
-    let vault = state.vault.lock().unwrap();
+    let mut vault = state.vault.lock().unwrap();
+    let _ = vault.sync_external_changes();
     match vault.read_snapshot(entity_types.as_deref()) {
         Ok(snapshot) => json!({ "ok": true, "snapshot": snapshot }),
         Err(e) => err_json(e),
@@ -365,7 +368,8 @@ pub fn search_global_library(
     query: String,
     limit: Option<usize>,
 ) -> Value {
-    let vault = state.vault.lock().unwrap();
+    let mut vault = state.vault.lock().unwrap();
+    let _ = vault.sync_external_changes();
     match vault.search_global(&query, limit.unwrap_or(60).clamp(1, 200)) {
         Ok(results) => json!({ "ok": true, "results": results }),
         Err(e) => err_json(e),

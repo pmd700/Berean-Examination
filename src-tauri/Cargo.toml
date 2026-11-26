@@ -4,10 +4,19 @@ version = "2.0.1"
 description = "BEX (Berean Examination) — Hybrid Rust + Tauri v2 Native App"
 authors = ["David"]
 edition = "2021"
+default-run = "bex-tauri"
 
 [lib]
 name = "bex_tauri_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "bex-tauri"
+path = "src/main.rs"
+
+[[bin]]
+name = "bex-mcp"
+path = "src/bin/bex_mcp.rs"
 
 [features]
 default = ["custom-protocol"]
