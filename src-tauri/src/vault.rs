@@ -13,8 +13,9 @@
 
 use crate::crypto::{
     decrypt_bytes, encrypt_bytes, generate_recovery_code, normalize_recovery_code,
-    protect_automatic_key, random_bytes, unprotect_automatic_key, unwrap_data_key, wrap_data_key,
-    CryptoError, DATA_KEY_BYTES, PIN_KEY_PURPOSE, RECOVERY_KEY_PURPOSE, SALT_BYTES,
+    protect_automatic_key, random_bytes, unprotect_automatic_key, unprotect_with_bex_owned_secret,
+    unwrap_data_key, wrap_data_key, AutomaticKeySource, CryptoError, DATA_KEY_BYTES,
+    PIN_KEY_PURPOSE, RECOVERY_KEY_PURPOSE, SALT_BYTES,
 };
 use crate::search::{SearchHit, SearchIndex};
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
@@ -289,6 +290,9 @@ impl VaultEngine {
     }
 
     pub fn unlock_automatic(&mut self) -> Result<Value, CryptoError> {
+        if self.data_key.is_some() {
+            return self.privacy_status();
+        }
         let conn = self.conn.as_ref().ok_or_else(|| {
             CryptoError::new("BEX_DATABASE_NOT_OPEN", "Choose or reconnect the Berean Library.")
         })?;
@@ -301,8 +305,15 @@ impl VaultEngine {
             .optional()
             .map_err(|e| CryptoError::new("BEX_PRIVACY_NOT_OPEN", e.to_string()))?;
 
+        let mut migrate_legacy_env: Option<Vec<u8>> = None;
         let key = match row {
-            Some((mode, Some(env))) if mode == "automatic" => unprotect_automatic_key(&env)?,
+            Some((mode, Some(env))) if mode == "automatic" => {
+                let (k, src) = unprotect_automatic_key(&env)?;
+                if src == AutomaticKeySource::Legacy {
+                    migrate_legacy_env = Some(env);
+                }
+                k
+            }
             Some((mode, _)) if mode == "pin" => {
                 return Err(CryptoError::new(
                     "BEX_PIN_REQUIRED",
@@ -329,9 +340,51 @@ impl VaultEngine {
             }
         };
 
+        if let Some(legacy_env) = migrate_legacy_env {
+            if let Err(e) = self.migrate_automatic_envelope(&legacy_env, &key) {
+                eprintln!("[bex] keychain migration skipped: {e}");
+            }
+        }
+
         self.data_key = Some(key);
         self.warm_cache_and_search()?;
         self.privacy_status()
+    }
+
+    fn migrate_automatic_envelope(
+        &self,
+        legacy_env: &[u8],
+        key: &[u8; DATA_KEY_BYTES],
+    ) -> Result<(), String> {
+        let lib_path = self
+            .library_path
+            .as_ref()
+            .ok_or_else(|| "Library path not set.".to_string())?;
+        let conn = self
+            .conn
+            .as_ref()
+            .ok_or_else(|| "Database not open.".to_string())?;
+
+        let new_env = protect_automatic_key(key).map_err(|e| e.message)?;
+        if unprotect_with_bex_owned_secret(&new_env) != Some(*key) {
+            return Err("BEX-owned Keychain verification failed.".to_string());
+        }
+
+        let backup_path = lib_path
+            .join("Database")
+            .join("automatic_key_envelope.electron-legacy.bin");
+        if !backup_path.exists() {
+            fs::write(&backup_path, legacy_env)
+                .map_err(|e| format!("Could not back up legacy automatic key envelope: {e}"))?;
+        }
+
+        conn.execute(
+            "UPDATE privacy_vault SET automatic_key_envelope = ?1, updated_at = ?2 WHERE singleton_id = 1",
+            params![new_env, now_iso()],
+        )
+        .map_err(|e| format!("Could not update automatic_key_envelope: {e}"))?;
+
+        Ok(())
     }
 
     pub fn unlock_with_pin(&mut self, pin: &str) -> Result<Value, CryptoError> {

@@ -261,12 +261,105 @@ fn encrypt_oscrypt_v10(password: &[u8], data_key: &[u8; DATA_KEY_BYTES]) -> Resu
 }
 
 #[cfg(target_os = "macos")]
+const BEX_KEYCHAIN_SERVICE: &str = "org.bereanexamination.bex.vault";
+#[cfg(target_os = "macos")]
+const BEX_KEYCHAIN_ACCOUNT: &str = "automatic-unlock";
+#[cfg(target_os = "macos")]
+const SECURITY_TOOL: &str = "/usr/bin/security";
+
+#[cfg(target_os = "macos")]
 const KEYCHAIN_SERVICES: &[&str] = &[
     "BEX Launcher Official Safe Storage",
     "Electron Safe Storage",
     "bex-launcher-official Safe Storage",
     "BEX Safe Storage",
 ];
+
+#[cfg(target_os = "macos")]
+fn read_bex_owned_secret() -> Option<Vec<u8>> {
+    use std::process::Command;
+
+    let output = Command::new(SECURITY_TOOL)
+        .args([
+            "find-generic-password",
+            "-s",
+            BEX_KEYCHAIN_SERVICE,
+            "-a",
+            BEX_KEYCHAIN_ACCOUNT,
+            "-w",
+        ])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    std::str::from_utf8(&output.stdout)
+        .ok()
+        .map(|s| s.trim().as_bytes().to_vec())
+        .filter(|b| !b.is_empty())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn read_bex_owned_secret() -> Option<Vec<u8>> {
+    None
+}
+
+#[cfg(target_os = "macos")]
+fn create_bex_owned_secret() -> Result<Vec<u8>, CryptoError> {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+
+    let hex: String = random_bytes::<32>()
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect();
+
+    let mut child = Command::new(SECURITY_TOOL)
+        .arg("-i")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|_| {
+            CryptoError::new(
+                "BEX_PROTECTED_STORAGE_UNAVAILABLE",
+                "This Mac could not store BEX's vault key in the macOS Keychain.",
+            )
+        })?;
+
+    if let Some(mut stdin) = child.stdin.take() {
+        let cmd = format!(
+            "add-generic-password -U -s {BEX_KEYCHAIN_SERVICE} -a {BEX_KEYCHAIN_ACCOUNT} -l {BEX_KEYCHAIN_SERVICE} -w {hex}\n"
+        );
+        let _ = stdin.write_all(cmd.as_bytes());
+    }
+    let _ = child.wait();
+
+    let expected = hex.into_bytes();
+    if read_bex_owned_secret().as_deref() == Some(expected.as_slice()) {
+        Ok(expected)
+    } else {
+        Err(CryptoError::new(
+            "BEX_PROTECTED_STORAGE_UNAVAILABLE",
+            "This Mac could not store BEX's vault key in the macOS Keychain.",
+        ))
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn create_bex_owned_secret() -> Result<Vec<u8>, CryptoError> {
+    Err(CryptoError::new(
+        "BEX_PROTECTED_STORAGE_UNAVAILABLE",
+        "Automatic macOS Keychain storage is only available on macOS.",
+    ))
+}
+
+pub fn read_or_create_bex_owned_secret() -> Result<Vec<u8>, CryptoError> {
+    if let Some(secret) = read_bex_owned_secret() {
+        return Ok(secret);
+    }
+    create_bex_owned_secret()
+}
 
 #[cfg(target_os = "macos")]
 fn find_keychain_password_by_service(service: &str) -> Result<Vec<u8>, i32> {
@@ -293,41 +386,27 @@ fn find_keychain_password_by_service(service: &str) -> Result<Vec<u8>, i32> {
     }
 }
 
-#[cfg(target_os = "macos")]
-fn read_or_create_keychain_secret(create_if_missing: bool) -> Result<Vec<u8>, CryptoError> {
-    use security_framework::passwords::set_generic_password;
-
-    for &service in KEYCHAIN_SERVICES {
-        if let Ok(pw) = find_keychain_password_by_service(service) {
-            return Ok(pw);
-        }
-    }
-    if create_if_missing {
-        let new_secret = B64.encode(random_bytes::<16>()).into_bytes();
-        set_generic_password("BEX Safe Storage", "BEX", &new_secret).map_err(|_| {
-            CryptoError::new(
-                "BEX_PROTECTED_STORAGE_UNAVAILABLE",
-                "This Mac could not store a key in the macOS Keychain.",
-            )
-        })?;
-        return Ok(new_secret);
-    }
-    Err(CryptoError::new(
-        "BEX_PROTECTED_STORAGE_UNAVAILABLE",
-        "Grant macOS Keychain access ('Always Allow') for BEX to unlock your Vault automatically.",
-    ))
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum AutomaticKeySource {
+    BexOwned,
+    Legacy,
 }
 
-#[cfg(not(target_os = "macos"))]
-fn read_or_create_keychain_secret(_create_if_missing: bool) -> Result<Vec<u8>, CryptoError> {
-    Err(CryptoError::new(
-        "BEX_PROTECTED_STORAGE_UNAVAILABLE",
-        "Automatic macOS Keychain storage is only available on macOS.",
-    ))
+pub fn unprotect_with_bex_owned_secret(envelope: &[u8]) -> Option<[u8; DATA_KEY_BYTES]> {
+    let secret = read_bex_owned_secret()?;
+    decrypt_oscrypt_v10(&secret, envelope).ok()
 }
 
-/// Unwraps Electron's `automatic_key_envelope` via macOS Login Keychain + OSCrypt v10.
-pub fn unprotect_automatic_key(envelope: &[u8]) -> Result<[u8; DATA_KEY_BYTES], CryptoError> {
+/// Unwraps the Vault's `automatic_key_envelope`, preferring BEX's own `/usr/bin/security`
+/// Keychain item (which never prompts across rebuilds/updates) and falling back to legacy
+/// Electron Keychain items when migration hasn't occurred yet.
+pub fn unprotect_automatic_key(
+    envelope: &[u8],
+) -> Result<([u8; DATA_KEY_BYTES], AutomaticKeySource), CryptoError> {
+    if let Some(key) = unprotect_with_bex_owned_secret(envelope) {
+        return Ok((key, AutomaticKeySource::BexOwned));
+    }
+
     #[cfg(target_os = "macos")]
     {
         let mut codes = Vec::new();
@@ -335,7 +414,7 @@ pub fn unprotect_automatic_key(envelope: &[u8]) -> Result<[u8; DATA_KEY_BYTES], 
             match find_keychain_password_by_service(service) {
                 Ok(pw) => {
                     if let Ok(key) = decrypt_oscrypt_v10(&pw, envelope) {
-                        return Ok(key);
+                        return Ok((key, AutomaticKeySource::Legacy));
                     }
                     codes.push(format!("{service}:mismatch"));
                 }
@@ -363,7 +442,7 @@ pub fn unprotect_automatic_key(envelope: &[u8]) -> Result<[u8; DATA_KEY_BYTES], 
 }
 
 pub fn protect_automatic_key(data_key: &[u8; DATA_KEY_BYTES]) -> Result<Vec<u8>, CryptoError> {
-    let secret = read_or_create_keychain_secret(true)?;
+    let secret = read_or_create_bex_owned_secret()?;
     encrypt_oscrypt_v10(&secret, data_key)
 }
 

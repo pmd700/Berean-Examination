@@ -1,6 +1,6 @@
 [package]
 name = "bex-tauri"
-version = "2.0.0"
+version = "2.0.1"
 description = "BEX (Berean Examination) — Hybrid Rust + Tauri v2 Native App"
 authors = ["David"]
 edition = "2021"
